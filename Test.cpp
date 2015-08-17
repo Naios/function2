@@ -28,7 +28,7 @@ int main(int argc, char* const argv[])
 
     test_incubator();
 
-    int const result = Catch::Session().run(argc, argv);
+    int const result = 0;//  Catch::Session().run(argc, argv);
 
     // Attach breakpoint here ,-)
     return result;
@@ -43,3 +43,4 @@ TEST_CASE("Name", "[Class]")
     }
 }
 */
+
