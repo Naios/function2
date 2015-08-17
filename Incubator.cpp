@@ -62,40 +62,6 @@ inline auto impl_make_function(Fn&& functional)
 
 namespace incubator
 {
-    namespace fn_types
-    {
-        struct member
-        {
-            void operator() () { }
-        };
-
-        using t_member = decltype(&member::operator());
-
-        struct const_member
-        {
-            void operator() () const { }
-        };
-
-        using t_const_member = decltype(&const_member::operator());
-
-        using td_const_member = std::decay_t<t_const_member>;
-
-        
-
-        struct static_member
-        {
-            static void my_fn() { }
-        };
-
-        using t_static_member = decltype(static_member::my_fn);
-
-        void my_fn()
-        {
-        }
-
-        using t_my_fn = decltype(my_fn);
-    }
-
     template<typename T>
     void blub12345(T t)
     {
@@ -116,7 +82,7 @@ namespace incubator
         {
         });
 
-        function<void(int, int)> fn;
+        function<void(int, int) const> fn;
 
         fn(1, 1);
 
@@ -161,12 +127,113 @@ void test_context()
     std::cout << "2" << std::endl;
 }
 
+namespace fn_test_types
+{
+    struct member
+    {
+        void operator() () { }
+    };
+
+    struct const_member
+    {
+        void operator() () const { }
+    };
+
+    struct volatile_member
+    {
+        void operator() () volatile { }
+    };
+
+    struct const_volatile_member
+    {
+        void operator() () const volatile { }
+    };
+
+    struct static_member
+    {
+        static void my_fn() { }
+    };
+
+    void my_fn()
+    {
+    }
+
+    void volatile my_fn_volatile()
+    {
+    }
+}
+
+template<typename T>
+using unwrap = ::my::detail::unwrap_traits::unwrap_trait<typename T>;
 
 void test_incubator()
-{
-    fn_types::td_const_member slkjalakjsalk = nullptr;
+{  
+    // using t11 = detail::unwrap_traits::unwrap_trait<decltype(&decltype(lam)::operator())>::decayed_type;
 
-    static_assert(detail::unwrap_traits::unwrap_trait<fn_types::t_member>::is_member, "huhu");
+    // Const lambda function
+    auto lam1 = [] { };
+    static_assert(unwrap<decltype(&decltype(lam1)::operator())>::is_member,
+        "check failed!");
+    static_assert(unwrap<decltype(&decltype(lam1)::operator())>::is_const,
+        "check failed!");
+    static_assert(!unwrap<decltype(&decltype(lam1)::operator())>::is_volatile,
+        "check failed!");
+
+    // Mutable lambda function
+    auto lam2 = [] () mutable -> void {};
+    static_assert(unwrap<decltype(&decltype(lam2)::operator())>::is_member,
+        "check failed!");
+    static_assert(!unwrap<decltype(&decltype(lam2)::operator())>::is_const,
+        "check failed!");
+    static_assert(!unwrap<decltype(&decltype(lam2)::operator())>::is_volatile,
+        "check failed!");
+
+    // Class methods
+    static_assert(unwrap<decltype(&fn_test_types::member::operator())>::is_member,
+        "check failed!");
+    static_assert(!unwrap<decltype(&fn_test_types::member::operator())>::is_const,
+        "check failed!");
+    static_assert(!unwrap<decltype(&fn_test_types::member::operator())>::is_volatile,
+        "check failed!");
+
+    // Class const methods
+    static_assert(unwrap<decltype(&fn_test_types::const_member::operator())>::is_member,
+        "check failed!");
+    static_assert(unwrap<decltype(&fn_test_types::const_member::operator())>::is_const,
+        "check failed!");
+    static_assert(!unwrap<decltype(&fn_test_types::const_member::operator())>::is_volatile,
+        "check failed!");
+
+    // Class volatile methods
+    static_assert(unwrap<decltype(&fn_test_types::volatile_member::operator())>::is_member,
+        "check failed!");
+    static_assert(!unwrap<decltype(&fn_test_types::volatile_member::operator())>::is_const,
+        "check failed!");
+    static_assert(unwrap<decltype(&fn_test_types::volatile_member::operator())>::is_volatile,
+        "check failed!");
+
+    // Class const volatile methods
+    static_assert(unwrap<decltype(&fn_test_types::const_volatile_member::operator())>::is_member,
+        "check failed!");
+    static_assert(unwrap<decltype(&fn_test_types::const_volatile_member::operator())>::is_const,
+        "check failed!");
+    static_assert(unwrap<decltype(&fn_test_types::const_volatile_member::operator())>::is_volatile,
+        "check failed!");
+
+    // Static member functions
+    static_assert(!unwrap<decltype(fn_test_types::static_member::my_fn)>::is_member,
+        "check failed!");
+    static_assert(!unwrap<decltype(fn_test_types::static_member::my_fn)>::is_const,
+        "check failed!");
+    static_assert(!unwrap<decltype(fn_test_types::static_member::my_fn)>::is_volatile,
+        "check failed!");
+
+    static_assert(unwrap<decltype(&function<void() const>::operator())>::is_member,
+        "check failed!");
+    static_assert(unwrap<decltype(&function<void() const>::operator())>::is_const,
+        "check failed!");
+    static_assert(!unwrap<decltype(&function<void() const>::operator())>::is_volatile,
+        "check failed!");
 
     int i = 0;
 }
