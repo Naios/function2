@@ -179,7 +179,7 @@ class function<ReturnType(Args...), NonCopyable, Constant, Volatile>
 
 public:
     function()
-        : _impl(new fake_wrapper_impl<ReturnType(Args...)>()) { }
+        : _impl(std::make_unique<fake_wrapper_impl<ReturnType(Args...)>>()) { }
 
     auto operator() (Args&&... args) const
         -> std::enable_if_t<true, ReturnType>
