@@ -44,7 +44,7 @@ else()
   # Check C++14 Compiler support.
   CHECK_CXX_COMPILER_FLAG("-std=c++14" COMPILER_SUPPORTS_CXX14)
 
-  if(NOT COMPILER_SUPPORTS_CXX11)
+  if(NOT COMPILER_SUPPORTS_CXX14)
     # If not given try to enable C++1y
     CHECK_CXX_COMPILER_FLAG("-std=c++1y" COMPILER_SUPPORTS_CXX1Y)
 
