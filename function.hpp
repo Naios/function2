@@ -62,69 +62,69 @@ namespace unwrap_traits
 
     /// Function unwrap trait
     template<typename /*Fn*/>
-    struct unwrap_trait;
+    struct unwrap;
 
     /// Function
     template<typename ReturnType, typename... Args>
-    struct unwrap_trait<ReturnType(Args...)>
+    struct unwrap<ReturnType(Args...)>
         : unwrap_trait_base<ReturnType(Args...), false, false, false> { };
 
     /// Const function
     template<typename ReturnType, typename... Args>
-    struct unwrap_trait<ReturnType(Args...) const>
+    struct unwrap<ReturnType(Args...) const>
         : unwrap_trait_base<ReturnType(Args...), false, true, false> { };
 
     /// Volatile function
     template<typename ReturnType, typename... Args>
-    struct unwrap_trait<ReturnType(Args...) volatile>
+    struct unwrap<ReturnType(Args...) volatile>
         : unwrap_trait_base<ReturnType(Args...), false, false, true> { };
 
     /// Const volatile function
     template<typename ReturnType, typename... Args>
-    struct unwrap_trait<ReturnType(Args...) const volatile>
+    struct unwrap<ReturnType(Args...) const volatile>
         : unwrap_trait_base<ReturnType(Args...), false, true, true> { };
 
     /// Function pointer
     template<typename ReturnType, typename... Args>
-    struct unwrap_trait<ReturnType(*)(Args...)>
+    struct unwrap<ReturnType(*)(Args...)>
         : unwrap_trait_base<ReturnType(Args...), false, false, false> { };
 
     /// Const function pointer
     template<typename ReturnType, typename... Args>
-    struct unwrap_trait<ReturnType(*const)(Args...)>
+    struct unwrap<ReturnType(*const)(Args...)>
         : unwrap_trait_base<ReturnType(Args...), false, true, false> { };
 
     /// Volatile function pointer
     template<typename ReturnType, typename... Args>
-    struct unwrap_trait<ReturnType(*volatile)(Args...)>
+    struct unwrap<ReturnType(*volatile)(Args...)>
         : unwrap_trait_base<ReturnType(Args...), false, false, true> { };
 
     /// Const volatile function pointer
     template<typename ReturnType, typename... Args>
-    struct unwrap_trait<ReturnType(*const volatile)(Args...) >
+    struct unwrap<ReturnType(*const volatile)(Args...) >
         : unwrap_trait_base<ReturnType(Args...), false, true, true> { };
 
     /// Class method pointer
     template<typename ClassType, typename ReturnType, typename... Args>
-    struct unwrap_trait<ReturnType(ClassType::*)(Args...)>
+    struct unwrap<ReturnType(ClassType::*)(Args...)>
         : unwrap_trait_base<ReturnType(Args...), true, false, false>,
           class_trait_base<ClassType> { };
 
     /// Const class method pointer
     template<typename ClassType, typename ReturnType, typename... Args>
-    struct unwrap_trait<ReturnType(ClassType::*)(Args...) const>
+    struct unwrap<ReturnType(ClassType::*)(Args...) const>
         : unwrap_trait_base<ReturnType(Args...), true, true, false>,
           class_trait_base<ClassType> { };
 
     /// Volatile class method pointer
     template<typename ClassType, typename ReturnType, typename... Args>
-    struct unwrap_trait<ReturnType(ClassType::*)(Args...) volatile>
+    struct unwrap<ReturnType(ClassType::*)(Args...) volatile>
         : unwrap_trait_base<ReturnType(Args...), true, false, true>,
         class_trait_base<ClassType> { };
 
     /// Const volatile class method pointer
     template<typename ClassType, typename ReturnType, typename... Args>
-    struct unwrap_trait<ReturnType(ClassType::*)(Args...) const volatile>
+    struct unwrap<ReturnType(ClassType::*)(Args...) const volatile>
         : unwrap_trait_base<ReturnType(Args...), true, true, true>,
         class_trait_base<ClassType> { };
 
@@ -172,7 +172,7 @@ struct fake_wrapper_impl<ReturnType(Args...)>
 template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
 class function;
 
-template <typename /*Base*/>
+template <typename /*Child*/>
 struct call_operator;
 
 template <typename ReturnType, typename... Args, bool Copyable>
@@ -244,10 +244,10 @@ public:
 
 template<typename Signature, bool Copyable>
 using function_base = function<
-    typename unwrap_traits::unwrap_trait<Signature>::decayed_type,
+    typename unwrap_traits::unwrap<Signature>::decayed_type,
     Copyable,
-    unwrap_traits::unwrap_trait<Signature>::is_const,
-    unwrap_traits::unwrap_trait<Signature>::is_volatile
+    unwrap_traits::unwrap<Signature>::is_const,
+    unwrap_traits::unwrap<Signature>::is_volatile
 >;
 
 } // namespace detail
@@ -264,13 +264,17 @@ using non_copyable_function = detail::function_base<Signature, false>;
 template<typename Fn>
 auto make_function(Fn&& functional)
 {
+    using unwrap_t = detail::unwrap_traits::unwrap<
+        decltype(std::declval<std::decay_t<Fn>>(), &Fn::operator())
+    >;
+
     return detail::function<
-        detail::unwrap_traits::unwrap_trait<decltype(std::declval<Fn>(), &Fn::operator())>::decayed_type,
-        std::is_copy_assignable<std::decay_t<Fn>>::value &&
+        unwrap_t::decayed_type,
+        std::is_copy_assignable<std::decay_t<Fn>>::value ||
         std::is_copy_constructible<std::decay_t<Fn>>::value,
-        detail::unwrap_traits::unwrap_trait<decltype(std::declval<Fn>(), &Fn::operator())>::is_const,
-        detail::unwrap_traits::unwrap_trait<decltype(std::declval<Fn>(), &Fn::operator())>::is_volatile
-    >(std::forward<Fn>)(functional);
+        unwrap_t::is_const,
+        unwrap_t::is_volatile
+    >(std::forward<Fn>(functional));
 }
 
 } // namespace my

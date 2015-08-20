@@ -178,12 +178,10 @@ namespace fn_test_types
 }
 
 template<typename T>
-using unwrap = ::my::detail::unwrap_traits::unwrap_trait<typename T>;
+using unwrap = ::my::detail::unwrap_traits::unwrap<typename T>;
 
 void test_incubator()
 {  
-    // using t11 = detail::unwrap_traits::unwrap_trait<decltype(&decltype(lam)::operator())>::decayed_type;
-
     // Const lambda function
     auto lam1 = [] { };
     static_assert(unwrap<decltype(&decltype(lam1)::operator())>::is_member,
@@ -252,21 +250,29 @@ void test_incubator()
         */
 
     
-    function<void(int, float) const> fn;
-    fn(1, 1);
+    function<void(int, float) const> fn0;
+    fn0(1, 1);
 
     non_copyable_function<void(std::string const&) const> fn2;
     fn2("hey");
 
     typedef decltype(&function<int()>::operator()) hey;
 
-    /*auto fn2 = make_function([]
+
+
+    // Static test: make_function call with non copyable functional 
     {
+        auto up = std::make_unique<int>(0);
 
-    });*/
+        auto fn = make_function([up = std::move(up)]
+        {
+        });
 
-    // typedef decltype(0, &decltype(fn2)::operator()) blub;
+        static_assert(!std::is_copy_assignable<decltype(fn)>::value, "precondition failed!");
+        static_assert(!std::is_copy_constructible<decltype(fn)>::value, "precondition failed!");
 
+        static_assert(std::is_same<decltype(fn), non_copyable_function<void() const>>::value, "check failed!");
+    }
 
     int i = 0;
 }
