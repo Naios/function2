@@ -62,7 +62,7 @@ else()
 endif()
 
 set(Boost_ADDITIONAL_VERSIONS "1.59" "1.59.0")
-find_package(Boost 1.59 REQUIRED system context)
+find_package(Boost 1.57 REQUIRED system context)
 
 include_directories(${Boost_INCLUDE_DIRS})
 
