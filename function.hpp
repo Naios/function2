@@ -170,101 +170,6 @@ namespace unwrap_traits
 
 } // namespace unwrap_traits
 
-template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
-struct call_wrapper_impl;
-
-/// Non Copyable wrapper
-template<typename ReturnType, typename... Args, bool Constant, bool Volatile>
-struct call_wrapper_impl<ReturnType(Args...), false, Constant, Volatile>
-{
-    virtual ~call_wrapper_impl() { }
-
-    virtual ReturnType operator() (Args&&...) = 0;
-
-}; // struct call_wrapper_impl
-
-/// Copyable wrapper
-template<typename ReturnType, typename... Args, bool Constant, bool Volatile>
-struct call_wrapper_impl<ReturnType(Args...), true, Constant, Volatile>
-     : call_wrapper_impl<ReturnType(Args...), false, Constant, Volatile>
-{
-    virtual ~call_wrapper_impl() { }
-
-    // virtual wrapper_impl* clone() = 0;
-
-}; // struct call_wrapper_impl
-
-template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
-struct fake_wrapper_impl;
-
-template<typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
-struct fake_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>
-    : call_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>
-{
-    ReturnType operator() (Args&&...) override
-    {
-        return ReturnType();
-    }
-
-}; // struct fake_wrapper_impl
-
-template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
-class function;
-
-template <typename /*Child*/>
-class call_operator;
-
-template <typename ReturnType, typename... Args, bool Copyable>
-class call_operator<function<ReturnType(Args...), Copyable, false, false>>
-{
-    using func = function<ReturnType(Args...), Copyable, false, false>;
-
-public:
-    ReturnType operator()(Args... args)
-    {
-        return (*static_cast<func*>(this)->_impl)(std::forward<Args>(args)...);
-    }
-};
-
-template <typename ReturnType, typename... Args, bool Copyable>
-class call_operator<function<ReturnType(Args...), Copyable, true, false>>
-{
-    using func = function<ReturnType(Args...), Copyable, true, false>;
-
-public:
-    ReturnType operator()(Args... /*args*/) const
-    {
-        return ReturnType();
-        // FIXME return (*static_cast<const func*>(this)->_impl)(std::forward<Args>(args)...);
-    }
-};
-
-template <typename ReturnType, typename... Args, bool Copyable>
-class call_operator<function<ReturnType(Args...), Copyable, false, true>>
-{
-    using func = function<ReturnType(Args...), Copyable, false, true>;
-
-public:
-    ReturnType operator()(Args... /*args*/) volatile
-    {
-        return ReturnType();
-        // FIXME return (*static_cast<volatile func*>(this)->_impl)(std::forward<Args>(args)...);
-    }
-};
-
-template <typename ReturnType, typename... Args, bool Copyable>
-class call_operator<function<ReturnType(Args...), Copyable, true, true>>
-{
-    using func = function<ReturnType(Args...), Copyable, true, true>;
-
-public:
-    ReturnType operator()(Args... /*args*/) const volatile
-    {
-        return ReturnType();
-        // FIXME return (*static_cast<const volatile func*>(this)->_impl)(std::forward<Args>(args)...);
-    }
-};
-
 template<typename T, bool Constant, bool Volatile>
 struct impl_qualified_t;
 
@@ -292,6 +197,140 @@ struct impl_qualified_t<T, true, true>
     using type = T const volatile*;
 };
 
+template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
+struct call_wrapper_impl;
+
+/// Non Copyable wrapper
+template<typename ReturnType, typename... Args>
+struct call_wrapper_impl<ReturnType(Args...), false, false, false>
+{
+    virtual ~call_wrapper_impl() { }
+
+    virtual ReturnType operator() (Args&&...) = 0;
+
+}; // struct call_wrapper_impl
+
+template<typename ReturnType, typename... Args>
+struct call_wrapper_impl<ReturnType(Args...), false, true, false>
+{
+    virtual ~call_wrapper_impl() { }
+
+    virtual ReturnType operator() (Args&&...) const = 0;
+
+}; // struct call_wrapper_impl
+
+template<typename ReturnType, typename... Args>
+struct call_wrapper_impl<ReturnType(Args...), false, false, true>
+{
+    virtual ~call_wrapper_impl() { }
+
+    virtual ReturnType operator() (Args&&...) volatile = 0;
+
+}; // struct call_wrapper_impl
+
+template<typename ReturnType, typename... Args>
+struct call_wrapper_impl<ReturnType(Args...), false, true, true>
+{
+    virtual ~call_wrapper_impl() { }
+
+    virtual ReturnType operator() (Args&&...) const volatile = 0;
+
+}; // struct call_wrapper_impl
+
+/// Copyable wrapper
+template<typename ReturnType, typename... Args, bool Constant, bool Volatile>
+struct call_wrapper_impl<ReturnType(Args...), true, Constant, Volatile>
+     : call_wrapper_impl<ReturnType(Args...), false, Constant, Volatile>
+{
+    virtual ~call_wrapper_impl() { }
+
+    // TODO
+    // virtual call_wrapper_impl* clone() = 0;
+
+}; // struct call_wrapper_impl
+
+// template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
+/*
+struct fake_wrapper_impl;
+
+template<typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
+struct fake_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>
+    : call_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>
+{
+    ReturnType operator() (Args&&...) override
+    {
+        return ReturnType();
+    }
+
+}; // struct fake_wrapper_impl
+*/
+
+// wrapper implementations
+namespace wrapper
+{
+    // Call nested functor
+
+
+    // Call nested function
+
+    // Call nested object
+
+} // namespace wrapper
+
+template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
+class function;
+
+template <typename /*Child*/>
+class call_operator;
+
+template <typename ReturnType, typename... Args, bool Copyable>
+class call_operator<function<ReturnType(Args...), Copyable, false, false>>
+{
+    using func = function<ReturnType(Args...), Copyable, false, false>;
+
+public:
+    ReturnType operator()(Args... args)
+    {
+        return (*static_cast<func*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template <typename ReturnType, typename... Args, bool Copyable>
+class call_operator<function<ReturnType(Args...), Copyable, true, false>>
+{
+    using func = function<ReturnType(Args...), Copyable, true, false>;
+
+public:
+    ReturnType operator()(Args... args) const
+    {
+        return (*static_cast<const func*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template <typename ReturnType, typename... Args, bool Copyable>
+class call_operator<function<ReturnType(Args...), Copyable, false, true>>
+{
+    using func = function<ReturnType(Args...), Copyable, false, true>;
+
+public:
+    ReturnType operator()(Args... args) volatile
+    {
+        return (*static_cast<volatile func*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template <typename ReturnType, typename... Args, bool Copyable>
+class call_operator<function<ReturnType(Args...), Copyable, true, true>>
+{
+    using func = function<ReturnType(Args...), Copyable, true, true>;
+
+public:
+    ReturnType operator()(Args... args) const volatile
+    {
+        return (*static_cast<const volatile func*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
 template<typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
 class function<ReturnType(Args...), Copyable, Constant, Volatile>
     : public call_operator<function<ReturnType(Args...), Copyable, Constant, Volatile>>,
@@ -305,11 +344,11 @@ class function<ReturnType(Args...), Copyable, Constant, Volatile>
 
 public:
     function()
-        : _impl(new fake_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>()) { }
+        : _impl(nullptr/*new fake_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>()*/) { }
 
     template<typename T>
     function(T&&)
-        : _impl(new fake_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>()) { }
+        : _impl(nullptr/*new fake_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>()*/) { }
 
     ~function()
     {

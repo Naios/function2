@@ -306,6 +306,9 @@ void test_incubator()
         static_assert(std::is_same<decltype(fn), non_copyable_function<int() const>>::value, "check failed!");
     }
     
+    function<void()> fn_test;
+
+    fn_test();
 
     auto const ptr = fn_test_types::my_fn;
 
