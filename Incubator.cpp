@@ -183,7 +183,7 @@ namespace fn_test_types
 }
 
 template<typename T>
-using unwrap = ::my::detail::unwrap_traits::unwrap<typename T>;
+using unwrap = ::my::detail::unwrap_traits::unwrap<T>;
 
 void test_incubator()
 {  
@@ -197,7 +197,7 @@ void test_incubator()
         "check failed!");
 
     // Mutable lambda function
-    auto lam2 = [] () mutable -> int {};
+    auto lam2 = []() mutable -> int { return  0; };
     static_assert(unwrap<decltype(&decltype(lam2)::operator())>::is_member,
         "check failed!");
     static_assert(!unwrap<decltype(&decltype(lam2)::operator())>::is_const,

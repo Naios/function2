@@ -312,7 +312,7 @@ auto make_function(Fn&& functional)
          "The given argument is not a functor or function pointer which makes unwrapping impossible!");
 
     return detail::function<
-        unwrap_t::decayed_type,
+        typename unwrap_t::decayed_type,
         // Check if the given argument is copyable in any way.
         std::is_copy_assignable<std::decay_t<Fn>>::value ||
         std::is_copy_constructible<std::decay_t<Fn>>::value,
