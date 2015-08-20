@@ -139,13 +139,42 @@ namespace fn_test_types
         return 0;
     }
 
-    int volatile my_fn_volatile()
+    int my_fn_volatile()
     {
         return 0;
     }
 
     struct empty_struct
     {
+
+    };
+
+    struct volatile_tests
+    {
+        int a = 0;
+
+        volatile int b = 0;
+
+        int access_a()
+        {
+            return a;
+        }
+
+        int access_b()
+        {
+            return b;
+        }
+
+        int access_a_vol() volatile
+        {
+            return a;
+        }
+
+        int access_b_vol() volatile
+        {
+            return b;
+        }
+
 
     };
 }
@@ -155,6 +184,22 @@ using unwrap = ::my::detail::unwrap_traits::unwrap<T>;
 
 void test_incubator()
 {  
+    fn_test_types::volatile_tests t1;
+
+    t1.access_a();
+    t1.access_b();
+    
+    t1.access_a_vol();
+    t1.access_b_vol();
+
+    fn_test_types::volatile_tests volatile t2;
+
+    // t2.access_a();
+    // t2.access_b();
+
+    t2.access_a_vol();
+    t2.access_b_vol();
+
     // Const lambda function
     auto lam1 = [] { };
     static_assert(unwrap<decltype(&decltype(lam1)::operator())>::is_member,
