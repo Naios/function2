@@ -172,49 +172,66 @@ struct fake_wrapper_impl<ReturnType(Args...)>
 template<typename /*Fn*/, bool /*NonCopyable*/, bool /*Constant*/, bool /*Volatile*/>
 class function;
 
+template <typename /*Base*/>
+struct call_operator;
+
+template <typename ReturnType, typename... Args, bool NonCopyable>
+struct call_operator<function<ReturnType(Args...), NonCopyable, false, false>>
+{
+    using func = function<ReturnType(Args...), NonCopyable, false, false>;
+
+    ReturnType operator()(Args&&... args)
+    {
+        return (*static_cast<func*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template <typename ReturnType, typename... Args, bool NonCopyable>
+struct call_operator<function<ReturnType(Args...), NonCopyable, true, false>>
+{
+    using func = function<ReturnType(Args...), NonCopyable, true, false>;
+
+    ReturnType operator()(Args&&... args) const
+    {
+        return (*static_cast<const func*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template <typename ReturnType, typename... Args, bool NonCopyable>
+struct call_operator<function<ReturnType(Args...), NonCopyable, false, true>>
+{
+    using func = function<ReturnType(Args...), NonCopyable, false, true>;
+
+    ReturnType operator()(Args&&... args) volatile
+    {
+        return (*static_cast<const func*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template <typename ReturnType, typename... Args, bool NonCopyable>
+struct call_operator<function<ReturnType(Args...), NonCopyable, true, true>>
+{
+    using func = function<ReturnType(Args...), NonCopyable, true, true>;
+
+    ReturnType operator()(Args&&... args) const volatile
+    {
+        return (*static_cast<const volatile func*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
 template<typename ReturnType, typename... Args, bool NonCopyable, bool Constant, bool Volatile>
 class function<ReturnType(Args...), NonCopyable, Constant, Volatile>
+    : call_operator<function<ReturnType(Args...), NonCopyable, Constant, Volatile>>
 {
     std::unique_ptr<wrapper_impl<ReturnType(Args...)>> _impl;
+
+    friend struct call_operator<function>;
 
 public:
     function()
         : _impl(std::make_unique<fake_wrapper_impl<ReturnType(Args...)>>()) { }
 
-    auto operator() (Args&&... args) const
-        -> std::enable_if_t<true, ReturnType>
-    {
-        return (*_impl)(std::forward<Args>(args)...);
-    }
-
-    /*
-    template<typename R = ReturnType>
-    auto operator() (Args&&... args) const
-        -> std::enable_if_t<!Constant && !Volatile, R>
-    {
-        return (*_impl)(std::forward<Args>(args)...);
-    }
-
-    template<typename R = ReturnType>
-    auto operator() (Args&&... args) const
-        -> std::enable_if_t<Constant && !Volatile, R>
-    {
-        return (*_impl)(std::forward<Args>(args)...);
-    }
-
-    template<typename R = ReturnType>
-    auto operator() (Args&&... args) volatile
-        -> std::enable_if_t<!Constant && Volatile, R>
-    {
-        return (*_impl)(std::forward<Args>(args)...);
-    }
-
-    template<typename R = ReturnType>
-    auto operator() (Args&&... args) const volatile
-        -> std::enable_if_t<Constant && Volatile, R>
-    {
-        return (*_impl)(std::forward<Args>(args)...);
-    }*/
+    using call_operator<function<ReturnType(Args...), NonCopyable, Constant, Volatile>>::operator();    
 
 }; // class function
 
