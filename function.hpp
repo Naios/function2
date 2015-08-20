@@ -17,6 +17,16 @@ namespace my
 namespace detail
 {
 
+template<typename ReturnType, typename... Args>
+struct signature
+{
+    /// The return type of the function.
+    using return_type = ReturnType;
+
+    /// The argument types of the function as pack in std::tuple.
+    using argument_type = std::tuple<Args...>;
+};
+
 namespace unwrap_traits
 {
     template<
@@ -33,15 +43,10 @@ namespace unwrap_traits
         bool IsConst,
         bool IsVolatile>
     struct unwrap_trait_base<ReturnType(Args...), IsMember, IsConst, IsVolatile>
+        : signature<ReturnType, Args...>
     {
         ///  The decayed type of the function without qualifiers.
         using decayed_type = ReturnType(Args...);
-
-        /// The return type of the function.
-        using return_type = ReturnType;
-
-        /// The argument types of the function as pack in std::tuple.
-        using argument_type = std::tuple<Args...>;
 
         /// Is true if the given function is a member function.
         static constexpr bool is_member = IsMember;
@@ -150,57 +155,51 @@ namespace unwrap_traits
 
     /// 0. Unwrap classes through function pointer to operator()
     template<typename Fn>
-    static constexpr auto do_unwrap(bool)
+    static constexpr auto do_unwrap(int)
         -> unwrap<decltype(&Fn::operator())>;
 
     /// 1. Unwrap through plain type (function pointer)
     template<typename Fn>
-    static constexpr auto do_unwrap(int)
-        -> unwrap<Fn>;
-
-    /// 2. Return std::false_type on failure.
-    template<typename /*Fn*/>
     static constexpr auto do_unwrap(long)
-        -> std::false_type;
+        -> unwrap<Fn>;
 
     // Set unwrap_t to std::false_type if the given argument is not unwrappable,
     // to catch bad usage early.
     template<typename Fn>
-    using unwrap_t = decltype(do_unwrap<Fn>(true));
+    using unwrap_t = decltype(do_unwrap<Fn>(0));
 
 } // namespace unwrap_traits
 
-template<typename /*Fn*/>
-struct move_only_wrapper_impl;
+template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
+struct call_wrapper_impl;
 
-template<typename ReturnType, typename... Args>
-struct move_only_wrapper_impl<ReturnType(Args...)>
+/// Non Copyable wrapper
+template<typename ReturnType, typename... Args, bool Constant, bool Volatile>
+struct call_wrapper_impl<ReturnType(Args...), false, Constant, Volatile>
 {
-    virtual ~move_only_wrapper_impl() { }
+    virtual ~call_wrapper_impl() { }
 
     virtual ReturnType operator() (Args&&...) = 0;
 
-}; // struct move_only_wrapper_impl
+}; // struct call_wrapper_impl
 
-template<typename /*Fn*/>
-struct wrapper_impl;
-
-template<typename ReturnType, typename... Args>
-struct wrapper_impl<ReturnType(Args...)>
-    : move_only_wrapper_impl<ReturnType(Args...)>
+/// Copyable wrapper
+template<typename ReturnType, typename... Args, bool Constant, bool Volatile>
+struct call_wrapper_impl<ReturnType(Args...), true, Constant, Volatile>
+     : call_wrapper_impl<ReturnType(Args...), false, Constant, Volatile>
 {
-    virtual ~wrapper_impl() { }
+    virtual ~call_wrapper_impl() { }
 
     // virtual wrapper_impl* clone() = 0;
 
-}; // struct wrapper_impl
+}; // struct call_wrapper_impl
 
-template<typename /*Fn*/>
+template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
 struct fake_wrapper_impl;
 
-template<typename ReturnType, typename... Args>
-struct fake_wrapper_impl<ReturnType(Args...)>
-    : wrapper_impl<ReturnType(Args...)>
+template<typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
+struct fake_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>
+    : call_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>
 {
     ReturnType operator() (Args&&...) override
     {
@@ -213,13 +212,14 @@ template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*
 class function;
 
 template <typename /*Child*/>
-struct call_operator;
+class call_operator;
 
 template <typename ReturnType, typename... Args, bool Copyable>
-struct call_operator<function<ReturnType(Args...), Copyable, false, false>>
+class call_operator<function<ReturnType(Args...), Copyable, false, false>>
 {
     using func = function<ReturnType(Args...), Copyable, false, false>;
 
+public:
     ReturnType operator()(Args... args)
     {
         return (*static_cast<func*>(this)->_impl)(std::forward<Args>(args)...);
@@ -227,10 +227,11 @@ struct call_operator<function<ReturnType(Args...), Copyable, false, false>>
 };
 
 template <typename ReturnType, typename... Args, bool Copyable>
-struct call_operator<function<ReturnType(Args...), Copyable, true, false>>
+class call_operator<function<ReturnType(Args...), Copyable, true, false>>
 {
     using func = function<ReturnType(Args...), Copyable, true, false>;
 
+public:
     ReturnType operator()(Args... /*args*/) const
     {
         return ReturnType();
@@ -239,10 +240,11 @@ struct call_operator<function<ReturnType(Args...), Copyable, true, false>>
 };
 
 template <typename ReturnType, typename... Args, bool Copyable>
-struct call_operator<function<ReturnType(Args...), Copyable, false, true>>
+class call_operator<function<ReturnType(Args...), Copyable, false, true>>
 {
     using func = function<ReturnType(Args...), Copyable, false, true>;
 
+public:
     ReturnType operator()(Args... /*args*/) volatile
     {
         return ReturnType();
@@ -251,10 +253,11 @@ struct call_operator<function<ReturnType(Args...), Copyable, false, true>>
 };
 
 template <typename ReturnType, typename... Args, bool Copyable>
-struct call_operator<function<ReturnType(Args...), Copyable, true, true>>
+class call_operator<function<ReturnType(Args...), Copyable, true, true>>
 {
     using func = function<ReturnType(Args...), Copyable, true, true>;
 
+public:
     ReturnType operator()(Args... /*args*/) const volatile
     {
         return ReturnType();
@@ -262,21 +265,56 @@ struct call_operator<function<ReturnType(Args...), Copyable, true, true>>
     }
 };
 
+template<typename T, bool Constant, bool Volatile>
+struct impl_qualified_t;
+
+template<typename T>
+struct impl_qualified_t<T, false, false>
+{
+    using type = T*;
+};
+
+template<typename T>
+struct impl_qualified_t<T, true, false>
+{
+    using type = T const*;
+};
+
+template<typename T>
+struct impl_qualified_t<T, false, true>
+{
+    using type = T volatile*;
+};
+
+template<typename T>
+struct impl_qualified_t<T, true, true>
+{
+    using type = T const volatile*;
+};
+
 template<typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
 class function<ReturnType(Args...), Copyable, Constant, Volatile>
-    : public call_operator<function<ReturnType(Args...), Copyable, Constant, Volatile>>
+    : public call_operator<function<ReturnType(Args...), Copyable, Constant, Volatile>>,
+      public signature<ReturnType, Args...>
 {
-    std::unique_ptr<wrapper_impl<ReturnType(Args...)>> _impl;
+    friend class call_operator<function>;
 
-    friend struct call_operator<function>;
+    using wrapper_t = call_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>;
+
+    typename impl_qualified_t<wrapper_t, Constant, Volatile>::type _impl;
 
 public:
     function()
-        : _impl(std::make_unique<fake_wrapper_impl<ReturnType(Args...)>>()) { }
+        : _impl(new fake_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>()) { }
 
     template<typename T>
     function(T&&)
-        : _impl(std::make_unique<fake_wrapper_impl<ReturnType(Args...)>>()) { }
+        : _impl(new fake_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>()) { }
+
+    ~function()
+    {
+        delete _impl;
+    }
 
     using call_operator<function>::operator();    
 
@@ -302,14 +340,9 @@ using non_copyable_function = detail::function_base<Signature, false>;
 
 /// Creates a functional object from the given argument.
 template<typename Fn>
-auto make_function(Fn&& functional)
+auto make_function(Fn functional)
 {
     using unwrap_t = detail::unwrap_traits::unwrap_t<Fn>;
-
-    // If you encounter the static assert here check if you pass a functor (class with non templated operator())
-    // or function pointer as parameter.
-    static_assert(!std::is_same<unwrap_t, std::false_type>::value,
-         "The given argument is not a functor or function pointer which makes unwrapping impossible!");
 
     return detail::function<
         typename unwrap_t::decayed_type,

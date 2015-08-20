@@ -291,15 +291,17 @@ void test_incubator()
     {
         auto up = std::make_unique<int>(0);
 
-        auto fn = make_function([up = std::move(up)]
+        auto lam = [up = std::move(up)]
         {
             return *up;
-        });
+        };
+
+        auto fn = make_function(std::move(lam));
 
         fn();
 
-        static_assert(!std::is_copy_assignable<decltype(fn)>::value, "precondition failed!");
-        static_assert(!std::is_copy_constructible<decltype(fn)>::value, "precondition failed!");
+        static_assert(!std::is_copy_assignable<decltype(lam)>::value, "precondition failed!");
+        static_assert(!std::is_copy_constructible<decltype(lam)>::value, "precondition failed!");
 
         static_assert(std::is_same<decltype(fn), non_copyable_function<int() const>>::value, "check failed!");
     }
@@ -315,11 +317,23 @@ void test_incubator()
 
     int is_m = blub::is_member;
 
-    auto const iii =  std::is_class<decltype(ptr)>::value;
+
+
+    auto const iii = std::is_class<decltype(ptr)>::value;
 
     auto m = make_function(ptr);
 
+
+    auto ttt = []
+    {
+
+    };
+
+    function<void() const> res_ttt = make_function(std::move(ttt));
+
     // auto mm = make_function(0);
+
+    // function<void() const>::
 
     int i = 0;
 }
