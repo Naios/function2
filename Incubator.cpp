@@ -24,6 +24,7 @@
 #include <iostream>
 #include <type_traits>
 #include <functional>
+#include <string>
 
 #include "function.hpp"
 
@@ -73,10 +74,6 @@ namespace incubator
 
 
         auto up = std::make_unique<int>(0);
-
-        auto i = make_function([]
-        {
-        });
 
         blub12345([]
         {
@@ -131,35 +128,52 @@ namespace fn_test_types
 {
     struct member
     {
-        void operator() () { }
+        int operator() ()
+        {
+            return 0;
+        }
     };
 
     struct const_member
     {
-        void operator() () const { }
+        int operator() () const
+        {
+            return 0;
+        }
     };
 
     struct volatile_member
     {
-        void operator() () volatile { }
+        int operator() () volatile
+        {
+            return 0;
+        }
     };
 
     struct const_volatile_member
     {
-        void operator() () const volatile { }
+        int operator() () const volatile
+        {
+            return 0;
+        }
     };
 
     struct static_member
     {
-        static void my_fn() { }
+        static int my_fn()
+        {
+            return 0;
+        }
     };
 
-    void my_fn()
+    int my_fn()
     {
+        return 0;
     }
 
-    void volatile my_fn_volatile()
+    int volatile my_fn_volatile()
     {
+        return 0;
     }
 }
 
@@ -180,7 +194,7 @@ void test_incubator()
         "check failed!");
 
     // Mutable lambda function
-    auto lam2 = [] () mutable -> void {};
+    auto lam2 = [] () mutable -> int {};
     static_assert(unwrap<decltype(&decltype(lam2)::operator())>::is_member,
         "check failed!");
     static_assert(!unwrap<decltype(&decltype(lam2)::operator())>::is_const,
@@ -228,12 +242,31 @@ void test_incubator()
     static_assert(!unwrap<decltype(fn_test_types::static_member::my_fn)>::is_volatile,
         "check failed!");
 
-    static_assert(unwrap<decltype(&function<void() const>::operator())>::is_member,
+    /*
+    static_assert(unwrap<decltype(&function<int() const>::operator())>::is_member,
         "check failed!");
-    static_assert(unwrap<decltype(&function<void() const>::operator())>::is_const,
+    static_assert(unwrap<decltype(&function<int() const>::operator())>::is_const,
         "check failed!");
-    static_assert(!unwrap<decltype(&function<void() const>::operator())>::is_volatile,
+    static_assert(!unwrap<decltype(&function<int() const>::operator())>::is_volatile,
         "check failed!");
+        */
+
+    
+    function<void(int, float) const> fn;
+    fn(1, 1);
+
+    non_copyable_function<void(std::string const&) const> fn2;
+    fn2("hey");
+
+    typedef decltype(&function<int()>::operator()) hey;
+
+    /*auto fn2 = make_function([]
+    {
+
+    });*/
+
+    // typedef decltype(0, &decltype(fn2)::operator()) blub;
+
 
     int i = 0;
 }

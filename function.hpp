@@ -169,59 +169,62 @@ struct fake_wrapper_impl<ReturnType(Args...)>
 
 }; // struct fake_wrapper_impl
 
-template<typename /*Fn*/, bool /*NonCopyable*/, bool /*Constant*/, bool /*Volatile*/>
+template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
 class function;
 
 template <typename /*Base*/>
 struct call_operator;
 
-template <typename ReturnType, typename... Args, bool NonCopyable>
-struct call_operator<function<ReturnType(Args...), NonCopyable, false, false>>
+template <typename ReturnType, typename... Args, bool Copyable>
+struct call_operator<function<ReturnType(Args...), Copyable, false, false>>
 {
-    using func = function<ReturnType(Args...), NonCopyable, false, false>;
+    using func = function<ReturnType(Args...), Copyable, false, false>;
 
-    ReturnType operator()(Args&&... args)
+    ReturnType operator()(Args... args)
     {
         return (*static_cast<func*>(this)->_impl)(std::forward<Args>(args)...);
     }
 };
 
-template <typename ReturnType, typename... Args, bool NonCopyable>
-struct call_operator<function<ReturnType(Args...), NonCopyable, true, false>>
+template <typename ReturnType, typename... Args, bool Copyable>
+struct call_operator<function<ReturnType(Args...), Copyable, true, false>>
 {
-    using func = function<ReturnType(Args...), NonCopyable, true, false>;
+    using func = function<ReturnType(Args...), Copyable, true, false>;
 
-    ReturnType operator()(Args&&... args) const
+    ReturnType operator()(Args... /*args*/) const
     {
-        return (*static_cast<const func*>(this)->_impl)(std::forward<Args>(args)...);
+        return ReturnType();
+        // FIXME return (*static_cast<const func*>(this)->_impl)(std::forward<Args>(args)...);
     }
 };
 
-template <typename ReturnType, typename... Args, bool NonCopyable>
-struct call_operator<function<ReturnType(Args...), NonCopyable, false, true>>
+template <typename ReturnType, typename... Args, bool Copyable>
+struct call_operator<function<ReturnType(Args...), Copyable, false, true>>
 {
-    using func = function<ReturnType(Args...), NonCopyable, false, true>;
+    using func = function<ReturnType(Args...), Copyable, false, true>;
 
-    ReturnType operator()(Args&&... args) volatile
+    ReturnType operator()(Args... /*args*/) volatile
     {
-        return (*static_cast<const func*>(this)->_impl)(std::forward<Args>(args)...);
+        return ReturnType();
+        // FIXME return (*static_cast<volatile func*>(this)->_impl)(std::forward<Args>(args)...);
     }
 };
 
-template <typename ReturnType, typename... Args, bool NonCopyable>
-struct call_operator<function<ReturnType(Args...), NonCopyable, true, true>>
+template <typename ReturnType, typename... Args, bool Copyable>
+struct call_operator<function<ReturnType(Args...), Copyable, true, true>>
 {
-    using func = function<ReturnType(Args...), NonCopyable, true, true>;
+    using func = function<ReturnType(Args...), Copyable, true, true>;
 
-    ReturnType operator()(Args&&... args) const volatile
+    ReturnType operator()(Args... /*args*/) const volatile
     {
-        return (*static_cast<const volatile func*>(this)->_impl)(std::forward<Args>(args)...);
+        return ReturnType();
+        // FIXME return (*static_cast<const volatile func*>(this)->_impl)(std::forward<Args>(args)...);
     }
 };
 
-template<typename ReturnType, typename... Args, bool NonCopyable, bool Constant, bool Volatile>
-class function<ReturnType(Args...), NonCopyable, Constant, Volatile>
-    : call_operator<function<ReturnType(Args...), NonCopyable, Constant, Volatile>>
+template<typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
+class function<ReturnType(Args...), Copyable, Constant, Volatile>
+    : public call_operator<function<ReturnType(Args...), Copyable, Constant, Volatile>>
 {
     std::unique_ptr<wrapper_impl<ReturnType(Args...)>> _impl;
 
@@ -231,56 +234,45 @@ public:
     function()
         : _impl(std::make_unique<fake_wrapper_impl<ReturnType(Args...)>>()) { }
 
-    using call_operator<function<ReturnType(Args...), NonCopyable, Constant, Volatile>>::operator();    
+    template<typename T>
+    function(T&&)
+        : _impl(std::make_unique<fake_wrapper_impl<ReturnType(Args...)>>()) { }
+
+    using call_operator<function>::operator();    
 
 }; // class function
 
+template<typename Signature, bool Copyable>
+using function_base = function<
+    typename unwrap_traits::unwrap_trait<Signature>::decayed_type,
+    Copyable,
+    unwrap_traits::unwrap_trait<Signature>::is_const,
+    unwrap_traits::unwrap_trait<Signature>::is_volatile
+>;
+
 } // namespace detail
 
+/// Copyable function wrapper
 template<typename Signature>
-using function = detail::function<
-    typename detail::unwrap_traits::unwrap_trait<Signature>::decayed_type,
-    true /*NonCopyable*/,
-    detail::unwrap_traits::unwrap_trait<Signature>::is_const /*Constant*/,
-    detail::unwrap_traits::unwrap_trait<Signature>::is_volatile /*Volatile*/
->;
+using function = detail::function_base<Signature, true>;
+
+/// Non copyable function wrapper
+template<typename Signature>
+using non_copyable_function = detail::function_base<Signature, false>;
 
 /// Creates a function object from the given parameter
 template<typename Fn>
 auto make_function(Fn&& functional)
 {
-    // TODO
-    return std::forward<Fn>(functional);
+    return detail::function<
+        detail::unwrap_traits::unwrap_trait<decltype(std::declval<Fn>(), &Fn::operator())>::decayed_type,
+        std::is_copy_assignable<std::decay_t<Fn>>::value &&
+        std::is_copy_constructible<std::decay_t<Fn>>::value,
+        detail::unwrap_traits::unwrap_trait<decltype(std::declval<Fn>(), &Fn::operator())>::is_const,
+        detail::unwrap_traits::unwrap_trait<decltype(std::declval<Fn>(), &Fn::operator())>::is_volatile
+    >(std::forward<Fn>)(functional);
 }
 
 } // namespace my
-
-/*
-template<typename Fn>
-struct function;
-
-template<typename ReturnType, typename... Args>
-struct function<ReturnType(Args...)>
-    : impl_function<ReturnType(Args...), true, false, false>
-{
-    // using impl_function<ReturnType(Args...), true, false, false>::impl_function;
-};
-
-template<typename ReturnType, typename... Args>
-struct function<ReturnType(Args...) const>
-    : impl_function<ReturnType(Args...), true, true, false>
-{
-};
-
-template<typename ReturnType, typename... Args>
-struct function<ReturnType(Args...) volatile>
-    : impl_function<ReturnType(Args...), true, false, true> { };
-
-template<typename ReturnType, typename... Args>
-struct function<ReturnType(Args...) const volatile>
-    : impl_function<ReturnType(Args...), true, true, true> { };
-
-
-*/
 
 #endif // function_hpp__
