@@ -175,6 +175,11 @@ namespace fn_test_types
     {
         return 0;
     }
+
+    struct empty_struct
+    {
+
+    };
 }
 
 template<typename T>
@@ -258,21 +263,50 @@ void test_incubator()
 
     typedef decltype(&function<int()>::operator()) hey;
 
+    // Static test: make_function call with mutable functional
+    {
+        auto fn = make_function([] () mutable
+        {
+        });
 
+        fn();
 
-    // Static test: make_function call with non copyable functional 
+        static_assert(std::is_same<decltype(fn), function<void()>>::value, "check failed!");
+    }
+
+    // Static test: make_function call with non copyable functional
     {
         auto up = std::make_unique<int>(0);
 
         auto fn = make_function([up = std::move(up)]
         {
+            return *up;
         });
+
+        fn();
 
         static_assert(!std::is_copy_assignable<decltype(fn)>::value, "precondition failed!");
         static_assert(!std::is_copy_constructible<decltype(fn)>::value, "precondition failed!");
 
-        static_assert(std::is_same<decltype(fn), non_copyable_function<void() const>>::value, "check failed!");
+        static_assert(std::is_same<decltype(fn), non_copyable_function<int() const>>::value, "check failed!");
     }
+    
+
+    auto const ptr = fn_test_types::my_fn;
+
+    // make_function(ptr);
+
+    //make_function(fn_test_types::empty_struct());
+
+    typedef detail::unwrap_traits::unwrap<decltype(ptr)> blub;
+
+    int is_m = blub::is_member;
+
+    auto const iii =  std::is_class<decltype(ptr)>::value;
+
+    auto m = make_function(ptr);
+
+    // auto mm = make_function(0);
 
     int i = 0;
 }

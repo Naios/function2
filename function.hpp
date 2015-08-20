@@ -104,6 +104,26 @@ namespace unwrap_traits
     struct unwrap<ReturnType(*const volatile)(Args...) >
         : unwrap_trait_base<ReturnType(Args...), false, true, true> { };
 
+    /// Function pointer as reference
+    template<typename ReturnType, typename... Args>
+    struct unwrap<ReturnType(*&)(Args...)>
+        : unwrap_trait_base<ReturnType(Args...), false, false, false> { };
+
+    /// Const function pointer as reference
+    template<typename ReturnType, typename... Args>
+    struct unwrap<ReturnType(*const&)(Args...)>
+        : unwrap_trait_base<ReturnType(Args...), false, true, false> { };
+
+    /// Volatile function pointer as reference
+    template<typename ReturnType, typename... Args>
+    struct unwrap<ReturnType(*volatile&)(Args...)>
+        : unwrap_trait_base<ReturnType(Args...), false, false, true> { };
+
+    /// Const volatile function pointer as reference
+    template<typename ReturnType, typename... Args>
+    struct unwrap<ReturnType(*const volatile&)(Args...) >
+        : unwrap_trait_base<ReturnType(Args...), false, true, true> { };
+
     /// Class method pointer
     template<typename ClassType, typename ReturnType, typename... Args>
     struct unwrap<ReturnType(ClassType::*)(Args...)>
@@ -120,13 +140,33 @@ namespace unwrap_traits
     template<typename ClassType, typename ReturnType, typename... Args>
     struct unwrap<ReturnType(ClassType::*)(Args...) volatile>
         : unwrap_trait_base<ReturnType(Args...), true, false, true>,
-        class_trait_base<ClassType> { };
+          class_trait_base<ClassType> { };
 
     /// Const volatile class method pointer
     template<typename ClassType, typename ReturnType, typename... Args>
     struct unwrap<ReturnType(ClassType::*)(Args...) const volatile>
         : unwrap_trait_base<ReturnType(Args...), true, true, true>,
-        class_trait_base<ClassType> { };
+          class_trait_base<ClassType> { };
+
+    /// 0. Unwrap classes through function pointer to operator()
+    template<typename Fn>
+    static constexpr auto do_unwrap(bool)
+        -> unwrap<decltype(&Fn::operator())>;
+
+    /// 1. Unwrap through plain type (function pointer)
+    template<typename Fn>
+    static constexpr auto do_unwrap(int)
+        -> unwrap<Fn>;
+
+    /// 2. Return std::false_type on failure.
+    template<typename /*Fn*/>
+    static constexpr auto do_unwrap(long)
+        -> std::false_type;
+
+    // Set unwrap_t to std::false_type if the given argument is not unwrappable,
+    // to catch bad usage early.
+    template<typename Fn>
+    using unwrap_t = decltype(do_unwrap<Fn>(true));
 
 } // namespace unwrap_traits
 
@@ -260,16 +300,20 @@ using function = detail::function_base<Signature, true>;
 template<typename Signature>
 using non_copyable_function = detail::function_base<Signature, false>;
 
-/// Creates a function object from the given parameter
+/// Creates a functional object from the given argument.
 template<typename Fn>
 auto make_function(Fn&& functional)
 {
-    using unwrap_t = detail::unwrap_traits::unwrap<
-        decltype(std::declval<std::decay_t<Fn>>(), &Fn::operator())
-    >;
+    using unwrap_t = detail::unwrap_traits::unwrap_t<Fn>;
+
+    // If you encounter the static assert here check if you pass a functor (class with non templated operator())
+    // or function pointer as parameter.
+    static_assert(!std::is_same<unwrap_t, std::false_type>::value,
+         "The given argument is not a functor or function pointer which makes unwrapping impossible!");
 
     return detail::function<
         unwrap_t::decayed_type,
+        // Check if the given argument is copyable in any way.
         std::is_copy_assignable<std::decay_t<Fn>>::value ||
         std::is_copy_constructible<std::decay_t<Fn>>::value,
         unwrap_t::is_const,
