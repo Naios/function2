@@ -15,12 +15,6 @@
  * limitations under the License.
  */
 
-#include <boost/context/all.hpp>
-
-
-#include <boost/function_types/components.hpp>
-#include <boost/function.hpp>
-
 #include <iostream>
 #include <type_traits>
 #include <functional>
@@ -97,32 +91,6 @@ namespace incubator
 } // namespace incubator
 
 using namespace incubator;
-
-boost::context::fcontext_t fc1 = nullptr, fcm = nullptr;
-
-void f1(intptr_t)
-{
-    int i = 0;
-    ++i;
-
-    std::cout << "1" << std::endl;
-    boost::context::jump_fcontext(&fc1, fcm, 0);
-}
-
-void test_context()
-{
-    std::size_t size(8192);
-    void* sp1(std::malloc(size));
-    fc1 = boost::context::make_fcontext(sp1, size, f1);
-
-    boost::context::jump_fcontext(&fcm, fc1, 0);
-
-    // std::free(sp1);
-
-    int i = 0;
-    ++i;
-    std::cout << "2" << std::endl;
-}
 
 namespace fn_test_types
 {
