@@ -8,7 +8,6 @@
 #define function_hpp__
 
 #include <tuple>
-#include <memory>
 #include <type_traits>
 
 namespace my
@@ -200,7 +199,8 @@ struct impl_qualified_t<T, true, true>
 template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
 struct call_wrapper_impl;
 
-/// Non Copyable wrapper
+// Interfaces for non copyable wrapper:
+// No qualifiers
 template<typename ReturnType, typename... Args>
 struct call_wrapper_impl<ReturnType(Args...), false, false, false>
 {
@@ -210,6 +210,7 @@ struct call_wrapper_impl<ReturnType(Args...), false, false, false>
 
 }; // struct call_wrapper_impl
 
+// Const qualifier
 template<typename ReturnType, typename... Args>
 struct call_wrapper_impl<ReturnType(Args...), false, true, false>
 {
@@ -219,6 +220,7 @@ struct call_wrapper_impl<ReturnType(Args...), false, true, false>
 
 }; // struct call_wrapper_impl
 
+// Volatile qualifier
 template<typename ReturnType, typename... Args>
 struct call_wrapper_impl<ReturnType(Args...), false, false, true>
 {
@@ -228,6 +230,7 @@ struct call_wrapper_impl<ReturnType(Args...), false, false, true>
 
 }; // struct call_wrapper_impl
 
+// Const volatile qualifier
 template<typename ReturnType, typename... Args>
 struct call_wrapper_impl<ReturnType(Args...), false, true, true>
 {
@@ -237,9 +240,10 @@ struct call_wrapper_impl<ReturnType(Args...), false, true, true>
 
 }; // struct call_wrapper_impl
 
-/// Copyable wrapper
+/// Interface: copyable wrapper
 template<typename ReturnType, typename... Args, bool Constant, bool Volatile>
 struct call_wrapper_impl<ReturnType(Args...), true, Constant, Volatile>
+     // Inherit the non copyable base struct
      : call_wrapper_impl<ReturnType(Args...), false, Constant, Volatile>
 {
     virtual ~call_wrapper_impl() { }
@@ -249,27 +253,10 @@ struct call_wrapper_impl<ReturnType(Args...), true, Constant, Volatile>
 
 }; // struct call_wrapper_impl
 
-// template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
-/*
-struct fake_wrapper_impl;
-
-template<typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
-struct fake_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>
-    : call_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>
-{
-    ReturnType operator() (Args&&...) override
-    {
-        return ReturnType();
-    }
-
-}; // struct fake_wrapper_impl
-*/
-
 // wrapper implementations
 namespace wrapper
 {
     // Call nested functor
-
 
     // Call nested function
 
@@ -340,22 +327,40 @@ class function<ReturnType(Args...), Copyable, Constant, Volatile>
 
     using wrapper_t = call_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>;
 
+    // Implementation pointer
     typename impl_qualified_t<wrapper_t, Constant, Volatile>::type _impl;
 
 public:
     function()
-        : _impl(nullptr/*new fake_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>()*/) { }
+        : _impl(nullptr) { }
 
-    template<typename T>
-    function(T&&)
-        : _impl(nullptr/*new fake_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>()*/) { }
+    /// Constructor taking a functor
+    // TODO SFINAE invalid constructors away
+    template<typename T/*, typename = std::enable_if_t<std::is_class<T>::value>*/>
+    function(T)
+        : _impl(nullptr)
+    {
+    }
+
+    /*
+    /// Constructor taking a function pointer
+    template<typename T, typename = std::enable_if_t<std::is_pointer<T>::value>>
+    function(T)
+        : _impl(nullptr)
+    {
+    }
+    */
 
     ~function()
     {
-        delete _impl;
+        if (_impl)
+            delete _impl;
     }
 
     using call_operator<function>::operator();    
+
+private:
+
 
 }; // class function
 
@@ -377,7 +382,8 @@ using function = detail::function_base<Signature, true>;
 template<typename Signature>
 using non_copyable_function = detail::function_base<Signature, false>;
 
-/// Creates a functional object from the given argument.
+/// Creates a functional object
+/// which type depends on the given argument.
 template<typename Fn>
 auto make_function(Fn functional)
 {

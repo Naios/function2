@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
+#include "function.hpp"
+
 #include <iostream>
 #include <type_traits>
 #include <functional>
 #include <string>
-
-#include "function.hpp"
+#include <memory>
 
 using namespace my;
 
@@ -182,6 +183,42 @@ namespace fn_test_types
 template<typename T>
 using unwrap = ::my::detail::unwrap_traits::unwrap<T>;
 
+struct virtual_check
+{
+    virtual ~virtual_check()
+    {
+        int i = 0;
+    }
+
+    virtual int operator() () = 0;
+};
+
+auto deleter = [](int* ptr)
+{
+    delete ptr;
+};
+
+struct virtual_check_impl
+    : virtual_check
+{
+    int i;
+
+    std::unique_ptr<int, decltype(deleter)> up;
+
+    virtual_check_impl(int _i)
+        : i(_i), up(new int(20), deleter) { }
+
+    virtual ~virtual_check_impl()
+    {
+        i = 0;
+    }
+
+    int operator() () override
+    {
+        return i;
+    }
+};
+
 void test_incubator()
 {  
     fn_test_types::volatile_tests t1;
@@ -269,10 +306,10 @@ void test_incubator()
 
     
     function<void(int, float) const> fn0;
-    fn0(1, 1);
+    // fn0(1, 1);
 
     non_copyable_function<void(std::string const&) const> fn2;
-    fn2("hey");
+    // fn2("hey");
 
     typedef decltype(&function<int()>::operator()) hey;
 
@@ -282,7 +319,7 @@ void test_incubator()
         {
         });
 
-        fn();
+        // fn();
 
         static_assert(std::is_same<decltype(fn), function<void()>>::value, "check failed!");
     }
@@ -298,7 +335,7 @@ void test_incubator()
 
         auto fn = make_function(std::move(lam));
 
-        fn();
+        // fn();
 
         static_assert(!std::is_copy_assignable<decltype(lam)>::value, "precondition failed!");
         static_assert(!std::is_copy_constructible<decltype(lam)>::value, "precondition failed!");
@@ -308,23 +345,23 @@ void test_incubator()
     
     function<void()> fn_test;
 
-    fn_test();
+    // fn_test();
 
-    auto const ptr = fn_test_types::my_fn;
+    // auto const ptr = fn_test_types::my_fn;
 
     // make_function(ptr);
 
     //make_function(fn_test_types::empty_struct());
 
-    typedef detail::unwrap_traits::unwrap<decltype(ptr)> blub;
+    // typedef detail::unwrap_traits::unwrap<decltype(ptr)> blub;
 
-    int is_m = blub::is_member;
+    // int is_m = blub::is_member;
 
 
 
-    auto const iii = std::is_class<decltype(ptr)>::value;
+    // auto const iii = std::is_class<decltype(ptr)>::value;
 
-    auto m = make_function(ptr);
+    // auto m = make_function(ptr);
 
 
     auto ttt = []
@@ -334,9 +371,30 @@ void test_incubator()
 
     function<void() const> res_ttt = make_function(std::move(ttt));
 
+    function<void(int, int) const volatile> ffff;
+
+    // ffff(1, 1);
+
     // auto mm = make_function(0);
 
     // function<void() const>::
 
-    int i = 0;
+    // SFO
+    {
+        char dig[200];
+
+        auto ptr = reinterpret_cast<virtual_check*>(&dig);
+
+        new (ptr) virtual_check_impl(77);
+
+        // auto fp = &ptr->ret;
+
+
+        int res = (*ptr)();
+
+        ptr->~virtual_check();
+
+        // breakpoint
+        int i = 0;
+    }
 }
