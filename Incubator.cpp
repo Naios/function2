@@ -219,6 +219,81 @@ struct virtual_check_impl
     }
 };
 
+template<std::size_t Capacity, typename Base, typename Pointer = Base*>
+class optimized_allocator
+{
+    std::uint8_t _dig[Capacity];
+
+    bool _on_heap;
+
+    Pointer _ptr;
+
+    template<typename T>
+    struct is_local_allocateable
+    {
+        static constexpr bool value =
+            sizeof(T) <= sizeof(Base)
+            && (std::alignment_of<Base>::value % std::alignment_of<T>::value) == 0;
+    };
+
+    void weak_deallocate()
+    {
+        if (_ptr)
+        {
+            if (_on_heap)
+                delete _ptr;
+            else
+                _ptr->~Base();
+        }
+    }
+
+public:
+    optimized_allocator()
+        : _ptr(nullptr) { }
+
+    template<typename T, typename... Args>
+    optimized_allocator(Args&&... args)
+        : _ptr(nullptr) { }
+
+    ~optimized_allocator()
+    {
+        weak_deallocate();
+    }
+
+    /// Direct allocate (use capacity)
+    template<typename T, typename... Args>
+    auto allocate(Args&&... args)
+        -> std::enable_if_t<is_local_allocateable<T>::value, void>
+    {
+        weak_deallocate();
+
+        _ptr = static_cast<Pointer>(&_dig);
+
+        new (_ptr) T(std::forward<Args>(args)...);
+    }
+
+    /// Heap allocate
+    template<typename T, typename... Args>
+    auto allocate(Args&&... args)
+        -> std::enable_if_t<!is_local_allocateable<T>::value, void>
+    {
+        weak_deallocate();
+
+        _ptr = new T(std::forward<Args>(args)...);
+    }
+
+    void deallocate()
+    {
+        weak_deallocate();
+        _ptr = nullptr;
+    }
+
+    auto get()
+    {
+        return _ptr;
+    }
+};
+
 void test_incubator()
 {  
     fn_test_types::volatile_tests t1;
@@ -308,7 +383,7 @@ void test_incubator()
     function<void(int, float) const> fn0;
     // fn0(1, 1);
 
-    non_copyable_function<void(std::string const&) const> fn2;
+    unique_function<void(std::string const&) const> fn2;
     // fn2("hey");
 
     typedef decltype(&function<int()>::operator()) hey;
@@ -340,7 +415,7 @@ void test_incubator()
         static_assert(!std::is_copy_assignable<decltype(lam)>::value, "precondition failed!");
         static_assert(!std::is_copy_constructible<decltype(lam)>::value, "precondition failed!");
 
-        static_assert(std::is_same<decltype(fn), non_copyable_function<int() const>>::value, "check failed!");
+        static_assert(std::is_same<decltype(fn), unique_function<int() const>>::value, "check failed!");
     }
     
     function<void()> fn_test;
@@ -379,6 +454,12 @@ void test_incubator()
 
     // function<void() const>::
 
+    optimized_allocator<1, virtual_check, virtual_check const*> alc;
+
+    alc.allocate<virtual_check_impl>(120);
+
+    // int res12345 = (*alc.get())();
+
     // SFO
     {
         char dig[200];
@@ -388,7 +469,6 @@ void test_incubator()
         new (ptr) virtual_check_impl(77);
 
         // auto fp = &ptr->ret;
-
 
         int res = (*ptr)();
 

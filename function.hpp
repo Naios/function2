@@ -380,7 +380,7 @@ using function = detail::function_base<Signature, true>;
 
 /// Non copyable function wrapper
 template<typename Signature>
-using non_copyable_function = detail::function_base<Signature, false>;
+using unique_function = detail::function_base<Signature, false>;
 
 /// Creates a functional object
 /// which type depends on the given argument.
