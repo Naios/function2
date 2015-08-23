@@ -371,7 +371,7 @@ public:
 
     /// Copy construct
     template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile,
-             typename = std::enable_if_t<Copyable>>
+             typename = std::enable_if_t<Copyable, RightReturnType>>
     function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile> const& /*function*/)
         /*: _impl(nullptr)*/
     {
@@ -406,7 +406,7 @@ public:
 
     /// Copy assign
     template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile,
-             typename = std::enable_if_t<Copyable>>
+             typename = std::enable_if_t<Copyable, RightReturnType>>
     function& operator= (function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile> const& /*right*/)
     {
         // TODO
