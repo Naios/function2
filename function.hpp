@@ -127,12 +127,11 @@ namespace unwrap_traits
     static constexpr auto do_unwrap(long)
         -> unwrap<Fn>;
 
-    // Set unwrap_t to std::false_type if the given argument is not unwrappable,
-    // to catch bad usage early.
-    template<typename Fn>
-    using unwrap_t = decltype(do_unwrap<Fn>(0));
-
 } // namespace unwrap_traits
+
+/// Functional unwraps the given functional type
+template<typename Fn>
+using unwrap_t = decltype(unwrap_traits::do_unwrap<Fn>(0));
 
 namespace is_functor_impl
 {
@@ -141,11 +140,11 @@ namespace is_functor_impl
         : std::true_type { };
 
     template<typename T>
-    static constexpr auto test_functor(int)
+    static inline constexpr auto test_functor(int)
         -> to_true<decltype(&T::operator())>;
 
     template<typename T>
-    static constexpr auto test_functor(long)
+    static inline constexpr auto test_functor(...)
         -> std::false_type;
 
 } // namespace is_functor_impl
@@ -268,48 +267,48 @@ class call_operator;
 template <typename ReturnType, typename... Args, bool Copyable>
 class call_operator<function<ReturnType(Args...), Copyable, false, false>>
 {
-    using func = function<ReturnType(Args...), Copyable, false, false>;
+    using base_t = function<ReturnType(Args...), Copyable, false, false>;
 
 public:
     ReturnType operator()(Args... args)
     {
-        return (*static_cast<func*>(this)->_impl)(std::forward<Args>(args)...);
+        return (*static_cast<base_t*>(this)->_impl)(std::forward<Args>(args)...);
     }
 };
 
 template <typename ReturnType, typename... Args, bool Copyable>
 class call_operator<function<ReturnType(Args...), Copyable, true, false>>
 {
-    using func = function<ReturnType(Args...), Copyable, true, false>;
+    using base_t = function<ReturnType(Args...), Copyable, true, false>;
 
 public:
     ReturnType operator()(Args... args) const
     {
-        return (*static_cast<const func*>(this)->_impl)(std::forward<Args>(args)...);
+        return (*static_cast<const base_t*>(this)->_impl)(std::forward<Args>(args)...);
     }
 };
 
 template <typename ReturnType, typename... Args, bool Copyable>
 class call_operator<function<ReturnType(Args...), Copyable, false, true>>
 {
-    using func = function<ReturnType(Args...), Copyable, false, true>;
+    using base_t = function<ReturnType(Args...), Copyable, false, true>;
 
 public:
     ReturnType operator()(Args... args) volatile
     {
-        return (*static_cast<volatile func*>(this)->_impl)(std::forward<Args>(args)...);
+        return (*static_cast<volatile base_t*>(this)->_impl)(std::forward<Args>(args)...);
     }
 };
 
 template <typename ReturnType, typename... Args, bool Copyable>
 class call_operator<function<ReturnType(Args...), Copyable, true, true>>
 {
-    using func = function<ReturnType(Args...), Copyable, true, true>;
+    using base_t = function<ReturnType(Args...), Copyable, true, true>;
 
 public:
     ReturnType operator()(Args... args) const volatile
     {
-        return (*static_cast<const volatile func*>(this)->_impl)(std::forward<Args>(args)...);
+        return (*static_cast<const volatile base_t*>(this)->_impl)(std::forward<Args>(args)...);
     }
 };
 
@@ -320,30 +319,56 @@ class function<ReturnType(Args...), Copyable, Constant, Volatile>
 {
     friend class call_operator<function>;
 
-    using wrapper_t = call_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>;
+    // Internal storage
+    typename qualified_ptr_t<
+        call_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>,
+        Constant, Volatile
+    >::type _impl;
 
-    // Implementation pointer
-    typename qualified_ptr_t<wrapper_t, Constant, Volatile>::type _impl;
+    // Is a true type if the given function pointer is assignable to this.
+    template<typename T>
+    using is_function_pointer_assignable_to_this =
+        std::integral_constant<bool,
+            is_function_pointer<T>::value &&
+            !Volatile
+        >;
+
+    // Is a true type if the functor class is assignable to this.
+    template<typename T>
+    using is_functor_assignable_to_this =
+        std::integral_constant<bool,
+            is_functor<T>::value &&
+            !(Constant && !unwrap_t<T>::is_const) &&
+            (Volatile == unwrap_t<T>::is_volatile)
+        >;
 
 public:
     function()
         : _impl(nullptr) { }
 
-    /// Move construct
-    /*template<bool RightConstant>
-    function(function<ReturnType(Args...), true, RightConstant, Volatile> function)
+    /// Copy construct
+    template<typename RightReturnType, typename... RightArgs, bool RightCopyable, bool RightConstant, bool RightVolatile>
+    function(function<RightReturnType(RightArgs...), RightCopyable, RightConstant, RightVolatile> const& /*function*/)
         : _impl(nullptr)
     {
+        // TODO
     }
-    */
+
+    /// Move construct
+    template<typename RightReturnType, typename... RightArgs, bool RightCopyable, bool RightConstant, bool RightVolatile>
+    function(function<RightReturnType(RightArgs...), RightCopyable, RightConstant, RightVolatile>&& /*function*/)
+        : _impl(nullptr)
+    {
+        // TODO
+    }
 
     /// Constructor taking a function pointer
-    template<typename T, typename = std::enable_if_t<is_function_pointer<T>::value && !Volatile>>
+    template<typename T, typename = std::enable_if_t<is_function_pointer_assignable_to_this<T>::value>, typename = void>
     function(T ptr)
-        : function([=](Args&&... args) { return ptr(std::forward<Args>(args)...); }) { }
+        : function([ptr](Args&&... args) { return ptr(std::forward<Args>(args)...); }) { }
 
     /// Constructor taking a functor
-    template<typename T, typename = std::enable_if_t<is_functor<T>::value>, typename = void>
+    template<typename T, typename = std::enable_if_t<is_functor_assignable_to_this<T>::value>>
     function(T /*functor*/)
         : _impl(nullptr)
     {
@@ -353,6 +378,22 @@ public:
     {
         if (_impl)
             delete _impl;
+    }
+
+    /// Copy assign
+    template<typename RightReturnType, typename... RightArgs, bool RightCopyable, bool RightConstant, bool RightVolatile>
+    function& operator= (function<RightReturnType(RightArgs...), RightCopyable, RightConstant, RightVolatile> const& /*right*/)
+    {
+        // TODO
+        return *this;
+    }
+
+    /// Move assign
+    template<typename RightReturnType, typename... RightArgs, bool RightCopyable, bool RightConstant, bool RightVolatile>
+    function& operator= (function<RightReturnType(RightArgs...), RightCopyable, RightConstant, RightVolatile>&& /*right*/)
+    {
+        // TODO
+        return *this;
     }
 
     using call_operator<function>::operator();    
@@ -385,7 +426,7 @@ auto make_function(Fn functional)
     static_assert(detail::is_function_pointer<Fn>::value || detail::is_functor<Fn>::value,
         "Can only create functions from functors and function pointers!");
 
-    using unwrap_t = detail::unwrap_traits::unwrap_t<Fn>;
+    using unwrap_t = detail::unwrap_t<Fn>;
 
     return detail::function<
         typename unwrap_t::decayed_type,
