@@ -400,28 +400,40 @@ public:
 
 }; // class function
 
-template<typename Signature, bool Copyable>
-using function_base = function<
-    typename unwrap_traits::unwrap<Signature>::decayed_type,
-    20L,
-    Copyable,
-    unwrap_traits::unwrap<Signature>::is_const,
-    unwrap_traits::unwrap<Signature>::is_volatile
->;
+struct default_capacity
+    : std::integral_constant<std::size_t, 20L> { };
 
 } // namespace detail
 
+/// Function wrapper base
+template<typename Signature, std::size_t Capacity, bool Copyable>
+using function_base = detail::function<
+    typename detail::unwrap_traits::unwrap<Signature>::decayed_type,
+    Capacity,
+    Copyable,
+    detail::unwrap_traits::unwrap<Signature>::is_const,
+    detail::unwrap_traits::unwrap<Signature>::is_volatile
+>;
+
 /// Copyable function wrapper
 template<typename Signature>
-using function = detail::function_base<Signature, true>;
+using function = function_base<
+    Signature,
+    detail::default_capacity::value,
+    true
+>;
 
 /// Non copyable function wrapper
 template<typename Signature>
-using unique_function = detail::function_base<Signature, false>;
+using unique_function = function_base<
+    Signature,
+    detail::default_capacity::value,
+    false
+>;
 
 /// Creates a functional object
 /// which type depends on the given argument.
-template<typename Fn>
+template<typename Fn, std::size_t Capacity = detail::default_capacity::value>
 auto make_function(Fn functional)
 {
     static_assert(detail::is_function_pointer<Fn>::value || detail::is_functor<Fn>::value,
@@ -431,7 +443,7 @@ auto make_function(Fn functional)
 
     return detail::function<
         typename unwrap_t::decayed_type,
-        20L,
+        Capacity,
         // Check if the given argument is copyable in any way.
         std::is_copy_assignable<std::decay_t<Fn>>::value ||
         std::is_copy_constructible<std::decay_t<Fn>>::value,
