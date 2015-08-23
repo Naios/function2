@@ -44,7 +44,7 @@ TEST_CASE("Functions are callable", "[unique_function]")
     {
         bool is_set = false;
 
-        /*unique_function<void(bool) const> fun([&](bool test)
+        unique_function<void(bool) const> fun([&](bool test)
         {
             is_set = test;
         });
@@ -56,6 +56,6 @@ TEST_CASE("Functions are callable", "[unique_function]")
         REQUIRE_FALSE(is_set);
 
         fun(true);
-        REQUIRE(is_set);*/
+        REQUIRE(is_set);
     }
 }

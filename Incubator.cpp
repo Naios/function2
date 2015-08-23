@@ -518,12 +518,13 @@ void test_incubator()
         
     }
 
-    unique_function<void(std::string const&) const> test_fun([](std::string const& arg)
+    /*unique_function<void(std::string const&) const> test_fun([](std::string const& arg)
     {
         int i = 0;
     });
 
-    test_fun("hey, it works!");
+    test_fun("hey, it works!");*/
+
 
     bool is_set = false;
 

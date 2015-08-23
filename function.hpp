@@ -301,7 +301,7 @@ struct call_operator<Base, ReturnType(Args...), Copyable, false, false, true>
 {
     virtual ~call_operator() { }
 
-    ReturnType operator()(Args... args) override
+    ReturnType operator()(Args&&... args) override
     {
         return (static_cast<Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
@@ -313,7 +313,7 @@ struct call_operator<Base, ReturnType(Args...), Copyable, true, false, true>
 {
     virtual ~call_operator() { }
 
-    ReturnType operator()(Args... args) const override
+    ReturnType operator()(Args&&... args) const override
     {
         return (static_cast<const Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
@@ -325,7 +325,7 @@ struct call_operator<Base, ReturnType(Args...), Copyable, false, true, true>
 {
     virtual ~call_operator() { }
 
-    ReturnType operator()(Args... args) volatile override
+    ReturnType operator()(Args&&... args) volatile override
     {
         return (static_cast<volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
@@ -337,7 +337,7 @@ struct call_operator<Base, ReturnType(Args...), Copyable , true, true, true>
 {
     virtual ~call_operator() { }
 
-    ReturnType operator()(Args... args) const volatile override
+    ReturnType operator()(Args&&... args) const volatile override
     {
         return (static_cast<const volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
