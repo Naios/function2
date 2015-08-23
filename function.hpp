@@ -169,29 +169,49 @@ namespace unwrap_traits
 
 } // namespace unwrap_traits
 
-template<typename T, bool Constant, bool Volatile>
-struct impl_qualified_t;
+namespace is_functor_impl
+{
+    template<typename>
+    struct to_true
+        : std::true_type { };
+
+    template<typename T>
+    static constexpr auto test_functor(int)
+        -> to_true<decltype(&T::operator())>;
+
+    template<typename T>
+    static constexpr auto test_functor(long)
+        -> std::false_type;
+
+} // namespace is_functor_impl
 
 template<typename T>
-struct impl_qualified_t<T, false, false>
+struct is_functor
+    : decltype(is_functor_impl::test_functor<T>(0)) { };
+
+template<typename T, bool Constant, bool Volatile>
+struct qualified_ptr_t;
+
+template<typename T>
+struct qualified_ptr_t<T, false, false>
 {
     using type = T*;
 };
 
 template<typename T>
-struct impl_qualified_t<T, true, false>
+struct qualified_ptr_t<T, true, false>
 {
     using type = T const*;
 };
 
 template<typename T>
-struct impl_qualified_t<T, false, true>
+struct qualified_ptr_t<T, false, true>
 {
     using type = T volatile*;
 };
 
 template<typename T>
-struct impl_qualified_t<T, true, true>
+struct qualified_ptr_t<T, true, true>
 {
     using type = T const volatile*;
 };
@@ -328,28 +348,33 @@ class function<ReturnType(Args...), Copyable, Constant, Volatile>
     using wrapper_t = call_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>;
 
     // Implementation pointer
-    typename impl_qualified_t<wrapper_t, Constant, Volatile>::type _impl;
+    typename qualified_ptr_t<wrapper_t, Constant, Volatile>::type _impl;
 
 public:
     function()
         : _impl(nullptr) { }
 
-    /// Constructor taking a functor
-    // TODO SFINAE invalid constructors away
-    template<typename T/*, typename = std::enable_if_t<std::is_class<T>::value>*/>
-    function(T)
-        : _impl(nullptr)
-    {
-    }
-
-    /*
-    /// Constructor taking a function pointer
-    template<typename T, typename = std::enable_if_t<std::is_pointer<T>::value>>
-    function(T)
+    /// Move construct
+    /*template<bool RightConstant>
+    function(function<ReturnType(Args...), true, RightConstant, Volatile> function)
         : _impl(nullptr)
     {
     }
     */
+
+    /// Constructor taking a functor
+    template<typename T, typename = std::enable_if_t<is_functor<T>::value>>
+    function(T /*functor*/)
+        : _impl(nullptr)
+    {
+    }
+
+    /// Constructor taking a function pointer
+    template<typename T, typename = std::enable_if_t<std::is_pointer<T>::value>, typename = void>
+    function(T)
+        : _impl(nullptr)
+    {
+    }
 
     ~function()
     {
@@ -385,7 +410,7 @@ using unique_function = detail::function_base<Signature, false>;
 /// Creates a functional object
 /// which type depends on the given argument.
 template<typename Fn>
-auto make_function(Fn functional)
+auto make_function(Fn&& functional)
 {
     using unwrap_t = detail::unwrap_traits::unwrap_t<Fn>;
 

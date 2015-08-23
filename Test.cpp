@@ -22,7 +22,7 @@
 void test_mockup();
 void test_incubator();
 
-int main(int argc, char* const argv[])
+int main(int argc, char** argv)
 {
     test_mockup();
 

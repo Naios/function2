@@ -294,6 +294,7 @@ public:
     }
 };
 
+
 void test_incubator()
 {  
     fn_test_types::volatile_tests t1;
@@ -418,7 +419,13 @@ void test_incubator()
         static_assert(std::is_same<decltype(fn), unique_function<int() const>>::value, "check failed!");
     }
     
-    function<void()> fn_test;
+    function<void()> fn_test([]() mutable
+    {
+    });
+
+    fn_test_types::empty_struct es;
+
+    // function<void()> fn_test2(es);
 
     // fn_test();
 
@@ -438,11 +445,16 @@ void test_incubator()
 
     // auto m = make_function(ptr);
 
-
     auto ttt = []
     {
 
     };
+
+    static_assert(detail::is_functor<decltype(ttt)>::value, "blub");
+
+    static_assert(!detail::is_functor<fn_test_types::empty_struct>::value, "blub");
+
+    
 
     function<void() const> res_ttt = make_function(std::move(ttt));
 
@@ -459,6 +471,8 @@ void test_incubator()
     alc.allocate<virtual_check_impl>(120);
 
     // int res12345 = (*alc.get())();
+
+    using moo = unique_function<void()>::return_type;
 
     // SFO
     {
