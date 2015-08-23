@@ -400,6 +400,8 @@ void test_incubator()
         static_assert(std::is_same<decltype(fn), function<void()>>::value, "check failed!");
     }
 
+    // auto sf = make_function(&fn_test_types::my_fn);
+
     // Static test: make_function call with non copyable functional
     {
         auto up = std::make_unique<int>(0);
@@ -454,7 +456,10 @@ void test_incubator()
 
     static_assert(!detail::is_functor<fn_test_types::empty_struct>::value, "blub");
 
-    
+    static_assert(detail::is_function_pointer<decltype(&fn_test_types::my_fn)>::value, "blub");
+
+    unique_function<int() const> uffp(fn_test_types::my_fn);
+    unique_function<int() const> uffp2(&fn_test_types::my_fn);
 
     function<void() const> res_ttt = make_function(std::move(ttt));
 

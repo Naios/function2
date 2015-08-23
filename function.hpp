@@ -91,42 +91,7 @@ namespace unwrap_traits
     /// Function pointer
     template<typename ReturnType, typename... Args>
     struct unwrap<ReturnType(*)(Args...)>
-        : unwrap_trait_base<ReturnType(Args...), false, false, false> { };
-
-    /// Const function pointer
-    template<typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(*const)(Args...)>
         : unwrap_trait_base<ReturnType(Args...), false, true, false> { };
-
-    /// Volatile function pointer
-    template<typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(*volatile)(Args...)>
-        : unwrap_trait_base<ReturnType(Args...), false, false, true> { };
-
-    /// Const volatile function pointer
-    template<typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(*const volatile)(Args...) >
-        : unwrap_trait_base<ReturnType(Args...), false, true, true> { };
-
-    /// Function pointer as reference
-    template<typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(*&)(Args...)>
-        : unwrap_trait_base<ReturnType(Args...), false, false, false> { };
-
-    /// Const function pointer as reference
-    template<typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(*const&)(Args...)>
-        : unwrap_trait_base<ReturnType(Args...), false, true, false> { };
-
-    /// Volatile function pointer as reference
-    template<typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(*volatile&)(Args...)>
-        : unwrap_trait_base<ReturnType(Args...), false, false, true> { };
-
-    /// Const volatile function pointer as reference
-    template<typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(*const volatile&)(Args...) >
-        : unwrap_trait_base<ReturnType(Args...), false, true, true> { };
 
     /// Class method pointer
     template<typename ClassType, typename ReturnType, typename... Args>
@@ -185,9 +150,19 @@ namespace is_functor_impl
 
 } // namespace is_functor_impl
 
+/// Is functor trait
 template<typename T>
 struct is_functor
     : decltype(is_functor_impl::test_functor<T>(0)) { };
+
+/// Is function pointer trait
+template<typename T>
+struct is_function_pointer
+    : std::integral_constant<bool, false> { };
+
+template<typename ReturnType, typename... Args>
+struct is_function_pointer<ReturnType(*)(Args...)>
+    : std::integral_constant<bool, true> { };
 
 template<typename T, bool Constant, bool Volatile>
 struct qualified_ptr_t;
@@ -362,16 +337,14 @@ public:
     }
     */
 
-    /// Constructor taking a functor
-    template<typename T, typename = std::enable_if_t<is_functor<T>::value>>
-    function(T /*functor*/)
-        : _impl(nullptr)
-    {
-    }
-
     /// Constructor taking a function pointer
-    template<typename T, typename = std::enable_if_t<std::is_pointer<T>::value>, typename = void>
-    function(T)
+    template<typename T, typename = std::enable_if_t<is_function_pointer<T>::value && !Volatile>>
+    function(T ptr)
+        : function([=](Args&&... args) { return ptr(std::forward<Args>(args)...); }) { }
+
+    /// Constructor taking a functor
+    template<typename T, typename = std::enable_if_t<is_functor<T>::value>, typename = void>
+    function(T /*functor*/)
         : _impl(nullptr)
     {
     }
@@ -410,7 +383,7 @@ using unique_function = detail::function_base<Signature, false>;
 /// Creates a functional object
 /// which type depends on the given argument.
 template<typename Fn>
-auto make_function(Fn&& functional)
+auto make_function(Fn functional)
 {
     using unwrap_t = detail::unwrap_traits::unwrap_t<Fn>;
 
