@@ -469,6 +469,8 @@ void test_incubator()
 
     function<void() const> res_ttt = make_function(std::move(ttt));
 
+    decltype(res_ttt) res_ttt2 = res_ttt;
+
     function<void(int, int) const volatile> ffff;
 
     // ffff(1, 1);

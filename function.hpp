@@ -8,6 +8,7 @@
 #define function_hpp__
 
 #include <tuple>
+#include <cstdint>
 #include <type_traits>
 
 namespace my
@@ -163,89 +164,62 @@ template<typename ReturnType, typename... Args>
 struct is_function_pointer<ReturnType(*)(Args...)>
     : std::true_type { };
 
-template<typename T, bool Constant, bool Volatile>
-struct qualified_ptr_t;
-
-template<typename T>
-struct qualified_ptr_t<T, false, false>
-{
-    using type = T*;
-};
-
-template<typename T>
-struct qualified_ptr_t<T, true, false>
-{
-    using type = T const*;
-};
-
-template<typename T>
-struct qualified_ptr_t<T, false, true>
-{
-    using type = T volatile*;
-};
-
-template<typename T>
-struct qualified_ptr_t<T, true, true>
-{
-    using type = T const volatile*;
-};
-
 template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
-struct call_wrapper_impl;
+struct call_wrapper_interface;
 
 // Interfaces for non copyable wrapper:
 // No qualifiers
 template<typename ReturnType, typename... Args>
-struct call_wrapper_impl<ReturnType(Args...), false, false, false>
+struct call_wrapper_interface<ReturnType(Args...), false, false, false>
 {
-    virtual ~call_wrapper_impl() { }
+    virtual ~call_wrapper_interface() { }
 
     virtual ReturnType operator() (Args&&...) = 0;
 
-}; // struct call_wrapper_impl
+}; // struct call_wrapper_interface
 
 // Const qualifier
 template<typename ReturnType, typename... Args>
-struct call_wrapper_impl<ReturnType(Args...), false, true, false>
+struct call_wrapper_interface<ReturnType(Args...), false, true, false>
 {
-    virtual ~call_wrapper_impl() { }
+    virtual ~call_wrapper_interface() { }
 
     virtual ReturnType operator() (Args&&...) const = 0;
 
-}; // struct call_wrapper_impl
+}; // struct call_wrapper_interface
 
 // Volatile qualifier
 template<typename ReturnType, typename... Args>
-struct call_wrapper_impl<ReturnType(Args...), false, false, true>
+struct call_wrapper_interface<ReturnType(Args...), false, false, true>
 {
-    virtual ~call_wrapper_impl() { }
+    virtual ~call_wrapper_interface() { }
 
     virtual ReturnType operator() (Args&&...) volatile = 0;
 
-}; // struct call_wrapper_impl
+}; // struct call_wrapper_interface
 
 // Const volatile qualifier
 template<typename ReturnType, typename... Args>
-struct call_wrapper_impl<ReturnType(Args...), false, true, true>
+struct call_wrapper_interface<ReturnType(Args...), false, true, true>
 {
-    virtual ~call_wrapper_impl() { }
+    virtual ~call_wrapper_interface() { }
 
     virtual ReturnType operator() (Args&&...) const volatile = 0;
 
-}; // struct call_wrapper_impl
+}; // struct call_wrapper_interface
 
 /// Interface: copyable wrapper
 template<typename ReturnType, typename... Args, bool Constant, bool Volatile>
-struct call_wrapper_impl<ReturnType(Args...), true, Constant, Volatile>
+struct call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>
      // Inherit the non copyable base struct
-     : call_wrapper_impl<ReturnType(Args...), false, Constant, Volatile>
+     : call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>
 {
-    virtual ~call_wrapper_impl() { }
+    virtual ~call_wrapper_interface() { }
 
     // TODO
-    // virtual call_wrapper_impl* clone() = 0;
+    // virtual call_wrapper_interface* clone() = 0;
 
-}; // struct call_wrapper_impl
+}; // struct call_wrapper_interface
 
 // wrapper implementations
 namespace wrapper
@@ -264,7 +238,7 @@ class function;
 template <typename /*Base*/>
 class call_operator;
 
-template <typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable>
+template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable>
 class call_operator<function<ReturnType(Args...), Capacity, Copyable, false, false>>
 {
     using base_t = function<ReturnType(Args...), Capacity, Copyable, false, false>;
@@ -312,18 +286,68 @@ public:
     }
 };
 
+
+namespace qualified_callable_impl
+{
+    template<typename T, bool Constant, bool Volatile>
+    struct qualified_callable_t;
+
+    template<typename T>
+    struct qualified_callable_t<T, false, false>
+    {
+        using type = T*;
+    };
+
+    template<typename T>
+    struct qualified_callable_t<T, true, false>
+    {
+        using type = T const*;
+    };
+
+    template<typename T>
+    struct qualified_callable_t<T, false, true>
+    {
+        using type = T volatile*;
+    };
+
+    template<typename T>
+    struct qualified_callable_t<T, true, true>
+    {
+        using type = T const volatile*;
+    };
+
+} // qualified_callable_impl
+
+template<typename /*Function*/>
+struct storage_t;
+
+template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
+struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>
+{
+    std::uint8_t _storage[Capacity];
+
+    typename qualified_callable_impl::qualified_callable_t<
+        call_wrapper_interface<ReturnType(Args...), Copyable, Constant, Volatile>,
+        Constant, Volatile
+    >::type _impl;
+};
+
+template<typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
+struct storage_t<function<ReturnType(Args...), 0L, Copyable, Constant, Volatile>>
+{
+    typename qualified_callable_impl::qualified_callable_t<
+        call_wrapper_interface<ReturnType(Args...), Copyable, Constant, Volatile>,
+        Constant, Volatile
+    >::type _impl;
+};
+
 template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
 class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
-    : public call_operator<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>,
+    : public storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>,
+      public call_operator<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>,
       public signature<ReturnType, Args...>
 {
     friend class call_operator<function>;
-
-    // Internal storage
-    typename qualified_ptr_t<
-        call_wrapper_impl<ReturnType(Args...), Copyable, Constant, Volatile>,
-        Constant, Volatile
-    >::type _impl;
 
     // Is a true type if the given function pointer is assignable to this.
     template<typename T>
@@ -344,12 +368,13 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
 
 public:
     function()
-        : _impl(nullptr) { }
+        /*: _impl()*/ { }
 
     /// Copy construct
-    template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile>
+    template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile,
+             typename = std::enable_if_t<Copyable>>
     function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile> const& /*function*/)
-        : _impl(nullptr)
+        /*: _impl(nullptr)*/
     {
         // TODO
     }
@@ -357,7 +382,7 @@ public:
     /// Move construct
     template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile>
     function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile>&& /*function*/)
-        : _impl(nullptr)
+        /*: _impl(nullptr)*/
     {
         // TODO
     }
@@ -370,18 +395,19 @@ public:
     /// Constructor taking a functor
     template<typename T, typename = std::enable_if_t<is_functor_assignable_to_this<T>::value>>
     function(T /*functor*/)
-        : _impl(nullptr)
+        /*: _impl(nullptr)*/
     {
     }
 
     ~function()
     {
-        if (_impl)
-            delete _impl;
+//         if (_impl)
+//             delete _impl;
     }
 
     /// Copy assign
-    template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile>
+    template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile,
+             typename = std::enable_if_t<Copyable>>
     function& operator= (function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile> const& /*right*/)
     {
         // TODO
