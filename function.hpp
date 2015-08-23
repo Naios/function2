@@ -286,7 +286,6 @@ public:
     }
 };
 
-
 namespace qualified_callable_impl
 {
     template<typename T, bool Constant, bool Volatile>
@@ -333,7 +332,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 };
 
 template<typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
-struct storage_t<function<ReturnType(Args...), 0L, Copyable, Constant, Volatile>>
+struct storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>>
 {
     typename qualified_callable_impl::qualified_callable_t<
         call_wrapper_interface<ReturnType(Args...), Copyable, Constant, Volatile>,
@@ -427,7 +426,7 @@ public:
 }; // class function
 
 struct default_capacity
-    : std::integral_constant<std::size_t, 20L> { };
+    : std::integral_constant<std::size_t, 20UL> { };
 
 } // namespace detail
 
