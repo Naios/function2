@@ -258,16 +258,16 @@ namespace wrapper
 
 } // namespace wrapper
 
-template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
+template<typename /*Fn*/, std::size_t /*Capacity*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
 class function;
 
-template <typename /*Child*/>
+template <typename /*Base*/>
 class call_operator;
 
-template <typename ReturnType, typename... Args, bool Copyable>
-class call_operator<function<ReturnType(Args...), Copyable, false, false>>
+template <typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable>
+class call_operator<function<ReturnType(Args...), Capacity, Copyable, false, false>>
 {
-    using base_t = function<ReturnType(Args...), Copyable, false, false>;
+    using base_t = function<ReturnType(Args...), Capacity, Copyable, false, false>;
 
 public:
     ReturnType operator()(Args... args)
@@ -276,10 +276,10 @@ public:
     }
 };
 
-template <typename ReturnType, typename... Args, bool Copyable>
-class call_operator<function<ReturnType(Args...), Copyable, true, false>>
+template <typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable>
+class call_operator<function<ReturnType(Args...), Capacity, Copyable, true, false>>
 {
-    using base_t = function<ReturnType(Args...), Copyable, true, false>;
+    using base_t = function<ReturnType(Args...), Capacity, Copyable, true, false>;
 
 public:
     ReturnType operator()(Args... args) const
@@ -288,10 +288,10 @@ public:
     }
 };
 
-template <typename ReturnType, typename... Args, bool Copyable>
-class call_operator<function<ReturnType(Args...), Copyable, false, true>>
+template <typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable>
+class call_operator<function<ReturnType(Args...), Capacity, Copyable, false, true>>
 {
-    using base_t = function<ReturnType(Args...), Copyable, false, true>;
+    using base_t = function<ReturnType(Args...), Capacity, Copyable, false, true>;
 
 public:
     ReturnType operator()(Args... args) volatile
@@ -300,10 +300,10 @@ public:
     }
 };
 
-template <typename ReturnType, typename... Args, bool Copyable>
-class call_operator<function<ReturnType(Args...), Copyable, true, true>>
+template <typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable>
+class call_operator<function<ReturnType(Args...), Capacity, Copyable, true, true>>
 {
-    using base_t = function<ReturnType(Args...), Copyable, true, true>;
+    using base_t = function<ReturnType(Args...), Capacity, Copyable, true, true>;
 
 public:
     ReturnType operator()(Args... args) const volatile
@@ -312,9 +312,9 @@ public:
     }
 };
 
-template<typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
-class function<ReturnType(Args...), Copyable, Constant, Volatile>
-    : public call_operator<function<ReturnType(Args...), Copyable, Constant, Volatile>>,
+template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
+class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
+    : public call_operator<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>,
       public signature<ReturnType, Args...>
 {
     friend class call_operator<function>;
@@ -347,16 +347,16 @@ public:
         : _impl(nullptr) { }
 
     /// Copy construct
-    template<typename RightReturnType, typename... RightArgs, bool RightCopyable, bool RightConstant, bool RightVolatile>
-    function(function<RightReturnType(RightArgs...), RightCopyable, RightConstant, RightVolatile> const& /*function*/)
+    template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile>
+    function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile> const& /*function*/)
         : _impl(nullptr)
     {
         // TODO
     }
 
     /// Move construct
-    template<typename RightReturnType, typename... RightArgs, bool RightCopyable, bool RightConstant, bool RightVolatile>
-    function(function<RightReturnType(RightArgs...), RightCopyable, RightConstant, RightVolatile>&& /*function*/)
+    template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile>
+    function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile>&& /*function*/)
         : _impl(nullptr)
     {
         // TODO
@@ -381,16 +381,16 @@ public:
     }
 
     /// Copy assign
-    template<typename RightReturnType, typename... RightArgs, bool RightCopyable, bool RightConstant, bool RightVolatile>
-    function& operator= (function<RightReturnType(RightArgs...), RightCopyable, RightConstant, RightVolatile> const& /*right*/)
+    template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile>
+    function& operator= (function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile> const& /*right*/)
     {
         // TODO
         return *this;
     }
 
     /// Move assign
-    template<typename RightReturnType, typename... RightArgs, bool RightCopyable, bool RightConstant, bool RightVolatile>
-    function& operator= (function<RightReturnType(RightArgs...), RightCopyable, RightConstant, RightVolatile>&& /*right*/)
+    template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile>
+    function& operator= (function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile>&& /*right*/)
     {
         // TODO
         return *this;
@@ -403,6 +403,7 @@ public:
 template<typename Signature, bool Copyable>
 using function_base = function<
     typename unwrap_traits::unwrap<Signature>::decayed_type,
+    20L,
     Copyable,
     unwrap_traits::unwrap<Signature>::is_const,
     unwrap_traits::unwrap<Signature>::is_volatile
@@ -430,6 +431,7 @@ auto make_function(Fn functional)
 
     return detail::function<
         typename unwrap_t::decayed_type,
+        20L,
         // Check if the given argument is copyable in any way.
         std::is_copy_assignable<std::decay_t<Fn>>::value ||
         std::is_copy_constructible<std::decay_t<Fn>>::value,
