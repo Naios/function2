@@ -327,8 +327,7 @@ struct call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>
 {
     virtual ~call_wrapper_interface() { }
 
-    // TODO
-    // virtual call_wrapper_interface* clone() = 0;
+    virtual call_wrapper_interface* clone() const = 0;
 
 }; // struct call_wrapper_interface
 
@@ -338,11 +337,16 @@ struct call_wrapper_implementation;
 /// Implementation: move only wrapper
 template<typename T, typename ReturnType, typename... Args, bool Constant, bool Volatile>
 struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>
-     : call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>
+     : call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>,
+       call_operator<call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>, ReturnType(Args...), Constant, Volatile, true>
 {
-    T _impl;
+    friend struct call_operator<call_wrapper_implementation, ReturnType(Args...), Constant, Volatile, true>;
+
+    typename qualified_t<T, Constant, Volatile>::type _impl;
 
     virtual ~call_wrapper_implementation() { }
+
+    using call_operator<call_wrapper_implementation, ReturnType(Args...), Constant, Volatile, true>::operator();
 
 }; // struct call_wrapper_implementation
 
@@ -350,13 +354,20 @@ struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Vola
 template<typename T, typename ReturnType, typename... Args, bool Constant, bool Volatile>
 struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volatile>
      : call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>,
-       call_operator<call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>, ReturnType(Args...), Constant, Volatile, true>
+       call_operator<call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volatile>, ReturnType(Args...), Constant, Volatile, true>
 {
-    T _impl;
+    friend struct call_operator<call_wrapper_implementation, ReturnType(Args...), Constant, Volatile, true>;
+
+    typename qualified_t<T, Constant, Volatile>::type _impl;
 
     virtual ~call_wrapper_implementation() { }
 
-    // virtual call_wrapper_interface* clone() = 0;
+    call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* clone() const override
+    {
+        return nullptr;
+    };
+
+    using call_operator<call_wrapper_implementation, ReturnType(Args...), Constant, Volatile, true>::operator();
 
 }; // struct call_wrapper_implementation
 
