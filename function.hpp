@@ -221,57 +221,104 @@ struct call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>
 
 }; // struct call_wrapper_interface
 
+template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
+struct call_wrapper_implementation;
+
+/// Implementation: move only wrapper
+template<typename ReturnType, typename... Args, bool Constant, bool Volatile>
+struct call_wrapper_implementation<ReturnType(Args...), false, Constant, Volatile>
+     : call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>
+{
+    virtual ~call_wrapper_implementation() { }
+
+}; // struct call_wrapper_implementation
+
+/// Implementation: copyable wrapper
+template<typename ReturnType, typename... Args, bool Constant, bool Volatile>
+struct call_wrapper_implementation<ReturnType(Args...), true, Constant, Volatile>
+     : call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>
+{
+    virtual ~call_wrapper_implementation() { }
+
+    // virtual call_wrapper_interface* clone() = 0;
+
+}; // struct call_wrapper_implementation
+
 template<typename /*Fn*/, std::size_t /*Capacity*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
 class function;
 
-template <typename /*Base*/>
-class call_operator;
+template <typename /*Base*/, typename /*Fn*/, bool /*Constant*/, bool /*Volatile*/, bool /*ByRef*/>
+struct call_operator;
 
-template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable>
-class call_operator<function<ReturnType(Args...), Capacity, Copyable, false, false>>
+template<typename Base, typename ReturnType, typename... Args>
+struct call_operator<Base, ReturnType(Args...), false, false, false>
 {
-    using base_t = function<ReturnType(Args...), Capacity, Copyable, false, false>;
-
-public:
     ReturnType operator()(Args... args)
     {
-        return (*static_cast<base_t*>(this)->_impl)(std::forward<Args>(args)...);
+        return (*static_cast<Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
 };
 
-template <typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable>
-class call_operator<function<ReturnType(Args...), Capacity, Copyable, true, false>>
+template<typename Base, typename ReturnType, typename... Args>
+struct call_operator<Base, ReturnType(Args...), true, false, false>
 {
-    using base_t = function<ReturnType(Args...), Capacity, Copyable, true, false>;
-
-public:
     ReturnType operator()(Args... args) const
     {
-        return (*static_cast<const base_t*>(this)->_impl)(std::forward<Args>(args)...);
+        return (*static_cast<const Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
 };
 
-template <typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable>
-class call_operator<function<ReturnType(Args...), Capacity, Copyable, false, true>>
+template<typename Base, typename ReturnType, typename... Args>
+struct call_operator<Base, ReturnType(Args...), false, true, false>
 {
-    using base_t = function<ReturnType(Args...), Capacity, Copyable, false, true>;
-
-public:
     ReturnType operator()(Args... args) volatile
     {
-        return (*static_cast<volatile base_t*>(this)->_impl)(std::forward<Args>(args)...);
+        return (*static_cast<volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
 };
 
-template <typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable>
-class call_operator<function<ReturnType(Args...), Capacity, Copyable, true, true>>
+template<typename Base, typename ReturnType, typename... Args>
+struct call_operator<Base, ReturnType(Args...), true, true, false>
 {
-    using base_t = function<ReturnType(Args...), Capacity, Copyable, true, true>;
-
-public:
     ReturnType operator()(Args... args) const volatile
     {
-        return (*static_cast<const volatile base_t*>(this)->_impl)(std::forward<Args>(args)...);
+        return (*static_cast<const volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template<typename Base, typename ReturnType, typename... Args>
+struct call_operator<Base, ReturnType(Args...), false, false, true>
+{
+    ReturnType operator()(Args... args)
+    {
+        return (static_cast<Base*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template<typename Base, typename ReturnType, typename... Args>
+struct call_operator<Base, ReturnType(Args...), true, false, true>
+{
+    ReturnType operator()(Args... args) const
+    {
+        return (static_cast<const Base*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template<typename Base, typename ReturnType, typename... Args>
+struct call_operator<Base, ReturnType(Args...), false, true, true>
+{
+    ReturnType operator()(Args... args) volatile
+    {
+        return (static_cast<volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template<typename Base, typename ReturnType, typename... Args>
+struct call_operator<Base, ReturnType(Args...), true, true, true>
+{
+    ReturnType operator()(Args... args) const volatile
+    {
+        return (static_cast<const volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
 };
 
@@ -364,11 +411,11 @@ protected:
 template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
 class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
     : public storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>,
-      public call_operator<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>,
+      public call_operator<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>, ReturnType(Args...), Constant, Volatile, false>,
       public signature<ReturnType, Args...>,
       public copyable<Copyable>
 {
-    friend class call_operator<function>;
+    friend struct call_operator<function, ReturnType(Args...), Constant, Volatile, false>;
 
     // Is a true type if the given function pointer is assignable to this.
     template<typename T>
@@ -441,7 +488,7 @@ public:
         return *this;
     }
 
-    using call_operator<function>::operator();    
+    using call_operator<function, ReturnType(Args...), Constant, Volatile, false>::operator();    
 
 }; // class function
 
