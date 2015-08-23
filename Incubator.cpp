@@ -485,7 +485,7 @@ void test_incubator()
 
     // int res12345 = (*alc.get())();
 
-    using moo = unique_function<void()>::return_type;
+    // using moo = unique_function<void()>::return_type;
 
     // SFO
     {
