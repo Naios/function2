@@ -493,6 +493,14 @@ void test_incubator()
 
     auto mf1981278 = make_function<decltype(lam5), 0UL>(lam5);
 
+    unique_function<void()> uf;
+
+    unique_function<void()> ouf;
+
+    uf = std::move(ouf);
+
+    unique_function<void()> oouf = std::move(ouf);
+
     // SFO
     {
         char dig[200];

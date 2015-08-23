@@ -306,6 +306,20 @@ namespace qualified_callable_impl
 
 } // qualified_callable_impl
 
+template<bool>
+struct copyable
+{
+};
+
+template <>
+struct copyable<false>
+{
+    copyable() { }
+
+    copyable(copyable const&) = delete;
+    copyable& operator=(copyable const&) = delete;
+};
+
 template<typename /*Fn*/>
 struct storage_t;
 
@@ -351,7 +365,8 @@ template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copya
 class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
     : public storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>,
       public call_operator<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>,
-      public signature<ReturnType, Args...>
+      public signature<ReturnType, Args...>,
+      public copyable<Copyable>
 {
     friend class call_operator<function>;
 
