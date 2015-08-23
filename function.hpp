@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <type_traits>
 
-namespace my
+namespace fu2
 {
 
 namespace detail
@@ -200,81 +200,6 @@ struct qualified_t<T, true, true>
     using type = T const volatile;
 };
 
-template <typename /*Base*/, typename /*Fn*/, bool /*Constant*/, bool /*Volatile*/, bool /*ForVirtualImpl*/>
-struct call_operator;
-
-template<typename Base, typename ReturnType, typename... Args>
-struct call_operator<Base, ReturnType(Args...), false, false, false>
-{
-    ReturnType operator()(Args... args)
-    {
-        return (*static_cast<Base*>(this)->_impl)(std::forward<Args>(args)...);
-    }
-};
-
-template<typename Base, typename ReturnType, typename... Args>
-struct call_operator<Base, ReturnType(Args...), true, false, false>
-{
-    ReturnType operator()(Args... args) const
-    {
-        return (*static_cast<const Base*>(this)->_impl)(std::forward<Args>(args)...);
-    }
-};
-
-template<typename Base, typename ReturnType, typename... Args>
-struct call_operator<Base, ReturnType(Args...), false, true, false>
-{
-    ReturnType operator()(Args... args) volatile
-    {
-        return (*static_cast<volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
-    }
-};
-
-template<typename Base, typename ReturnType, typename... Args>
-struct call_operator<Base, ReturnType(Args...), true, true, false>
-{
-    ReturnType operator()(Args... args) const volatile
-    {
-        return (*static_cast<const volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
-    }
-};
-
-template<typename Base, typename ReturnType, typename... Args>
-struct call_operator<Base, ReturnType(Args...), false, false, true>
-{
-    ReturnType operator()(Args... args) override
-    {
-        return (static_cast<Base*>(this)->_impl)(std::forward<Args>(args)...);
-    }
-};
-
-template<typename Base, typename ReturnType, typename... Args>
-struct call_operator<Base, ReturnType(Args...), true, false, true>
-{
-    ReturnType operator()(Args... args) const override
-    {
-        return (static_cast<const Base*>(this)->_impl)(std::forward<Args>(args)...);
-    }
-};
-
-template<typename Base, typename ReturnType, typename... Args>
-struct call_operator<Base, ReturnType(Args...), false, true, true>
-{
-    ReturnType operator()(Args... args) volatile override
-    {
-        return (static_cast<volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
-    }
-};
-
-template<typename Base, typename ReturnType, typename... Args>
-struct call_operator<Base, ReturnType(Args...), true, true, true>
-{
-    ReturnType operator()(Args... args) const volatile override
-    {
-        return (static_cast<const volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
-    }
-};
-
 template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
 struct call_wrapper_interface;
 
@@ -322,14 +247,101 @@ struct call_wrapper_interface<ReturnType(Args...), false, true, true>
 /// Interface: copyable wrapper
 template<typename ReturnType, typename... Args, bool Constant, bool Volatile>
 struct call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>
-     // Inherit the non copyable base struct
-     : call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>
+    // Inherit the non copyable base struct
+    : call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>
 {
     virtual ~call_wrapper_interface() { }
 
-    virtual call_wrapper_interface* clone() const = 0;
+    // virtual call_wrapper_interface* clone() const = 0;
 
 }; // struct call_wrapper_interface
+
+template <typename /*Base*/, typename /*Fn*/, bool Copyable, bool /*Constant*/, bool /*Volatile*/, bool /*ForVirtualImpl*/>
+struct call_operator;
+
+template<typename Base, typename ReturnType,typename... Args, bool Copyable>
+struct call_operator<Base, ReturnType(Args...), Copyable, false, false, false>
+{
+    ReturnType operator()(Args... args)
+    {
+        return (*static_cast<Base*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template<typename Base, typename ReturnType, typename... Args, bool Copyable>
+struct call_operator<Base, ReturnType(Args...), Copyable, true, false, false>
+{
+    ReturnType operator()(Args... args) const
+    {
+        return (*static_cast<const Base*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template<typename Base, typename ReturnType, typename... Args, bool Copyable>
+struct call_operator<Base, ReturnType(Args...), Copyable, false, true, false>
+{
+    ReturnType operator()(Args... args) volatile
+    {
+        return (*static_cast<volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template<typename Base, typename ReturnType, typename... Args, bool Copyable>
+struct call_operator<Base, ReturnType(Args...), Copyable, true, true, false>
+{
+    ReturnType operator()(Args... args) const volatile
+    {
+        return (*static_cast<const volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template<typename Base, typename ReturnType, typename... Args, bool Copyable>
+struct call_operator<Base, ReturnType(Args...), Copyable, false, false, true>
+     : call_wrapper_interface<ReturnType(Args...), Copyable, false, false>
+{
+    virtual ~call_operator() { }
+
+    ReturnType operator()(Args... args) override
+    {
+        return (static_cast<Base*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template<typename Base, typename ReturnType, typename... Args, bool Copyable>
+struct call_operator<Base, ReturnType(Args...), Copyable, true, false, true>
+     : call_wrapper_interface<ReturnType(Args...), Copyable, true, false>
+{
+    virtual ~call_operator() { }
+
+    ReturnType operator()(Args... args) const override
+    {
+        return (static_cast<const Base*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template<typename Base, typename ReturnType, typename... Args, bool Copyable>
+struct call_operator<Base, ReturnType(Args...), Copyable, false, true, true>
+     : call_wrapper_interface<ReturnType(Args...), Copyable, false, true>
+{
+    virtual ~call_operator() { }
+
+    ReturnType operator()(Args... args) volatile override
+    {
+        return (static_cast<volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
+
+template<typename Base, typename ReturnType, typename... Args, bool Copyable>
+struct call_operator<Base, ReturnType(Args...), Copyable , true, true, true>
+     : call_wrapper_interface<ReturnType(Args...), Copyable, true, true>
+{
+    virtual ~call_operator() { }
+
+    ReturnType operator()(Args... args) const volatile override
+    {
+        return (static_cast<const volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
+    }
+};
 
 template<typename /*T*/, typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
 struct call_wrapper_implementation;
@@ -337,37 +349,45 @@ struct call_wrapper_implementation;
 /// Implementation: move only wrapper
 template<typename T, typename ReturnType, typename... Args, bool Constant, bool Volatile>
 struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>
-     : call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>,
-       call_operator<call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>, ReturnType(Args...), Constant, Volatile, true>
+     : call_operator<call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>, ReturnType(Args...), false, Constant, Volatile, true>
 {
-    friend struct call_operator<call_wrapper_implementation, ReturnType(Args...), Constant, Volatile, true>;
+    friend struct call_operator<call_wrapper_implementation, ReturnType(Args...), false, Constant, Volatile, true>;
 
     typename qualified_t<T, Constant, Volatile>::type _impl;
 
+    call_wrapper_implementation(T impl)
+        : _impl(std::forward<T>(impl))
+    {
+        static_assert(!std::is_rvalue_reference<T>::value,
+            "Can't create a non copyable wrapper with non r-value ref!");
+    }
+
     virtual ~call_wrapper_implementation() { }
 
-    using call_operator<call_wrapper_implementation, ReturnType(Args...), Constant, Volatile, true>::operator();
+    using call_operator<call_wrapper_implementation, ReturnType(Args...), false, Constant, Volatile, true>::operator();
 
 }; // struct call_wrapper_implementation
 
 /// Implementation: copyable wrapper
 template<typename T, typename ReturnType, typename... Args, bool Constant, bool Volatile>
 struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volatile>
-     : call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>,
-       call_operator<call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volatile>, ReturnType(Args...), Constant, Volatile, true>
+     : call_operator<call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volatile>, ReturnType(Args...), true, Constant, Volatile, true>
 {
-    friend struct call_operator<call_wrapper_implementation, ReturnType(Args...), Constant, Volatile, true>;
+    friend struct call_operator<call_wrapper_implementation, ReturnType(Args...), true, Constant, Volatile, true>;
 
-    typename qualified_t<T, Constant, Volatile>::type _impl;
+    typename qualified_t<std::decay_t<T>, Constant, Volatile>::type _impl;
+
+    call_wrapper_implementation(T impl)
+        : _impl(std::forward<T>(impl)) { }
 
     virtual ~call_wrapper_implementation() { }
 
-    call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* clone() const override
-    {
-        return nullptr;
-    };
+//     call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* clone() const override
+//     {
+//         return nullptr;
+//     };
 
-    using call_operator<call_wrapper_implementation, ReturnType(Args...), Constant, Volatile, true>::operator();
+    using call_operator<call_wrapper_implementation, ReturnType(Args...), true, Constant, Volatile, true>::operator();
 
 }; // struct call_wrapper_implementation
 
@@ -413,16 +433,22 @@ protected:
 
     storage_t(implementation_t impl)
         : _impl(impl) { }
+
+    ~storage_t()
+    {
+        if (_impl)
+            delete _impl;
+    }
 };
 
 template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
 class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
     : public storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>,
-      public call_operator<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>, ReturnType(Args...), Constant, Volatile, false>,
+      public call_operator<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>, ReturnType(Args...), Copyable, Constant, Volatile, false>,
       public signature<ReturnType, Args...>,
       public copyable<Copyable>
 {
-    friend struct call_operator<function, ReturnType(Args...), Constant, Volatile, false>;
+    friend struct call_operator<function, ReturnType(Args...), Copyable, Constant, Volatile, false>;
 
     // Is a true type if the given function pointer is assignable to this.
     template<typename T>
@@ -469,8 +495,8 @@ public:
 
     /// Constructor taking a functor
     template<typename T, typename = std::enable_if_t<is_functor_assignable_to_this<T>::value>>
-    function(T /*functor*/)
-        : storage_t<function>()
+    function(T functor)
+        : storage_t<function>(new call_wrapper_implementation<T, ReturnType(Args...), Copyable, Constant, Volatile>(std::forward<T>(functor)))
     {
     }
 
@@ -495,7 +521,7 @@ public:
         return *this;
     }
 
-    using call_operator<function, ReturnType(Args...), Constant, Volatile, false>::operator();    
+    using call_operator<function, ReturnType(Args...), Copyable, Constant, Volatile, false>::operator();    
 
 }; // class function
 
@@ -552,6 +578,6 @@ auto make_function(Fn functional)
     >(std::forward<Fn>(functional));
 }
 
-} // namespace my
+} // namespace fu2
 
 #endif // function_hpp__

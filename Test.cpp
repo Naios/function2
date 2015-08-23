@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include "function.hpp"
+
 #define CATCH_CONFIG_RUNNER
 
 #include "catch.hpp"
@@ -22,25 +24,38 @@
 void test_mockup();
 void test_incubator();
 
+using namespace fu2;
+
 int main(int argc, char** argv)
 {
     test_mockup();
 
     test_incubator();
 
-    int const result = 0;//  Catch::Session().run(argc, argv);
+    int const result = Catch::Session().run(argc, argv);
 
     // Attach breakpoint here ,-)
     return result;
 }
 
-/*
-TEST_CASE("Name", "[Class]")
+TEST_CASE("Functions are callable", "[unique_function]")
 {
-    SECTION("section")
+    SECTION("Simple call test")
     {
-        REQUIRE(true);
+        bool is_set = false;
+
+        /*unique_function<void(bool) const> fun([&](bool test)
+        {
+            is_set = test;
+        });
+
+        fun(true);
+        REQUIRE(is_set);
+
+        fun(false);
+        REQUIRE_FALSE(is_set);
+
+        fun(true);
+        REQUIRE(is_set);*/
     }
 }
-*/
-

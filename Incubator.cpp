@@ -23,7 +23,7 @@
 #include <string>
 #include <memory>
 
-using namespace my;
+using namespace fu2;
 
 /*
  * - Const correct
@@ -181,7 +181,7 @@ namespace fn_test_types
 }
 
 template<typename T>
-using unwrap = ::my::detail::unwrap_traits::unwrap<T>;
+using unwrap = detail::unwrap_traits::unwrap<T>;
 
 struct virtual_check
 {
@@ -515,7 +515,23 @@ void test_incubator()
 
         ptr->~virtual_check();
 
-        // breakpoint
-        int i = 0;
+        
     }
+
+    unique_function<void(std::string const&) const> test_fun([](std::string const& arg)
+    {
+        int i = 0;
+    });
+
+    test_fun("hey, it works!");
+
+    bool is_set = false;
+
+    unique_function<void(bool) const> fun([&](bool test)
+    {
+        is_set = test;
+    });
+
+    // breakpoint
+    int i = 0;
 }
