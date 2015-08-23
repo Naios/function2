@@ -38,24 +38,35 @@ int main(int argc, char** argv)
     return result;
 }
 
-TEST_CASE("Functions are callable", "[unique_function]")
+TEST_CASE("Functions are callable", "[function<>]")
 {
-    SECTION("Simple call test")
+    bool is_set = false;
+
+    auto lam = [&](bool test)
     {
-        bool is_set = false;
+        is_set = test;
+        return test;
+    };
 
-        unique_function<void(bool) const> fun([&](bool test)
-        {
-            is_set = test;
-        });
+    SECTION("Simple call test with function<bool(bool) const>")
+    {
+        function<bool(bool) const> fun(lam);
 
-        fun(true);
+        REQUIRE(fun(true));
         REQUIRE(is_set);
 
-        fun(false);
+        REQUIRE_FALSE(fun(false));
         REQUIRE_FALSE(is_set);
+    }
 
-        fun(true);
+    SECTION("Simple call test with unique_function<bool(bool) const>")
+    {
+        unique_function<bool(bool) const> ufun(std::move(lam));
+
+        REQUIRE(ufun(true));
         REQUIRE(is_set);
+
+        REQUIRE_FALSE(ufun(false));
+        REQUIRE_FALSE(is_set);
     }
 }
