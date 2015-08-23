@@ -221,17 +221,6 @@ struct call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>
 
 }; // struct call_wrapper_interface
 
-// wrapper implementations
-namespace wrapper
-{
-    // Call nested functor
-
-    // Call nested function
-
-    // Call nested object
-
-} // namespace wrapper
-
 template<typename /*Fn*/, std::size_t /*Capacity*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
 class function;
 
@@ -317,27 +306,45 @@ namespace qualified_callable_impl
 
 } // qualified_callable_impl
 
-template<typename /*Function*/>
+template<typename /*Fn*/>
 struct storage_t;
 
 template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
-struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>
+class storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>
+    : public storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>>
 {
-    std::uint8_t _storage[Capacity];
+    using base_t = storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>>;
 
-    typename qualified_callable_impl::qualified_callable_t<
-        call_wrapper_interface<ReturnType(Args...), Copyable, Constant, Volatile>,
-        Constant, Volatile
-    >::type _impl;
+protected:
+    storage_t()
+        : base_t() { }
+
+    storage_t(typename base_t::implementation_t impl)
+        : base_t(impl) { }
+
+    ~storage_t()
+    {
+    }
+
+    std::uint8_t _storage[Capacity];
 };
 
 template<typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
-struct storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>>
+class storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>>
 {
-    typename qualified_callable_impl::qualified_callable_t<
+protected:
+    using implementation_t = typename qualified_callable_impl::qualified_callable_t<
         call_wrapper_interface<ReturnType(Args...), Copyable, Constant, Volatile>,
         Constant, Volatile
-    >::type _impl;
+    >::type;
+
+    implementation_t _impl;
+
+    storage_t()
+        : _impl(nullptr) { }
+
+    storage_t(implementation_t impl)
+        : _impl(impl) { }
 };
 
 template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
@@ -367,13 +374,13 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
 
 public:
     function()
-        /*: _impl()*/ { }
+        : storage_t<function>() { }
 
     /// Copy construct
     template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile,
              typename = std::enable_if_t<Copyable, RightReturnType>>
     function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile> const& /*function*/)
-        /*: _impl(nullptr)*/
+        : storage_t<function>()
     {
         // TODO
     }
@@ -381,7 +388,7 @@ public:
     /// Move construct
     template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile>
     function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile>&& /*function*/)
-        /*: _impl(nullptr)*/
+        : storage_t<function>()
     {
         // TODO
     }
@@ -394,14 +401,12 @@ public:
     /// Constructor taking a functor
     template<typename T, typename = std::enable_if_t<is_functor_assignable_to_this<T>::value>>
     function(T /*functor*/)
-        /*: _impl(nullptr)*/
+        : storage_t<function>()
     {
     }
 
     ~function()
     {
-//         if (_impl)
-//             delete _impl;
     }
 
     /// Copy assign

@@ -485,7 +485,13 @@ void test_incubator()
 
     // int res12345 = (*alc.get())();
 
-    using moo = unique_function<void()>::return_type;
+    using moo = unique_function<void()>;
+
+    auto lam5 = []
+    {
+    };
+
+    auto mf1981278 = make_function<decltype(lam5), 0UL>(lam5);
 
     // SFO
     {
