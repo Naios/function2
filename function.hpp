@@ -158,11 +158,11 @@ struct is_functor
 /// Is function pointer trait
 template<typename T>
 struct is_function_pointer
-    : std::integral_constant<bool, false> { };
+    : std::false_type { };
 
 template<typename ReturnType, typename... Args>
 struct is_function_pointer<ReturnType(*)(Args...)>
-    : std::integral_constant<bool, true> { };
+    : std::true_type { };
 
 template<typename T, bool Constant, bool Volatile>
 struct qualified_ptr_t;
