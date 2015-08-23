@@ -357,9 +357,6 @@ public:
 
     using call_operator<function>::operator();    
 
-private:
-
-
 }; // class function
 
 template<typename Signature, bool Copyable>
@@ -385,6 +382,9 @@ using unique_function = detail::function_base<Signature, false>;
 template<typename Fn>
 auto make_function(Fn functional)
 {
+    static_assert(detail::is_function_pointer<Fn>::value || detail::is_functor<Fn>::value,
+        "Can only create functions from functors and function pointers!");
+
     using unwrap_t = detail::unwrap_traits::unwrap_t<Fn>;
 
     return detail::function<
