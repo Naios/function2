@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include <type_traits>
+
 namespace mockup
 {
 
@@ -22,7 +24,88 @@ namespace mockup
 
 using namespace mockup;
 
+struct IA
+{
+    virtual ~IA() { }
+
+    virtual IA* dosomething() = 0;
+
+    virtual void setsomething(IA* ptr) = 0;
+};
+
+struct IB : IA
+{
+    virtual ~IB() { }
+
+    virtual IB* dosomething() = 0;
+
+    virtual void setsomething(IB* ptr) = 0;
+};
+
+struct A : IA
+{
+    virtual ~A() { }
+
+    IA* dosomething() override
+    {
+        return nullptr;
+    }
+
+    void setsomething(IA*) override
+    {
+        
+    }
+};
+
+struct B : IB
+{
+    B() = default;
+
+    virtual ~B() { }
+
+    IB* dosomething() override
+    {
+        return nullptr;
+    }
+
+    void setsomething(IA* ptr) override
+    {
+        
+    }
+
+    void setsomething(IB* ptr) override
+    {
+        // new (static_cast<B*>(ptr)) B();
+    }
+};
+
+struct empty
+{
+    virtual ~empty() { }
+
+    virtual void do_s() = 0;
+};
+
+static constexpr auto esz = sizeof(empty);
+
+static constexpr auto is_empty = std::is_empty<empty>::value;
+
+static constexpr auto sz = sizeof(B);
+
+static constexpr auto szptr = sizeof(&B::dosomething);
+
+static constexpr auto szvd = sizeof(void*);
+
 void test_mockup()
 {
+    IA* a = new A();
 
+    IB* b = new B();
+
+    IA* aa = a->dosomething();
+
+    IB* bb = b->dosomething();
+    IA* bbb = b->dosomething();
+
+    
 }

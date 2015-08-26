@@ -463,18 +463,22 @@ template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copya
 class storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>
     : public storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>>
 {
-    using base_t = storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>>;
+    static_assert(Capacity != 0, "Not implemented yet!");
+
+    using base_t = storage_t<
+        function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>
+    >;
 
 protected:
-    storage_t()
+    /*storage_t()
         : base_t() { }
 
-    storage_t(typename base_t::implementation_t impl)
+    storage_t(typename base_t::interface_holder_t impl)
         : base_t(impl) { }
 
     ~storage_t()
     {
-    }
+    }*/
 
     std::uint8_t _storage[Capacity];
 };
@@ -482,24 +486,80 @@ protected:
 template<typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
 class storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>>
 {
+    void weak_deallocate()
+    {
+        if (_impl)
+            delete _impl;
+    }
+
 protected:
-    using implementation_t = typename qualified_t<
-        call_wrapper_interface<ReturnType(Args...), Copyable, Constant, Volatile>,
-        Constant, Volatile
+    // Call wrapper interface
+    using interface_t = call_wrapper_interface<
+        ReturnType(Args...), Copyable, Constant, Volatile
+    >;
+
+    // Call wrapper implementation
+    template<typename T>
+    using implementation_t = call_wrapper_implementation<
+        T, ReturnType(Args...), Copyable, Constant, Volatile
+    >;
+
+    // Call wrapper qualified storage
+    using interface_holder_t = typename qualified_t<
+        interface_t, Constant, Volatile
     >::type*;
 
-    implementation_t _impl;
+    interface_holder_t _impl;
 
     storage_t()
         : _impl(nullptr) { }
 
-    storage_t(implementation_t impl)
-        : _impl(impl) { }
+    template<bool RightCopyable, bool RightConstant>
+    storage_t(storage_t<function<ReturnType(Args...), 0UL, RightCopyable, RightConstant, Volatile>>&& right)
+        : _impl(right._impl)
+    {
+        right._impl = nullptr;
+    }
+
+    template<typename T>
+    storage_t(T&& functor)
+        : _impl(new implementation_t<T>(std::forward<T>(functor))) { }
 
     ~storage_t()
     {
-        if (_impl)
-            delete _impl;
+        weak_deallocate();
+    }
+
+    // Copy assign
+    template<bool RightConstant>
+    storage_t& operator= (storage_t<function<ReturnType(Args...), 0UL, true, RightConstant, Volatile>> const& right)
+    {
+        weak_deallocate();
+        _impl = right._impl->clone();
+        return *this;
+    }
+
+    // Move assign
+    template<bool RightCopyable, bool RightConstant>
+    storage_t& operator= (storage_t<function<ReturnType(Args...), 0UL, RightCopyable, RightConstant, Volatile>>&& right)
+    {
+        weak_deallocate();
+        _impl = right._impl;
+        right._impl = nullptr;
+        return *this;
+    }
+
+    template<typename T>
+    void allocate(T&& functor)
+    {
+        weak_deallocate();
+        _impl = new implementation_t<T>(std::forward<T>(functor));
+    }
+
+    void deallocate()
+    {
+        weak_deallocate();
+        _impl = nullptr;
     }
 };
 
@@ -536,19 +596,13 @@ public:
     /// Copy construct
     template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile,
              typename = std::enable_if_t<Copyable, RightReturnType>>
-    function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile> const& /*function*/)
-        : storage_t<function>()
-    {
-        // TODO
-    }
+    function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile> const& right)
+        : storage_t<function>(right) { }
 
     /// Move construct
     template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile>
-    function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile>&& /*function*/)
-        : storage_t<function>()
-    {
-        // TODO
-    }
+    function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile>&& right)
+        : storage_t<function>(std::move(right)) { }
 
     /// Constructor taking a function pointer
     template<typename T, typename = std::enable_if_t<is_function_pointer_assignable_to_this<T>::value>, typename = void>
@@ -558,9 +612,7 @@ public:
     /// Constructor taking a functor
     template<typename T, typename = std::enable_if_t<is_functor_assignable_to_this<T>::value>>
     function(T functor)
-        : storage_t<function>(new call_wrapper_implementation<T, ReturnType(Args...), Copyable, Constant, Volatile>(std::forward<T>(functor)))
-    {
-    }
+        : storage_t<function>(functor) { }
 
     ~function()
     {
@@ -569,17 +621,17 @@ public:
     /// Copy assign
     template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile,
              typename = std::enable_if_t<Copyable, RightReturnType>>
-    function& operator= (function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile> const& /*right*/)
+    function& operator= (function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile> const& right)
     {
-        // TODO
+        storage_t<function>::operator= (right);
         return *this;
     }
 
     /// Move assign
     template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile>
-    function& operator= (function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile>&& /*right*/)
+    function& operator= (function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile>&& right)
     {
-        // TODO
+        storage_t<function>::operator= (std::move(right));
         return *this;
     }
 
@@ -587,8 +639,7 @@ public:
 
 }; // class function
 
-struct default_capacity
-    : std::integral_constant<std::size_t, 20UL> { };
+static constexpr std::size_t default_capacity = 0UL;
 
 } // namespace detail
 
@@ -606,7 +657,7 @@ using function_base = detail::function<
 template<typename Signature>
 using function = function_base<
     Signature,
-    detail::default_capacity::value,
+    detail::default_capacity,
     true
 >;
 
@@ -614,14 +665,14 @@ using function = function_base<
 template<typename Signature>
 using unique_function = function_base<
     Signature,
-    detail::default_capacity::value,
+    detail::default_capacity,
     false
 >;
 
 /// Creates a functional object which type depends on the given functor or function pointer.
 /// The second template parameter can be used to adjust the capacity
 /// for small functor optimization (in-place allocation for small objects).
-template<typename Fn, std::size_t Capacity = detail::default_capacity::value>
+template<typename Fn, std::size_t Capacity = detail::default_capacity>
 auto make_function(Fn functional)
 {
     static_assert(detail::is_function_pointer<Fn>::value || detail::is_functor<std::decay_t<Fn>>::value,

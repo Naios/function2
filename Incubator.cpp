@@ -393,7 +393,7 @@ void test_incubator()
     {
     };
 
-    auto fnbig = make_function<decltype(lam3)&&, 40>(std::move(lam3));
+    // auto fnbig = make_function<decltype(lam3)&&, 40>(std::move(lam3));
 
     // Static test: make_function call with mutable functional
     {

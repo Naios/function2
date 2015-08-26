@@ -48,6 +48,8 @@ TEST_CASE("Functions are callable", "[function<>]")
         return test;
     };
 
+    REQUIRE_FALSE(is_set);
+
     SECTION("Simple call test with function<bool(bool) const>")
     {
         function<bool(bool) const> fun(lam);
