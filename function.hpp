@@ -514,6 +514,12 @@ protected:
     storage_t()
         : _impl(nullptr) { }
 
+    // Copy construct
+    template<bool RightConstant>
+    storage_t(storage_t<function<ReturnType(Args...), 0UL, true, RightConstant, Volatile>> const& right)
+        : _impl(right._impl->clone()) { }
+
+    // Move construct
     template<bool RightCopyable, bool RightConstant>
     storage_t(storage_t<function<ReturnType(Args...), 0UL, RightCopyable, RightConstant, Volatile>>&& right)
         : _impl(right._impl)
@@ -612,7 +618,7 @@ public:
     /// Constructor taking a functor
     template<typename T, typename = std::enable_if_t<is_functor_assignable_to_this<T>::value>>
     function(T functor)
-        : storage_t<function>(functor) { }
+        : storage_t<function>(std::forward<T>(functor)) { }
 
     ~function()
     {

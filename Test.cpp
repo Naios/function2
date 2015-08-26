@@ -28,9 +28,9 @@ using namespace fu2;
 
 int main(int argc, char** argv)
 {
-    test_mockup();
+    // test_mockup();
 
-    test_incubator();
+    // test_incubator();
 
     int const result = Catch::Session().run(argc, argv);
 
@@ -70,5 +70,37 @@ TEST_CASE("Functions are callable", "[function<>]")
 
         REQUIRE_FALSE(ufun(false));
         REQUIRE_FALSE(is_set);
+    }
+}
+
+
+TEST_CASE("Functions are copy and moveable", "[function<>]")
+{
+    SECTION("Simple move test with unique_function<bool() const>")
+    {
+        unique_function<bool() const> left;
+
+        unique_function<bool() const> right([]
+        {
+            return true;
+        });
+
+        left = std::move(right);
+
+        REQUIRE(left());
+    }
+
+    SECTION("Simple copy test with function<bool() const>")
+    {
+        function<bool() const> left;
+
+        function<bool() const> right([]
+        {
+            return true;
+        });
+
+        left = right;
+
+        // REQUIRE(left());
     }
 }
