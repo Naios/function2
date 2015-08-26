@@ -469,7 +469,7 @@ void test_incubator()
 
     function<void() const> res_ttt = make_function(std::move(ttt));
 
-    decltype(res_ttt) res_ttt2 = res_ttt;
+    // decltype(res_ttt) res_ttt2 = res_ttt;
 
     function<void(int, int) const volatile> ffff;
 
@@ -497,7 +497,7 @@ void test_incubator()
 
     unique_function<void()> ouf;
 
-    uf = std::move(ouf);
+    // uf = std::move(ouf);
 
     unique_function<void()> oouf = std::move(ouf);
 

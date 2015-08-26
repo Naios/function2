@@ -26,13 +26,30 @@ void test_incubator();
 
 using namespace fu2;
 
+void test()
+{
+    function<bool() const> left;
+
+    function<bool() const> right([]
+    {
+        return true;
+    });
+
+    left = right;
+
+    int i = 0;
+}
+
 int main(int argc, char** argv)
 {
     // test_mockup();
 
     // test_incubator();
 
-    int const result = Catch::Session().run(argc, argv);
+    int const result = 0; // Catch::Session().run(argc, argv);
+
+    test();
+
 
     // Attach breakpoint here ,-)
     return result;
@@ -85,21 +102,14 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
             return true;
         });
 
-        left = std::move(right);
+        // left = std::move(right);
 
         REQUIRE(left());
     }
 
     SECTION("Simple copy test with function<bool() const>")
     {
-        function<bool() const> left;
 
-        function<bool() const> right([]
-        {
-            return true;
-        });
-
-        left = right;
 
         // REQUIRE(left());
     }
