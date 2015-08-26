@@ -493,7 +493,7 @@ class storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>
             delete _impl;
     }
 
-public:
+protected:
     // Call wrapper interface
     using interface_t = call_wrapper_interface<
         ReturnType(Args...), Copyable, Constant, Volatile
@@ -518,7 +518,7 @@ public:
     // Copy construct
     template<bool RightConstant>
     storage_t(storage_t<function<ReturnType(Args...), 0UL, true, RightConstant, Volatile>> const& right)
-        : _impl(right._impl->clone()) { }
+        : _impl((right._impl) ? right._impl->clone() : nullptr) { }
 
     // Move construct
     template<bool RightCopyable, bool RightConstant>
@@ -632,7 +632,7 @@ public:
 
     function& operator= (function const& right)
     {
-        copy_assign(right);
+        this->copy_assign(right);
         return *this;
     }
 
@@ -641,13 +641,13 @@ public:
              typename = std::enable_if_t<Copyable, RightReturnType>>
     function& operator= (function<RightReturnType(RightArgs...), RightCapacity, true, RightConstant, Volatile> const& right)
     {
-        copy_assign(right);
+        this->copy_assign(right);
         return *this;
     }
 
     function& operator= (function&& right)
     {
-        move_assign(std::move(right));
+        this->move_assign(std::move(right));
         return *this;
     }
 
@@ -655,7 +655,7 @@ public:
     template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile>
     function& operator= (function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile>&& right)
     {
-        move_assign(std::move(right));
+        this->move_assign(std::move(right));
         return *this;
     }
 
