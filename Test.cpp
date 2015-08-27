@@ -101,7 +101,19 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
         REQUIRE(left());
     }
 
-    SECTION("Simple copy test with function<bool() const>")
+    SECTION("Move construct between function<bool() const>")
+    {
+        function<bool() const> right([]
+        {
+            return true;
+        });
+
+        function<bool() const> left(std::move(right));
+
+        REQUIRE(left());
+    }
+
+    SECTION("Move assign between function<bool() const>")
     {
         function<bool() const> left;
 
@@ -110,9 +122,54 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
             return true;
         });
 
-        left = right;
+        left = std::move(right);
 
         REQUIRE(left());
+    }
+
+    SECTION("Copy construct between function<int()>")
+    {
+        int counter = 0;
+        function<int()> right([counter] () mutable
+        {
+            return counter++;
+        });
+
+        REQUIRE(right() == 0);
+        REQUIRE(right() == 1);
+        REQUIRE(right() == 2);
+
+        function<int()> left(right);
+        REQUIRE(left() == 3);
+        REQUIRE(left() == 4);
+        
+        REQUIRE(right() == 3);
+        REQUIRE(right() == 4);
+
+        REQUIRE(left() == 5);
+    }
+
+    SECTION("Copy assign between function<int()>")
+    {
+        int counter = 0;
+        function<int()> left;
+        function<int()> right([counter]() mutable
+        {
+            return counter++;
+        });
+
+        REQUIRE(right() == 0);
+        REQUIRE(right() == 1);
+        REQUIRE(right() == 2);
+
+        left = right;
+        REQUIRE(left() == 3);
+        REQUIRE(left() == 4);
+
+        REQUIRE(right() == 3);
+        REQUIRE(right() == 4);
+
+        REQUIRE(left() == 5);
     }
 }
 
