@@ -380,7 +380,7 @@ void test_incubator()
         "check failed!");
         */
 
-    
+    /*
     function<void(int, float) const> fn0;
     // fn0(1, 1);
 
@@ -518,12 +518,12 @@ void test_incubator()
         
     }
 
-    /*unique_function<void(std::string const&) const> test_fun([](std::string const& arg)
+    unique_function<void(std::string const&) const> test_fun([](std::string const& arg)
     {
         int i = 0;
     });
 
-    test_fun("hey, it works!");*/
+    test_fun("hey, it works!");
 
 
     bool is_set = false;
@@ -533,6 +533,7 @@ void test_incubator()
         is_set = test;
     });
 
+    */
     // breakpoint
     int i = 0;
 }

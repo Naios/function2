@@ -75,7 +75,19 @@ TEST_CASE("Functions are callable", "[function<>]")
 
 TEST_CASE("Functions are copy and moveable", "[function<>]")
 {
-    SECTION("Simple move test with unique_function<bool() const>")
+    SECTION("Move construct between unique_function<bool() const>")
+    {
+        unique_function<bool() const> right([]
+        {
+            return true;
+        });
+
+        unique_function<bool() const> left(std::move(right));
+
+        REQUIRE(left());
+    }
+
+    SECTION("Move assign between unique_function<bool() const>")
     {
         unique_function<bool() const> left;
 
@@ -91,9 +103,16 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
 
     SECTION("Simple copy test with function<bool() const>")
     {
+        function<bool() const> left;
 
+        function<bool() const> right([]
+        {
+            return true;
+        });
 
-        // REQUIRE(left());
+        left = right;
+
+        REQUIRE(left());
     }
 }
 

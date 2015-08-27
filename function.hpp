@@ -407,8 +407,7 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
 
     call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* clone() const override
     {
-        // return new call_wrapper_implementation(T(_impl));
-        return nullptr;
+        return new call_wrapper_implementation(T(_impl));
     };
 
     using call_virtual_operator<call_wrapper_implementation, ReturnType(Args...), true, Constant, Volatile>::operator();
@@ -417,6 +416,10 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
 
 template<typename /*Fn*/, std::size_t /*Capacity*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
 class function;
+
+template<typename /*Fun*/>
+struct is_function
+    : std::false_type { };
 
 template <typename /*Base*/, typename /*Fn*/, bool Copyable, bool /*Constant*/, bool /*Volatile*/>
 struct call_operator;
@@ -515,10 +518,16 @@ protected:
     storage_t()
         : _impl(nullptr) { }
 
+    storage_t(storage_t const&) = delete;
+    storage_t(storage_t&&) = delete;
+
     // Copy construct
-    template<bool RightConstant>
+    /*template<bool RightConstant>
     storage_t(storage_t<function<ReturnType(Args...), 0UL, true, RightConstant, Volatile>> const& right)
-        : _impl((right._impl) ? right._impl->clone() : nullptr) { }
+        : _impl((right._impl) ? right._impl->clone() : nullptr)
+    {
+        int i = 0;
+    }
 
     // Move construct
     template<bool RightCopyable, bool RightConstant>
@@ -528,9 +537,12 @@ protected:
         right._impl = nullptr;
     }
 
-    template<typename T>
+    template<typename T, typename = std::enable_if_t<!is_function<std::decay<T>>::value>>
     storage_t(T&& functor)
-        : _impl(new call_wrapper_implementation<T, ReturnType(Args...), Copyable, Constant, Volatile>(std::forward<T>(functor))) { }
+        : _impl(new call_wrapper_implementation<T, ReturnType(Args...), Copyable, Constant, Volatile>(std::forward<T>(functor)))
+    {
+        int i = 0;
+    }*/
 
     //   new typename implementation_t<T>
 
@@ -542,9 +554,16 @@ protected:
     storage_t& operator= (storage_t const&) = delete;
     storage_t& operator= (storage_t&&) = delete;
 
+    template<typename T>
+    void allocate(T&& functor)
+    {
+        weak_deallocate();
+        _impl = new implementation_t<T>(std::forward<T>(functor));
+    }
+
     // Copy assign
-    template<bool RightCopyable, bool RightConstant>
-    void copy_assign(storage_t<function<ReturnType(Args...), 0UL, RightCopyable, RightConstant, Volatile>> const& right)
+    template<bool RightConstant>
+    void copy_assign(storage_t<function<ReturnType(Args...), 0UL, true, RightConstant, Volatile>> const& right)
     {
         weak_deallocate();
         
@@ -561,13 +580,6 @@ protected:
         weak_deallocate();
         _impl = right._impl;
         right._impl = nullptr;
-    }
-
-    template<typename T>
-    void allocate(T&& functor)
-    {
-        weak_deallocate();
-        _impl = new implementation_t<T>(std::forward<T>(functor));
     }
 
     void deallocate()
@@ -598,6 +610,7 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
     template<typename T>
     using is_functor_assignable_to_this =
         std::integral_constant<bool,
+            // !is_function<T>::value &&
             is_functor<T>::value &&
             !(Constant && !unwrap_t<T>::is_const) &&
             (Volatile == unwrap_t<T>::is_volatile)
@@ -608,25 +621,44 @@ public:
         : storage_t<function>() { }
 
     /// Copy construct
+    explicit function(function const& right)
+    {
+        static_assert(Copyable, "Not copyable!");
+        this->copy_assign(right);
+    }
+
+    /// Move construct
+    explicit function(function&& right)
+    {
+        this->move_assign(std::move(right));
+    }
+
+    /// Copy construct
     template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
              typename = std::enable_if_t<Copyable, RightReturnType>>
-    function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, Volatile> const& right)
-        : storage_t<function>(right) { }
+    explicit function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, Volatile> const& right)
+    {
+        this->copy_assign(right);
+    }
 
     /// Move construct
     template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant>
-    function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, Volatile>&& right)
-        : storage_t<function>(std::move(right)) { }
+    explicit function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, Volatile>&& right)
+    {
+        this->move_assign(std::move(right));
+    }
 
     /// Constructor taking a function pointer
     template<typename T, typename = std::enable_if_t<is_function_pointer_assignable_to_this<T>::value>, typename = void>
-    function(T ptr)
-        : function([ptr](Args&&... args) { return ptr(std::forward<Args>(args)...); }) { }
+    function(T function_pointer)
+        : function([function_pointer](Args&&... args) { return function_pointer(std::forward<Args>(args)...); }) { }
 
     /// Constructor taking a functor
     template<typename T, typename = std::enable_if_t<is_functor_assignable_to_this<T>::value>>
     function(T functor)
-        : storage_t<function>(std::forward<T>(functor)) { }
+    {
+        this->allocate(std::forward<T>(functor));
+    }
 
     ~function() { }
 
@@ -662,6 +694,10 @@ public:
     using call_operator<function, ReturnType(Args...), Copyable, Constant, Volatile>::operator();    
 
 }; // class function
+
+template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
+struct is_function<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>
+    : std::true_type { };
 
 static constexpr std::size_t default_capacity = 0UL;
 
