@@ -417,10 +417,6 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
 template<typename /*Fn*/, std::size_t /*Capacity*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
 class function;
 
-template<typename /*Fun*/>
-struct is_function
-    : std::false_type { };
-
 template <typename /*Base*/, typename /*Fn*/, bool Copyable, bool /*Constant*/, bool /*Volatile*/>
 struct call_operator;
 
@@ -521,31 +517,6 @@ protected:
     storage_t(storage_t const&) = delete;
     storage_t(storage_t&&) = delete;
 
-    // Copy construct
-    /*template<bool RightConstant>
-    storage_t(storage_t<function<ReturnType(Args...), 0UL, true, RightConstant, Volatile>> const& right)
-        : _impl((right._impl) ? right._impl->clone() : nullptr)
-    {
-        int i = 0;
-    }
-
-    // Move construct
-    template<bool RightCopyable, bool RightConstant>
-    storage_t(storage_t<function<ReturnType(Args...), 0UL, RightCopyable, RightConstant, Volatile>>&& right)
-        : _impl(right._impl)
-    {
-        right._impl = nullptr;
-    }
-
-    template<typename T, typename = std::enable_if_t<!is_function<std::decay<T>>::value>>
-    storage_t(T&& functor)
-        : _impl(new call_wrapper_implementation<T, ReturnType(Args...), Copyable, Constant, Volatile>(std::forward<T>(functor)))
-    {
-        int i = 0;
-    }*/
-
-    //   new typename implementation_t<T>
-
     ~storage_t()
     {
         weak_deallocate();
@@ -617,8 +588,7 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
         >;
 
 public:
-    function()
-        : storage_t<function>() { }
+    function() { }
 
     /// Copy construct
     explicit function(function const& right)
@@ -660,6 +630,9 @@ public:
         this->allocate(std::forward<T>(functor));
     }
 
+    function(std::nullptr_t)
+        : storage_t<function>() { }
+
     ~function() { }
 
     function& operator= (function const& right)
@@ -691,13 +664,15 @@ public:
         return *this;
     }
 
+    function& operator= (std::nullptr_t)
+    {
+        this->deallocate();
+        return *this;
+    }
+
     using call_operator<function, ReturnType(Args...), Copyable, Constant, Volatile>::operator();    
 
 }; // class function
-
-template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
-struct is_function<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>
-    : std::true_type { };
 
 static constexpr std::size_t default_capacity = 0UL;
 
