@@ -735,7 +735,6 @@ auto make_function(Fn functional)
 
     return detail::function<
         typename unwrap_t::decayed_type,
-        void,
         Capacity,
         // Check if the given argument is copyable in any way.
         std::is_copy_assignable<std::decay_t<Fn>>::value ||
