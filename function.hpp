@@ -631,7 +631,7 @@ public:
 
     /// Copy construct
     template<std::size_t RightCapacity, bool RightConstant,
-             typename = std::enable_if_t<Copyable && is_constant_correct_to_this<RightConstant>::value, RightConstant>>
+             typename = std::enable_if_t<Copyable && is_constant_correct_to_this<RightConstant>::value>>
     explicit function(function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile> const& right)
     {
         _storage.copy_assign(right);
@@ -640,7 +640,7 @@ public:
     /// Move construct
     template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
              typename = std::enable_if_t<is_constant_correct_to_this<RightConstant>::value &&
-                        is_copyable_correct_to_this<RightConstant>::value, RightConstant>>
+                        is_copyable_correct_to_this<RightConstant>::value>>
     explicit function(function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>&& right)
     {
         _storage.move_assign(std::move(right));
@@ -663,7 +663,7 @@ public:
 
     /// Copy assign
     template<std::size_t RightCapacity, bool RightConstant,
-             typename = std::enable_if_t<Copyable && is_constant_correct_to_this<RightConstant>::value, RightConstant>>
+             typename = std::enable_if_t<Copyable && is_constant_correct_to_this<RightConstant>::value>>
     function& operator= (function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile> const& right)
     {
         _storage.copy_assign(right);
@@ -673,7 +673,7 @@ public:
     /// Move assign
     template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
              typename = std::enable_if_t<is_constant_correct_to_this<RightConstant>::value &&
-                        is_copyable_correct_to_this<RightConstant>::value, RightConstant>>
+                        is_copyable_correct_to_this<RightConstant>::value>>
     function& operator= (function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>&& right)
     {
         _storage.move_assign(std::move(right));
