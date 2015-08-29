@@ -74,9 +74,9 @@ namespace incubator
         {
         });
 
-        function<void(int, int) const> fn;
-
-        fn(1, 1);
+//         function<void(int, int) const> fn;
+// 
+//         fn(1, 1);
 
         /*std::function<void()> fn2([up = std::move(up)]
         {

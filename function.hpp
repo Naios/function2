@@ -170,11 +170,11 @@ struct copyable { };
 template <>
 struct copyable<false>
 {
-protected:
-    copyable() { }
-
+    copyable() = default;
     copyable(copyable const&) = delete;
+    copyable(copyable&&) = default;
     copyable& operator=(copyable const&) = delete;
+    copyable& operator=(copyable&&) = default;
 };
 
 template<typename T, bool /*Constant*/, bool /*Volatile*/>
@@ -425,7 +425,7 @@ struct call_operator<Base, ReturnType(Args...), Copyable, false, false>
 {
     ReturnType operator()(Args... args)
     {
-        return (*static_cast<Base*>(this)->_impl)(std::forward<Args>(args)...);
+        return (*static_cast<Base*>(this)->_storage._impl)(std::forward<Args>(args)...);
     }
 };
 
@@ -434,7 +434,7 @@ struct call_operator<Base, ReturnType(Args...), Copyable, true, false>
 {
     ReturnType operator()(Args... args) const
     {
-        return (*static_cast<const Base*>(this)->_impl)(std::forward<Args>(args)...);
+        return (*static_cast<const Base*>(this)->_storage._impl)(std::forward<Args>(args)...);
     }
 };
 
@@ -443,7 +443,7 @@ struct call_operator<Base, ReturnType(Args...), Copyable, false, true>
 {
     ReturnType operator()(Args... args) volatile
     {
-        return (*static_cast<volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
+        return (*static_cast<volatile Base*>(this)->_storage._impl)(std::forward<Args>(args)...);
     }
 };
 
@@ -452,15 +452,16 @@ struct call_operator<Base, ReturnType(Args...), Copyable, true, true>
 {
     ReturnType operator()(Args... args) const volatile
     {
-        return (*static_cast<const volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
+        return (*static_cast<const volatile Base*>(this)->_storage._impl)(std::forward<Args>(args)...);
     }
 };
 
 template<typename /*Fn*/>
 struct storage_t;
 
+/*
 template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
-class storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>
+struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>
     : public storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>>
 {
     static_assert(Capacity != 0, "Not implemented yet!");
@@ -470,7 +471,7 @@ class storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vola
     >;
 
 protected:
-    /*storage_t()
+    storage_t()
         : base_t() { }
 
     storage_t(typename base_t::interface_holder_t impl)
@@ -478,13 +479,14 @@ protected:
 
     ~storage_t()
     {
-    }*/
+    }
 
     std::uint8_t _storage[Capacity];
 };
+*/
 
 template<typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
-class storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>>
+struct storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>>
 {
     void weak_deallocate()
     {
@@ -492,7 +494,6 @@ class storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>
             delete _impl;
     }
 
-protected:
     // Call wrapper interface
     using interface_t = call_wrapper_interface<
         ReturnType(Args...), Copyable, Constant, Volatile
@@ -514,16 +515,32 @@ protected:
     storage_t()
         : _impl(nullptr) { }
 
-    storage_t(storage_t const&) = delete;
-    storage_t(storage_t&&) = delete;
+    storage_t(storage_t const& right)
+    {
+        copy_assign(right);
+    }
+
+    storage_t(storage_t&& right)
+    {
+        move_assign(std::move(right));
+    }
+
+    storage_t& operator= (storage_t const& right)
+    {
+        copy_assign(right);
+        return *this;
+    }
+
+    storage_t& operator= (storage_t&& right)
+    {
+        move_assign(std::move(right));
+        return *this;
+    }
 
     ~storage_t()
     {
         weak_deallocate();
     }
-
-    storage_t& operator= (storage_t const&) = delete;
-    storage_t& operator= (storage_t&&) = delete;
 
     template<typename T>
     void allocate(T&& functor)
@@ -562,10 +579,9 @@ protected:
 
 template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
 class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
-    : public storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>,
-      public call_operator<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>, ReturnType(Args...), Copyable, Constant, Volatile>,
-      public signature<ReturnType, Args...>/*,
-      public copyable<Copyable>*/
+    : public call_operator<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>, ReturnType(Args...), Copyable, Constant, Volatile>,
+      public signature<ReturnType, Args...>,
+      public copyable<Copyable>
 {
     friend struct call_operator<function, ReturnType(Args...), Copyable, Constant, Volatile>;
 
@@ -587,35 +603,25 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
             (Volatile == unwrap_t<T>::is_volatile)
         >;
 
+    // Implementation storage
+    storage_t<function> _storage;
+
 public:
-    function() : storage_t<function>() { }
+    function() = default;
 
     /// Copy construct
-    explicit function(function const& right)
+    template<std::size_t RightCapacity, bool RightConstant,
+             typename = std::enable_if_t < Copyable, RightReturnType >>
+    explicit function(function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile> const& right)
     {
-        static_assert(Copyable, "Not copyable!");
-        this->copy_assign(right);
-    }
-
-    /// Move construct
-    explicit function(function&& right)
-    {
-        this->move_assign(std::move(right));
-    }
-
-    /// Copy construct
-    template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
-             typename = std::enable_if_t<Copyable, RightReturnType>>
-    explicit function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, Volatile> const& right)
-    {
-        this->copy_assign(right);
+        _storage.copy_assign(right);
     }
 
     /// Move construct
     template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant>
     explicit function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, Volatile>&& right)
     {
-        this->move_assign(std::move(right));
+        _storage.move_assign(std::move(right));
     }
 
     /// Constructor taking a function pointer
@@ -627,32 +633,18 @@ public:
     template<typename T, typename = std::enable_if_t<is_functor_assignable_to_this<T>::value>>
     function(T functor)
     {
-        this->allocate(std::forward<T>(functor));
+        _storage.allocate(std::forward<T>(functor));
     }
 
     explicit function(std::nullptr_t)
-        : storage_t<function>() { }
-
-    ~function() { }
-
-    function& operator= (function const& right)
-    {
-        this->copy_assign(right);
-        return *this;
-    }
+        : _storage() { }
 
     /// Copy assign
     template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightConstant,
              typename = std::enable_if_t<Copyable, RightReturnType>>
     function& operator= (function<RightReturnType(RightArgs...), RightCapacity, true, RightConstant, Volatile> const& right)
     {
-        this->copy_assign(right);
-        return *this;
-    }
-
-    function& operator= (function&& right)
-    {
-        this->move_assign(std::move(right));
+        _storage.copy_assign(right);
         return *this;
     }
 
@@ -660,13 +652,13 @@ public:
     template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile>
     function& operator= (function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile>&& right)
     {
-        this->move_assign(std::move(right));
+        _storage.move_assign(std::move(right));
         return *this;
     }
 
     function& operator= (std::nullptr_t)
     {
-        this->deallocate();
+        _storage.deallocate();
         return *this;
     }
 

@@ -29,11 +29,23 @@ using namespace fu2;
 
 int main(int argc, char** argv)
 {
-    // test_mockup();
+    test_mockup();
 
     // test_incubator();
 
     int const result = Catch::Session().run(argc, argv);
+
+    function<void()> fn0;
+    function<void()> fn1(fn0);
+
+    fn0 = fn1;
+
+    unique_function<void()> fn2;
+
+    unique_function<void()> fn3(std::move(fn2));
+    fn2 = std::move(fn2);
+
+    fn2();
 
     // Attach breakpoint here ,-)
     return result;
@@ -205,8 +217,8 @@ TEST_CASE("Functions are convertible to and from functors", "[function<>]")
 
         // myfun_test fun;
 
-        std::function<bool()> left = right;
+        // std::function<bool()> left = right;
 
-        REQUIRE(left());
+        // REQUIRE(left());
     }
 }
