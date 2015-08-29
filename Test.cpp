@@ -35,18 +35,6 @@ int main(int argc, char** argv)
 
     int const result = Catch::Session().run(argc, argv);
 
-    function<void()> fn0;
-    function<void()> fn1(fn0);
-
-    fn0 = fn1;
-
-    unique_function<void()> fn2;
-
-    unique_function<void()> fn3(std::move(fn2));
-    fn2 = std::move(fn2);
-
-    fn2();
-
     // Attach breakpoint here ,-)
     return result;
 }

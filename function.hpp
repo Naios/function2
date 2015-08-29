@@ -516,13 +516,12 @@ struct storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile
         : _impl(nullptr) { }
 
     storage_t(storage_t const& right)
-    {
-        copy_assign(right);
-    }
+        : _impl((right._impl) ? right._impl->clone() : nullptr) { }
 
     storage_t(storage_t&& right)
+        : _impl(right._impl)
     {
-        move_assign(std::move(right));
+        right._impl = nullptr;
     }
 
     storage_t& operator= (storage_t const& right)
