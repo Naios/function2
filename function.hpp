@@ -584,6 +584,27 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
 {
     friend struct call_operator<function, ReturnType(Args...), Copyable, Constant, Volatile>;
 
+    // Is a true type if the given function is copyable correct to this.
+    template<bool RightCopyable>
+    using is_copyable_correct_to_this =
+        std::integral_constant<bool,
+            !(Copyable && !RightCopyable)
+        >;
+
+    // Is a true type if the given function is constant correct to this.
+    template<bool RightConstant>
+    using is_constant_correct_to_this =
+        std::integral_constant<bool,
+            !(Constant && !RightConstant)
+        >;
+
+    // Is a true type if the given function is volatile correct to this.
+    template<bool RightVolatile>
+    using is_volatile_correct_to_this =
+        std::integral_constant<bool,
+            Volatile == RightVolatile
+        >;
+
     // Is a true type if the given function pointer is assignable to this.
     template<typename T>
     using is_function_pointer_assignable_to_this =
@@ -598,8 +619,8 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
         std::integral_constant<bool,
             // !is_function<T>::value &&
             is_functor<T>::value &&
-            !(Constant && !unwrap_t<T>::is_const) &&
-            (Volatile == unwrap_t<T>::is_volatile)
+            is_constant_correct_to_this<unwrap_t<T>::is_const>::value &&
+            is_volatile_correct_to_this<unwrap_t<T>::is_volatile>::value
         >;
 
     // Implementation storage
@@ -610,15 +631,15 @@ public:
 
     /// Copy construct
     template<std::size_t RightCapacity, bool RightConstant,
-             typename = std::enable_if_t < Copyable, RightReturnType >>
+             typename = std::enable_if_t<Copyable && is_constant_correct_to_this<RightConstant>::value, RightConstant>>
     explicit function(function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile> const& right)
     {
         _storage.copy_assign(right);
     }
 
     /// Move construct
-    template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant>
-    explicit function(function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, Volatile>&& right)
+    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant>
+    explicit function(function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>&& right)
     {
         _storage.move_assign(std::move(right));
     }
@@ -639,17 +660,17 @@ public:
         : _storage() { }
 
     /// Copy assign
-    template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightConstant,
-             typename = std::enable_if_t<Copyable, RightReturnType>>
-    function& operator= (function<RightReturnType(RightArgs...), RightCapacity, true, RightConstant, Volatile> const& right)
+    template<std::size_t RightCapacity, bool RightConstant,
+             typename = std::enable_if_t<Copyable && is_constant_correct_to_this<RightConstant>::value, RightConstant>>
+    function& operator= (function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile> const& right)
     {
         _storage.copy_assign(right);
         return *this;
     }
 
     /// Move assign
-    template<typename RightReturnType, typename... RightArgs, std::size_t RightCapacity, bool RightCopyable, bool RightConstant, bool RightVolatile>
-    function& operator= (function<RightReturnType(RightArgs...), RightCapacity, RightCopyable, RightConstant, RightVolatile>&& right)
+    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant>
+    function& operator= (function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>&& right)
     {
         _storage.move_assign(std::move(right));
         return *this;
