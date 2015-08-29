@@ -17,6 +17,7 @@
 
 #include "function.hpp"
 #include <functional>
+#include <memory>
 
 #define CATCH_CONFIG_RUNNER
 
@@ -337,9 +338,7 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
 {
     SECTION("Move construct fu2::function from test_noncopyable_functor")
     {
-        std::unique_ptr<bool> up = std::make_unique<bool>(true);
-
-        auto right = [up = std::move(up)]
+        auto right = [up = std::make_unique<bool>(true)]
         {
             return *up;
         };
@@ -351,9 +350,7 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
 
     SECTION("Move assign fu2::function from test_noncopyable_functor")
     {
-        std::unique_ptr<bool> up = std::make_unique<bool>(true);
-
-        auto right = [up = std::move(up)]
+        auto right = [up = std::make_unique<bool>(true)]
         {
             return *up;
         };

@@ -695,7 +695,7 @@ static constexpr std::size_t default_capacity = 0UL;
 } // namespace detail
 
 /// Function wrapper base
-template<typename Signature, std::size_t Capacity, bool Copyable>
+template<typename Signature, typename Allocator, std::size_t Capacity, bool Copyable>
 using function_base = detail::function<
     typename detail::unwrap_traits::unwrap<Signature>::decayed_type,
     Capacity,
@@ -708,6 +708,7 @@ using function_base = detail::function<
 template<typename Signature>
 using function = function_base<
     Signature,
+    void,
     detail::default_capacity,
     true
 >;
@@ -716,6 +717,7 @@ using function = function_base<
 template<typename Signature>
 using unique_function = function_base<
     Signature,
+    void,
     detail::default_capacity,
     false
 >;
@@ -733,6 +735,7 @@ auto make_function(Fn functional)
 
     return detail::function<
         typename unwrap_t::decayed_type,
+        void,
         Capacity,
         // Check if the given argument is copyable in any way.
         std::is_copy_assignable<std::decay_t<Fn>>::value ||
