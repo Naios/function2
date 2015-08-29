@@ -638,7 +638,9 @@ public:
     }
 
     /// Move construct
-    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant>
+    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
+             typename = std::enable_if_t<is_constant_correct_to_this<RightConstant>::value &&
+                        is_copyable_correct_to_this<RightConstant>::value, RightConstant>>
     explicit function(function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>&& right)
     {
         _storage.move_assign(std::move(right));
@@ -669,7 +671,9 @@ public:
     }
 
     /// Move assign
-    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant>
+    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
+             typename = std::enable_if_t<is_constant_correct_to_this<RightConstant>::value &&
+                        is_copyable_correct_to_this<RightConstant>::value, RightConstant>>
     function& operator= (function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>&& right)
     {
         _storage.move_assign(std::move(right));
