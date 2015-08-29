@@ -16,6 +16,7 @@
  */
 
 #include "function.hpp"
+#include <functional>
 
 #define CATCH_CONFIG_RUNNER
 
@@ -173,3 +174,39 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
     }
 }
 
+struct myfun_test
+{
+    bool operator() () const
+    {
+        return true;
+    }
+};
+
+TEST_CASE("Functions are convertible to and from functors", "[function<>]")
+{
+    SECTION("Assign std::function to fu2::function")
+    {
+        std::function<bool()> right([]
+        {
+            return true;
+        });
+
+        function<bool()> left = right;
+
+        REQUIRE(left());
+    }
+
+    SECTION("Assign fu2::function to std::function")
+    {
+        function<bool()> right([]
+        {
+            return true;
+        });
+
+        // myfun_test fun;
+
+        std::function<bool()> left = right;
+
+        REQUIRE(left());
+    }
+}

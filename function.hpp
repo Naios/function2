@@ -564,8 +564,8 @@ template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copya
 class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
     : public storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>,
       public call_operator<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>, ReturnType(Args...), Copyable, Constant, Volatile>,
-      public signature<ReturnType, Args...>,
-      public copyable<Copyable>
+      public signature<ReturnType, Args...>/*,
+      public copyable<Copyable>*/
 {
     friend struct call_operator<function, ReturnType(Args...), Copyable, Constant, Volatile>;
 
@@ -588,7 +588,7 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
         >;
 
 public:
-    function() { }
+    function() : storage_t<function>() { }
 
     /// Copy construct
     explicit function(function const& right)
@@ -630,7 +630,7 @@ public:
         this->allocate(std::forward<T>(functor));
     }
 
-    function(std::nullptr_t)
+    explicit function(std::nullptr_t)
         : storage_t<function>() { }
 
     ~function() { }
