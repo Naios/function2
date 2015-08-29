@@ -174,17 +174,9 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
     }
 }
 
-struct myfun_test
-{
-    bool operator() () const
-    {
-        return true;
-    }
-};
-
 TEST_CASE("Functions are convertible to and from functors", "[function<>]")
 {
-    SECTION("Assign std::function to fu2::function")
+    SECTION("Copy construct fu2::function from std::function")
     {
         std::function<bool()> right([]
         {
@@ -196,17 +188,206 @@ TEST_CASE("Functions are convertible to and from functors", "[function<>]")
         REQUIRE(left());
     }
 
-    SECTION("Assign fu2::function to std::function")
+    SECTION("Copy assign fu2::function from std::function")
     {
-        function<bool()> right([]
+        std::function<bool()> right([]
         {
             return true;
         });
 
-        // myfun_test fun;
+        function<bool()> left;
 
-        // std::function<bool()> left = right;
+        left = right;
 
-        // REQUIRE(left());
+        REQUIRE(left());
+    }
+
+    SECTION("Copy construct std::function<bool()> from fu2::function<bool()>")
+    {
+        function<bool()> right([]() mutable
+        {
+            return true;
+        });
+
+        std::function<bool()> left(right);
+    
+        REQUIRE(left());
+    }
+
+    SECTION("Copy assign std::function<bool()> from fu2::function<bool()>")
+    {
+        function<bool()> right([]() mutable
+        {
+            return true;
+        });
+
+        std::function<bool()> left;
+
+        left = right;
+
+        REQUIRE(left());
+    }
+
+    SECTION("Copy construct std::function<bool()> from fu2::function<bool() const>")
+    {
+        function<bool() const> right([]
+        {
+            return true;
+        });
+
+        std::function<bool()> left(right);
+
+        REQUIRE(left());
+    }
+
+    SECTION("Copy assign std::function<bool()> from fu2::function<bool() const>")
+    {
+        function<bool() const> right([]
+        {
+            return true;
+        });
+
+        std::function<bool()> left;
+
+        left = right;
+
+        REQUIRE(left());
+    }
+
+    SECTION("Move construct fu2::function from std::function")
+    {
+        std::function<bool()> right([]
+        {
+            return true;
+        });
+
+        function<bool()> left = std::move(right);
+
+        REQUIRE(left());
+    }
+
+    SECTION("Move assign fu2::function from std::function")
+    {
+        std::function<bool()> right([]
+        {
+            return true;
+        });
+
+        function<bool()> left;
+
+        left = std::move(right);
+
+        REQUIRE(left());
+    }
+
+    SECTION("Move construct std::function<bool()> from fu2::function<bool()>")
+    {
+        function<bool()> right([]() mutable
+        {
+            return true;
+        });
+
+        std::function<bool()> left(std::move(right));
+
+        REQUIRE(left());
+    }
+
+    SECTION("Move assign std::function<bool()> from fu2::function<bool()>")
+    {
+        function<bool()> right([]() mutable
+        {
+            return true;
+        });
+
+        std::function<bool()> left;
+
+        left = std::move(right);
+
+        REQUIRE(left());
+    }
+
+    SECTION("Move construct std::function<bool()> from fu2::function<bool() const>")
+    {
+        function<bool() const> right([]
+        {
+            return true;
+        });
+
+        std::function<bool()> left(std::move(right));
+
+        REQUIRE(left());
+    }
+
+    SECTION("Move assign std::function<bool()> from fu2::function<bool() const>")
+    {
+        function<bool() const> right([]
+        {
+            return true;
+        });
+
+        std::function<bool()> left;
+
+        left = std::move(right);
+
+        REQUIRE(left());
+    }
+}
+
+TEST_CASE("unique_function's are convertible to non copyable functors and from copyable functors", "[unique_function<>]")
+{
+    SECTION("Move construct fu2::function from test_noncopyable_functor")
+    {
+        std::unique_ptr<bool> up = std::make_unique<bool>(true);
+
+        auto right = [up = std::move(up)]
+        {
+            return *up;
+        };
+
+        unique_function<bool() const> left = std::move(right);
+
+        REQUIRE(left());
+    }
+
+    SECTION("Move assign fu2::function from test_noncopyable_functor")
+    {
+        std::unique_ptr<bool> up = std::make_unique<bool>(true);
+
+        auto right = [up = std::move(up)]
+        {
+            return *up;
+        };
+
+        unique_function<bool() const> left;
+
+        left = std::move(right);
+
+        REQUIRE(left());
+    }
+
+    SECTION("Move construct fu2::unique_function from std::function")
+    {
+        std::function<bool()> right([]
+        {
+            return true;
+        });
+
+        unique_function<bool()> left = std::move(right);
+
+        REQUIRE(left());
+    }
+
+    SECTION("Move assign fu2::unique_function from std::function")
+    {
+        std::function<bool()> right([]
+        {
+            return true;
+        });
+
+        unique_function<bool()> left;
+
+        left = std::move(right);
+
+        REQUIRE(left());
     }
 }

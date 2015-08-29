@@ -588,7 +588,7 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
     template<bool RightCopyable>
     using is_copyable_correct_to_this =
         std::integral_constant<bool,
-            !(Copyable && !RightCopyable)
+            Copyable == RightCopyable
         >;
 
     // Is a true type if the given function is constant correct to this.
