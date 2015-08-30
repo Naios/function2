@@ -527,7 +527,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     /// Direct allocate (use capacity)
     template<typename T>
     auto allocate(T&& functor)
-        -> std::enable_if_t<is_local_allocateable<typename implementation_t<std::decay_t<T>>>::value>
+        -> std::enable_if_t<is_local_allocateable<implementation_t<std::decay_t<T>>>::value>
     {
         weak_deallocate();
 
