@@ -273,10 +273,10 @@ struct call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>
     virtual ~call_wrapper_interface() { }
 
     /// Placed clone
-    virtual void clone(call_wrapper_interface* ptr) const = 0;
+    virtual void clone_inplace(call_wrapper_interface* ptr) const = 0;
 
     /// Allocate clone
-    virtual call_wrapper_interface* clone() const = 0;
+    virtual call_wrapper_interface* clone_heap() const = 0;
 
 }; // struct call_wrapper_interface
 
@@ -395,17 +395,17 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
         new (ptr) call_wrapper_implementation(T(std::move(_impl)));
     }
 
-    call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* move() override
+    call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* clone_heap() override
     {
         new call_wrapper_implementation(T(std::move(_impl)));
     }*/
 
-    void clone(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* /*ptr*/) const override
+    void clone_inplace(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* ptr) const override
     {
-        // new (ptr) call_wrapper_implementation(T(_impl));
+        new (ptr) call_wrapper_implementation(T(_impl));
     }
 
-    call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* clone() const override
+    call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* clone_heap() const override
     {
         return new call_wrapper_implementation(T(_impl));
     };
@@ -485,9 +485,8 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     template<typename T>
     using is_local_allocateable =
         std::integral_constant<bool,
-        true /* ||
-        sizeof(T) <= sizeof(decltype(_storage))
-        && (std::alignment_of<decltype(_storage)>::value % std::alignment_of<T>::value) == 0*/>;
+        sizeof(T) <= sizeof(uint8_t[Capacity])
+        /*&& (std::alignment_of<uint8_t[Capacity]>::value % std::alignment_of<T>::value) == 0*/>;
 
     void weak_deallocate()
     {
@@ -496,25 +495,6 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         else if (!_impl)
             delete _impl;
     }
-
-    /// Direct allocate (use capacity)
-    template<typename T, typename... CArgs>
-    auto inplace_allocate(CArgs&&... args)
-        -> std::enable_if_t<is_local_allocateable<T>::value, void>
-    {
-        static_assert(sizeof(T) <= Capacity, "[Debug] Overflow!");
-
-        new (&_storage) T(std::forward<CArgs>(args)...);
-        _impl = reinterpret_cast<interface_holder_t>(&_storage);
-    }
-
-    /// Heap allocate
-    /*template<typename T, typename... CArgs>
-    auto inplace_allocate(CArgs&&... args)
-        ->  std::enable_if_t<!is_local_allocateable<T>::value, void>
-    {
-        _ptr = new T(std::forward<CArgs>(args)...);
-    }*/
 
     storage_t()
         : _impl(nullptr) { }
@@ -535,7 +515,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 
     storage_t& operator= (storage_t&& right)
     {
-        move_assign(std::move(right));
+        move_assign(std::forward<storage_t>(right));
         return *this;
     }
 
@@ -544,12 +524,29 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         weak_deallocate();
     }
 
+    /// Direct allocate (use capacity)
     template<typename T>
-    void allocate(T&& functor)
+    auto allocate(T&& functor)
+        -> std::enable_if_t<is_local_allocateable<typename implementation_t<std::decay_t<T>>>::value>
     {
         weak_deallocate();
-        inplace_allocate<implementation_t<std::decay_t<T>>>(std::forward<T>(functor));
+
+        static_assert(sizeof(T) <= Capacity, "[Debug] Overflow!");
+
+        new (&_storage) implementation_t<std::decay_t<T>>(std::forward<T>(functor));
+        _impl = reinterpret_cast<interface_holder_t>(&_storage);
     }
+
+    /*
+    /// Heap allocate
+    template<typename T>
+    auto allocate(T&& functor)
+        -> std::enable_if_t<!is_local_allocateable<typename implementation_t<T>>::value>
+    {
+        weak_deallocate();
+
+        _impl = new T(std::forward<T>(functor));
+    }*/
 
     // Copy assign
     template<bool RightConstant>
@@ -614,7 +611,7 @@ struct storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile
         : _impl(nullptr) { }
 
     storage_t(storage_t const& right)
-        : _impl((right._impl) ? right._impl->clone() : nullptr) { }
+        : _impl((right._impl) ? right._impl->clone_heap() : nullptr) { }
 
     storage_t(storage_t&& right)
         : _impl(right._impl)
@@ -630,7 +627,7 @@ struct storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile
 
     storage_t& operator= (storage_t&& right)
     {
-        move_assign(std::move(right));
+        move_assign(std::forward<storage_t>(right));
         return *this;
     }
 
@@ -653,7 +650,7 @@ struct storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile
         weak_deallocate();
         
         if (right._impl)
-            _impl = right._impl->clone();
+            _impl = right._impl->clone_heap();
         else
             _impl = nullptr;
     }
@@ -729,7 +726,7 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
     {
         return [arg = std::forward<T>(arg)](Args&&... args)
         {
-            return function_pointer(std::forward<Args>(args)...);
+            return arg(std::forward<Args>(args)...);
         };
     }
 

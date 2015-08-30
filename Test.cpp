@@ -39,6 +39,16 @@ int main(int argc, char** argv)
     return result;
 }
 
+bool true_function()
+{
+    return true;
+}
+
+bool false_function()
+{
+    return false;
+}
+
 TEST_CASE("Functions are callable", "[function<>]")
 {
     bool is_set = false;
@@ -106,9 +116,9 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
     {
         unique_function<bool() const> left;
 
-        left = []
+        left = [up = std::make_unique<bool>(true)]
         {
-            return true;
+            return *up;
         };
 
         REQUIRE(left());
@@ -345,9 +355,23 @@ TEST_CASE("Functions are convertible to and from functors", "[function<>]")
     }
 }
 
+TEST_CASE("Functions are convertible from function pointers", "[function<>]")
+{
+    SECTION("Copy construct fu2::function from function pointers")
+    {
+        function<bool()> left = true_function;
+
+        REQUIRE(left());
+
+        left = false_function;
+
+        REQUIRE_FALSE(left());
+    }
+}
+
 TEST_CASE("unique_function's are convertible to non copyable functors and from copyable functors", "[unique_function<>]")
 {
-    SECTION("Move construct fu2::function from test_noncopyable_functor")
+    SECTION("Move construct fu2::function from non copyable lambda")
     {
         auto right = [up = std::make_unique<bool>(true)]
         {
@@ -359,7 +383,7 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
         REQUIRE(left());
     }
 
-    SECTION("Move assign fu2::function from test_noncopyable_functor")
+    SECTION("Move assign fu2::function from non copyable lambda")
     {
         auto right = [up = std::make_unique<bool>(true)]
         {
