@@ -31,7 +31,6 @@ using namespace fu2;
 int main(int argc, char** argv)
 {
     test_mockup();
-
     // test_incubator();
 
     int const result = Catch::Session().run(argc, argv);
@@ -99,6 +98,18 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
         });
 
         left = std::move(right);
+
+        REQUIRE(left());
+    }
+
+    SECTION("Move assign a lambda bool() const to unique_function<bool() const>")
+    {
+        unique_function<bool() const> left;
+
+        left = []
+        {
+            return true;
+        };
 
         REQUIRE(left());
     }
@@ -386,5 +397,35 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
         left = std::move(right);
 
         REQUIRE(left());
+    }
+}
+
+constexpr std::size_t sz1 = sizeof(std::function<bool(int, float, long)>);
+constexpr std::size_t sz2 = sizeof(std::function<void()>);
+
+TEST_CASE("Functions with SFO optimization", "[function<>]")
+{
+    SECTION("Function SFO correctness and correct deallocation.")
+    {
+        bool deleted = false;
+
+        {
+            function_base<bool() const, 100, true> left;
+
+            std::shared_ptr<int> ptr(new int(77), [&deleted](int* p)
+            {
+                deleted = true;
+                delete p;
+            });
+
+            left = [ptr = std::move(ptr)]
+            {
+                return *ptr == 77;
+            };
+
+            REQUIRE(left());
+        }
+
+        REQUIRE(deleted);
     }
 }

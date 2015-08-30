@@ -459,31 +459,129 @@ struct call_operator<Base, ReturnType(Args...), Copyable, true, true>
 template<typename /*Fn*/>
 struct storage_t;
 
-/*
 template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
 struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>
-    : public storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>>
 {
-    static_assert(Capacity != 0, "Not implemented yet!");
-
-    using base_t = storage_t<
-        function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>
+    // Call wrapper interface
+    using interface_t = call_wrapper_interface<
+        ReturnType(Args...), Copyable, Constant, Volatile
     >;
 
-protected:
+    // Call wrapper implementation
+    template<typename T>
+    using implementation_t = call_wrapper_implementation<
+        T, ReturnType(Args...), Copyable, Constant, Volatile
+    >;
+
+    // Call wrapper qualified storage
+    using interface_holder_t = typename qualified_t<
+        interface_t, Constant, Volatile
+    >::type*;
+
+    interface_holder_t _impl;
+
+    std::uint8_t _storage[Capacity];
+
+    template<typename T>
+    using is_local_allocateable =
+        std::integral_constant<bool,
+        true /* ||
+        sizeof(T) <= sizeof(decltype(_storage))
+        && (std::alignment_of<decltype(_storage)>::value % std::alignment_of<T>::value) == 0*/>;
+
+    void weak_deallocate()
+    {
+        if (_impl == static_cast<void*>(&_storage))
+            _impl->~interface_t();
+        else if (!_impl)
+            delete _impl;
+    }
+
+    /// Direct allocate (use capacity)
+    template<typename T, typename... CArgs>
+    auto inplace_allocate(CArgs&&... args)
+        -> std::enable_if_t<is_local_allocateable<T>::value, void>
+    {
+        static_assert(sizeof(T) <= Capacity, "[Debug] Overflow!");
+
+        new (&_storage) T(std::forward<CArgs>(args)...);
+        _impl = reinterpret_cast<interface_holder_t>(&_storage);
+    }
+
+    /// Heap allocate
+    /*template<typename T, typename... CArgs>
+    auto inplace_allocate(CArgs&&... args)
+        ->  std::enable_if_t<!is_local_allocateable<T>::value, void>
+    {
+        _ptr = new T(std::forward<CArgs>(args)...);
+    }*/
+
     storage_t()
-        : base_t() { }
+        : _impl(nullptr) { }
 
-    storage_t(typename base_t::interface_holder_t impl)
-        : base_t(impl) { }
+    storage_t(storage_t const& right)
+        : _impl() { }
 
-    ~storage_t()
+    storage_t(storage_t&& right)
+        : _impl()
     {
     }
 
-    std::uint8_t _storage[Capacity];
+    storage_t& operator= (storage_t const& right)
+    {
+        copy_assign(right);
+        return *this;
+    }
+
+    storage_t& operator= (storage_t&& right)
+    {
+        move_assign(std::move(right));
+        return *this;
+    }
+
+    ~storage_t()
+    {
+        weak_deallocate();
+    }
+
+    template<typename T>
+    void allocate(T&& functor)
+    {
+        weak_deallocate();
+        inplace_allocate<implementation_t<std::decay_t<T>>>(std::forward<T>(functor));
+    }
+
+    // Copy assign
+    template<bool RightConstant>
+    void copy_assign(storage_t<function<ReturnType(Args...), 0UL, true, RightConstant, Volatile>> const& right)
+    {
+        /*
+        weak_deallocate();
+
+        if (right._impl)
+            _impl = right._impl->clone();
+        else
+            _impl = nullptr;
+            */
+    }
+
+    // Move assign
+    template<bool RightCopyable, bool RightConstant>
+    void move_assign(storage_t<function<ReturnType(Args...), 0UL, RightCopyable, RightConstant, Volatile>>&& right)
+    {
+        /*
+        weak_deallocate();
+        _impl = right._impl;
+        right._impl = nullptr;
+        */
+    }
+
+    void deallocate()
+    {
+        weak_deallocate();
+        _impl = nullptr;
+    }
 };
-*/
 
 template<typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
 struct storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>>
@@ -626,6 +724,15 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
     // Implementation storage
     storage_t<function> _storage;
 
+    template<typename T>
+    static auto lambda_wrap(T&& arg)
+    {
+        return [arg = std::forward<T>(arg)](Args&&... args)
+        {
+            return function_pointer(std::forward<Args>(args)...);
+        };
+    }
+
 public:
     function() = default;
 
@@ -649,7 +756,7 @@ public:
     /// Constructor taking a function pointer
     template<typename T, typename = std::enable_if_t<is_function_pointer_assignable_to_this<T>::value>, typename = void>
     function(T function_pointer)
-        : function([function_pointer](Args&&... args) { return function_pointer(std::forward<Args>(args)...); }) { }
+        : function(lambda_wrap(function_pointer)) { }
 
     /// Constructor taking a functor
     template<typename T, typename = std::enable_if_t<is_functor_assignable_to_this<T>::value>>
@@ -680,6 +787,22 @@ public:
         return *this;
     }
 
+    /// Copy assign taking a function pointer
+    template<typename T, typename = std::enable_if_t<is_function_pointer_assignable_to_this<T>::value>, typename = void>
+    function& operator= (T function_pointer)
+    {
+        _storage.allocate(lambda_wrap(function_pointer));
+        return *this;
+    }
+
+    /// Copy assign taking a functor
+    template<typename T, typename = std::enable_if_t<is_functor_assignable_to_this<T>::value>>
+    function& operator= (T functor)
+    {
+        _storage.allocate(std::forward<T>(functor));
+        return *this;
+    }
+
     function& operator= (std::nullptr_t)
     {
         _storage.deallocate();
@@ -695,7 +818,7 @@ static constexpr std::size_t default_capacity = 0UL;
 } // namespace detail
 
 /// Function wrapper base
-template<typename Signature, typename Allocator, std::size_t Capacity, bool Copyable>
+template<typename Signature, std::size_t Capacity, bool Copyable>
 using function_base = detail::function<
     typename detail::unwrap_traits::unwrap<Signature>::decayed_type,
     Capacity,
@@ -708,7 +831,6 @@ using function_base = detail::function<
 template<typename Signature>
 using function = function_base<
     Signature,
-    void,
     detail::default_capacity,
     true
 >;
@@ -717,7 +839,6 @@ using function = function_base<
 template<typename Signature>
 using unique_function = function_base<
     Signature,
-    void,
     detail::default_capacity,
     false
 >;
