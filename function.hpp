@@ -269,8 +269,11 @@ struct call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>
     /// Move the copyable implementation to the heap
     virtual call_wrapper_interface* move_copyable_to_heap() = 0;
 
-    /// Placed clone
+    /// Placed clone to copyable
     virtual void clone_copyable_inplace(call_wrapper_interface* ptr) const = 0;
+
+    /// Placed clone to unique
+    virtual void clone_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* ptr) const = 0;
 
     /// Allocate clone
     virtual call_wrapper_interface* clone_heap() const = 0;
@@ -437,6 +440,11 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
     call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* move_copyable_to_heap() override
     {
         return new call_wrapper_implementation(std::move(_impl));
+    }
+
+    void clone_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* ptr) const override
+    {
+        new (ptr) call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>(_impl);
     }
 
     void clone_copyable_inplace(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* ptr) const override
@@ -649,6 +657,22 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         weak_copy_assign(right);
     }
 
+    template<typename T>
+    auto do_copy_allocate(T const& right)
+        -> std::enable_if_t<Copyable && deduce_t<T>::value>
+    {
+        change_to_locale();
+        right._impl->clone_copyable_inplace(this->_impl);
+    }
+
+    template<typename T>
+    auto do_copy_allocate(T const& right)
+        -> std::enable_if_t<!Copyable && deduce_t<T>::value>
+    {
+        change_to_locale();
+        right._impl->clone_unique_inplace(this->_impl);
+    }
+
     // Copy assign with in-place capability.
     template<std::size_t RightCapacity, bool RightConstant,
              std::enable_if_t<(Capacity > 0UL) && deduce_sz<RightCapacity>::value>* = nullptr>
@@ -657,11 +681,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         else if (right._impl->can_allocate_copyable_inplace(Capacity))
-        {
-            // in-place copy
-            change_to_locale();
-            right._impl->clone_copyable_inplace(this->_impl);
-        }
+            do_copy_allocate(right);
         else
             this->_impl = right._impl->clone_heap(); // heap clone
     }
