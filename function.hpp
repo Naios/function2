@@ -177,30 +177,6 @@ struct copyable<false>
     copyable& operator=(copyable&&) = default;
 };
 
-template<typename T, bool /*Constant*/, bool /*Volatile*/>
-struct qualified_t
-{
-    using type = T;
-};
-
-template<typename T>
-struct qualified_t<T, true, false>
-{
-    using type = T const;
-};
-
-template<typename T>
-struct qualified_t<T, false, true>
-{
-    using type = T volatile;
-};
-
-template<typename T>
-struct qualified_t<T, true, true>
-{
-    using type = T const volatile;
-};
-
 template<typename /*Fn*/, bool /*Constant*/, bool /*Volatile*/>
 struct call_wrapper_operator_interface;
 
@@ -345,7 +321,7 @@ struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Vola
 {
     friend struct call_virtual_operator<call_wrapper_implementation, ReturnType(Args...), false, Constant, Volatile>;
 
-    std::decay_t<T> _impl;
+    T _impl;
 
     call_wrapper_implementation() = delete;
     call_wrapper_implementation(call_wrapper_implementation const&) = delete;
@@ -355,11 +331,7 @@ struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Vola
 
     template<typename A>
     call_wrapper_implementation(A&& impl)
-        : _impl(std::forward<A>(impl))
-    {
-        /*static_assert(!std::is_rvalue_reference<A>::value,
-            "Can't create a non copyable wrapper with non r-value ref!");*/
-    }
+        : _impl(std::forward<A>(impl)) { }
 
     virtual ~call_wrapper_implementation() { }
 
@@ -368,9 +340,9 @@ struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Vola
         return sizeof(call_wrapper_implementation);
     }
 
-    void move_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* /*ptr*/) override
+    void move_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* ptr) override
     {
-        // new /*(ptr)*/ call_wrapper_implementation(std::move(_impl));
+        new (ptr) call_wrapper_implementation(std::move(_impl));
     }
 
     using call_virtual_operator<call_wrapper_implementation, ReturnType(Args...), false, Constant, Volatile>::operator();
@@ -384,7 +356,7 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
 {
     friend struct call_virtual_operator<call_wrapper_implementation, ReturnType(Args...), true, Constant, Volatile>;
 
-    std::decay_t<T> _impl;
+    T _impl;
 
     call_wrapper_implementation() = delete;
     call_wrapper_implementation(call_wrapper_implementation const&) = delete;
@@ -491,13 +463,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         T, ReturnType(Args...), Copyable, Constant, Volatile
     >;
 
-    // Call wrapper qualified storage
-    using interface_holder_t = interface_t*;
-    /*typename qualified_t<
-        interface_t, Constant, Volatile
-    >::type**/;
-
-    interface_holder_t _impl;
+    interface_t* _impl;
 
     std::uint8_t _storage[Capacity];
 
@@ -553,7 +519,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         static_assert(sizeof(T) <= Capacity, "[Debug] Overflow!");
 
         new (&_storage) implementation_t<std::decay_t<T>>(std::forward<T>(functor));
-        _impl = reinterpret_cast<interface_holder_t>(&_storage);
+        _impl = reinterpret_cast<interface_t*>(&_storage);
     }
 
     /*
@@ -619,12 +585,7 @@ struct storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile
         T, ReturnType(Args...), Copyable, Constant, Volatile
     >;
 
-    // Call wrapper qualified storage
-    using interface_holder_t = typename qualified_t<
-        interface_t, Constant, Volatile
-    >::type*;
-
-    interface_holder_t _impl;
+    interface_t* _impl;
 
     storage_t()
         : _impl(nullptr) { }
