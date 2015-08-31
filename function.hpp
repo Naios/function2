@@ -17,6 +17,9 @@ namespace fu2
 namespace detail
 {
 
+inline namespace v0
+{
+
 template<typename ReturnType, typename... Args>
 struct signature
 {
@@ -230,8 +233,8 @@ struct call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>
 {
     virtual ~call_wrapper_interface() { }
 
-    /// Returns the size of the unique implementation
-    virtual std::size_t size_unique() const = 0;
+    /// Returns true if the unique implementation can be allocated in-place in the given region.
+    virtual bool can_allocate_unique_inplace(std::size_t size) const = 0;
 
     /// Placed unique move
     virtual void move_unique_inplace(call_wrapper_interface* ptr) = 0;
@@ -246,8 +249,8 @@ struct call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>
 {
     virtual ~call_wrapper_interface() { }
 
-    /// Returns the size of the copyable implementation
-    virtual std::size_t size_copyable() const = 0;
+    /// Returns true if the copyable implementation can be allocated in-place in the given region.
+    virtual bool can_allocate_copyable_inplace(std::size_t size) const = 0;
 
     /// Placed clone move
     virtual void move_copyable_inplace(call_wrapper_interface* ptr) = 0;
@@ -311,6 +314,11 @@ struct call_virtual_operator<Base, ReturnType(Args...), Copyable , true, true>
     }
 };
 
+template<typename T>
+using required_capacity_to_allocate_inplace = std::integral_constant<std::size_t,
+    sizeof(T)
+>;
+
 template<typename /*T*/, typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
 struct call_wrapper_implementation;
 
@@ -335,9 +343,11 @@ struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Vola
 
     virtual ~call_wrapper_implementation() { }
 
-    std::size_t size_unique() const override
+    bool can_allocate_unique_inplace(std::size_t size) const override
     {
-        return sizeof(call_wrapper_implementation);
+        return required_capacity_to_allocate_inplace<
+            call_wrapper_implementation
+        >::value <= size;
     }
 
     void move_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* ptr) override
@@ -370,18 +380,23 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
 
     virtual ~call_wrapper_implementation() { }
 
-    std::size_t size_unique() const override
+    bool can_allocate_unique_inplace(std::size_t size) const override
     {
-        return sizeof(call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>);
+        return required_capacity_to_allocate_inplace<
+            call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>
+        >::value <= size;
     }
 
-    std::size_t size_copyable() const override
+    bool can_allocate_copyable_inplace(std::size_t size) const override
     {
-        return sizeof(call_wrapper_implementation);
+        return required_capacity_to_allocate_inplace<
+            call_wrapper_implementation
+        >::value <= size;
     }
 
     void move_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* ptr) override
     {
+        // Downcast to unique impl
         new (ptr) call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>(std::move(_impl));
     }
 
@@ -390,9 +405,9 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
         new (ptr) call_wrapper_implementation(std::move(_impl));
     }
 
-    void clone_copyable_inplace(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* ptr) const
+    void clone_copyable_inplace(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* ptr) const override
     {
-        new (ptr) call_wrapper_implementation(std::move(_impl));
+        new (ptr) call_wrapper_implementation(_impl);
     }
 
     call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* clone_heap() const override
@@ -470,12 +485,12 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     template<typename T>
     using is_local_allocateable =
         std::integral_constant<bool,
-        sizeof(T) <= sizeof(uint8_t[Capacity])
+            required_capacity_to_allocate_inplace<T>::value <= Capacity
         /*&& (std::alignment_of<uint8_t[Capacity]>::value % std::alignment_of<T>::value) == 0*/>;
 
     void weak_deallocate()
     {
-        if (_impl == static_cast<void*>(&_storage))
+        if (is_inplace())
             _impl->~interface_t();
         else if (!_impl)
             delete _impl;
@@ -509,36 +524,61 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         weak_deallocate();
     }
 
+    bool is_inplace() const
+    {
+        return _impl == static_cast<void const*>(&_storage);
+    }
+
+    bool is_allocated() const
+    {
+        return _impl != nullptr;
+    }
+
     /// Direct allocate (use capacity)
     template<typename T>
     auto allocate(T&& functor)
         -> std::enable_if_t<is_local_allocateable<implementation_t<std::decay_t<T>>>::value>
     {
-        weak_deallocate();
+        static_assert(sizeof(implementation_t<std::decay_t<T>>) <= Capacity, "[Debug] Overflow!");
 
-        static_assert(sizeof(T) <= Capacity, "[Debug] Overflow!");
+        weak_deallocate();
 
         new (&_storage) implementation_t<std::decay_t<T>>(std::forward<T>(functor));
         _impl = reinterpret_cast<interface_t*>(&_storage);
     }
 
-    /*
     /// Heap allocate
     template<typename T>
     auto allocate(T&& functor)
-        -> std::enable_if_t<!is_local_allocateable<typename implementation_t<T>>::value>
+        -> std::enable_if_t<!is_local_allocateable<implementation_t<std::decay_t<T>>>::value>
     {
         weak_deallocate();
 
         _impl = new T(std::forward<T>(functor));
-    }*/
+    }
 
     // Copy assign
-    template<bool RightConstant>
-    void copy_assign(storage_t<function<ReturnType(Args...), 0UL, true, RightConstant, Volatile>> const& right)
+    template<std::size_t RightCapacity, bool RightConstant>
+    void copy_assign(storage_t<function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile>> const& right)
     {
-        /*
         weak_deallocate();
+
+        if (!right.is_allocated())
+        {
+            clean();
+            return;
+        }
+
+        if (right.is_inplace())
+        {
+
+        }
+        else
+        {
+        }
+
+        /*
+        
 
         if (right._impl)
             _impl = right._impl->clone();
@@ -548,8 +588,8 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     }
 
     // Move assign
-    template<bool RightCopyable, bool RightConstant>
-    void move_assign(storage_t<function<ReturnType(Args...), 0UL, RightCopyable, RightConstant, Volatile>>&& right)
+    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant>
+    void move_assign(storage_t<function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>>&& right)
     {
         /*
         weak_deallocate();
@@ -558,10 +598,15 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         */
     }
 
+    void clean()
+    {
+        _impl = nullptr;
+    }
+
     void deallocate()
     {
         weak_deallocate();
-        _impl = nullptr;
+        clean();
     }
 };
 
@@ -614,6 +659,16 @@ struct storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile
     ~storage_t()
     {
         weak_deallocate();
+    }
+
+    bool is_inplace() const
+    {
+        return false;
+    }
+
+    bool is_allocated() const
+    {
+        return _impl != nullptr;
     }
 
     template<typename T>
@@ -790,6 +845,8 @@ public:
 }; // class function
 
 static constexpr std::size_t default_capacity = 0UL;
+
+} // inline namespace v0
 
 } // namespace detail
 

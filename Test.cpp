@@ -473,7 +473,7 @@ TEST_CASE("Functions with SFO optimization", "[function<>]")
         bool deleted = false;
 
         {
-            sfo_function<bool() const> left;
+            sfo_function<bool()> left;
 
             std::shared_ptr<int> ptr(new int(77), [&deleted](int* p)
             {
@@ -490,6 +490,18 @@ TEST_CASE("Functions with SFO optimization", "[function<>]")
         }
 
         REQUIRE(deleted);
+    }
+
+    SECTION("Function SFO copying")
+    {
+        sfo_function<bool()> left;
+
+        sfo_function<bool()> right([]
+        {
+            return true;
+        });
+
+        left = right;
     }
 }
 
