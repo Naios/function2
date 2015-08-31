@@ -569,14 +569,14 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         std::enable_if_t<Copyable, R>>
     static bool can_allocate_inplace(T const& right)
     {
-        return right._impl->can_allocate_copyable_inplace(Capacity)
+        return right._impl->can_allocate_copyable_inplace(Capacity);
     }
 
     template<typename T, typename R = bool,
         std::enable_if_t<!Copyable, R>>
         static bool can_allocate_inplace(T const& right)
     {
-        return right._impl->can_allocate_unique_inplace(Capacity)
+        return right._impl->can_allocate_unique_inplace(Capacity);
     }
 
     // Copy assign
@@ -805,7 +805,7 @@ public:
              typename = std::enable_if_t<is_constant_correct_to_this<RightConstant>::value>>
     explicit function(function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile> const& right)
     {
-        _storage.copy_assign(right);
+        _storage.copy_assign(right._storage);
     }
 
     /// Move construct
@@ -814,7 +814,7 @@ public:
                         is_copyable_correct_to_this<RightCopyable>::value>>
     explicit function(function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>&& right)
     {
-        _storage.move_assign(std::move(right));
+        _storage.move_assign(std::move(right._storage));
     }
 
     /// Constructor taking a function pointer
@@ -837,7 +837,7 @@ public:
              typename = std::enable_if_t<is_constant_correct_to_this<RightConstant>::value>>
     function& operator= (function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile> const& right)
     {
-        _storage.copy_assign(right);
+        _storage.copy_assign(right._storage);
         return *this;
     }
 
@@ -847,7 +847,7 @@ public:
                         is_copyable_correct_to_this<RightCopyable>::value>>
     function& operator= (function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>&& right)
     {
-        _storage.move_assign(std::move(right));
+        _storage.move_assign(std::move(right._storage));
         return *this;
     }
 
