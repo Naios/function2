@@ -11,8 +11,6 @@
 #include <cstdint>
 #include <type_traits>
 
-inline void bp() { }
-
 namespace fu2
 {
 
@@ -559,10 +557,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         /*&& (std::alignment_of<uint8_t[Capacity]>::value % std::alignment_of<T>::value) == 0*/>;
 
     storage_t()
-        : base_t(nullptr)
-    {
-        bp();
-    }
+        : base_t(nullptr) { }
 
     explicit storage_t(storage_t const& right)
     {
@@ -641,8 +636,9 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
             clean(); // Deallocate if right is unallocated
         else if (right._impl->can_allocate_copyable_inplace(Capacity))
         {
+            // in-place copy
             change_to_locale();
-            right._impl->clone_copyable_inplace(_impl); // in-place copy
+            right._impl->clone_copyable_inplace(_impl);
         }
         else
             _impl = right._impl->clone_heap(); // heap clone
@@ -687,7 +683,6 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         right._impl->move_unique_inplace(_impl);
     }
 
-
     template<typename T>
     void move_assign(T&& right)
     {
@@ -703,14 +698,23 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
             clean(); // Deallocate if right is unallocated
         else if (can_allocate_inplace(right))
         {
+            // in-place move
             change_to_locale();
-            do_move_allocate_inplace(std::move(right)); // in-place move
+            do_move_allocate_inplace(std::move(right));
             right.deallocate();
         }
-        else // heap move
+        else
         {
-            _impl = right._impl;
-            right._impl = nullptr;
+            if (right.is_inplace())
+            {
+                // FIXME
+                (*static_cast<int*>(nullptr)) = 0;
+            }
+            else
+            {
+                _impl = right._impl;
+                right._impl = nullptr;
+            }
         }
     }
 
@@ -720,10 +724,18 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     {
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
-        else // heap move
+        else
         {
-            _impl = right._impl;
-            right._impl = nullptr;
+            if (right.is_inplace())
+            {
+                // FIXME
+                (*static_cast<int*>(nullptr)) = 0;
+            }
+            else
+            {
+                _impl = right._impl;
+                right._impl = nullptr;
+            }
         }
     }
 
@@ -805,18 +817,16 @@ public:
     function() = default;
 
     /// Copy construct
-    template<std::size_t RightCapacity, bool RightConstant,
-             typename = std::enable_if_t<is_constant_correct_to_this<RightConstant>::value>>
-    explicit function(function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile> const& right)
+    template<std::size_t RightCapacity>
+    explicit function(function<ReturnType(Args...), RightCapacity, true, Constant, Volatile> const& right)
     {
         _storage.weak_copy_assign(right._storage);
     }
 
     /// Move construct
-    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
-             typename = std::enable_if_t<is_constant_correct_to_this<RightConstant>::value &&
-                        is_copyable_correct_to_this<RightCopyable>::value>>
-    explicit function(function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>&& right)
+    template<std::size_t RightCapacity, bool RightCopyable,
+             typename = std::enable_if_t<iis_copyable_correct_to_this<RightCopyable>::value>>
+    explicit function(function<ReturnType(Args...), RightCapacity, RightCopyable, Constant, Volatile>&& right)
     {
         _storage.weak_move_assign(std::move(right._storage));
     }
@@ -837,19 +847,17 @@ public:
         : _storage() { }
 
     /// Copy assign
-    template<std::size_t RightCapacity, bool RightConstant,
-             typename = std::enable_if_t<is_constant_correct_to_this<RightConstant>::value>>
-    function& operator= (function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile> const& right)
+    template<std::size_t RightCapacity>
+    function& operator= (function<ReturnType(Args...), RightCapacity, true, Constant, Volatile> const& right)
     {
         _storage.copy_assign(right._storage);
         return *this;
     }
 
     /// Move assign
-    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
-             typename = std::enable_if_t<is_constant_correct_to_this<RightConstant>::value &&
-                        is_copyable_correct_to_this<RightCopyable>::value>>
-    function& operator= (function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>&& right)
+    template<std::size_t RightCapacity, bool RightCopyable,
+             typename = std::enable_if_t<is_copyable_correct_to_this<RightCopyable>::value>>
+    function& operator= (function<ReturnType(Args...), RightCapacity, RightCopyable, Constant, Volatile>&& right)
     {
         _storage.move_assign(std::move(right._storage));
         return *this;
