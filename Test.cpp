@@ -26,7 +26,21 @@
 void test_mockup();
 void test_incubator();
 
-using namespace fu2;
+// Functions without sfo optimization
+template<typename Signature>
+using function = fu2::function_base<Signature, 0, true>;
+
+template<typename Signature>
+using unique_function = fu2::function_base<Signature, 0, false>;
+
+// Functions with sfo optimization
+static constexpr std::size_t testing_sfo_capacity = 100UL;
+
+template<typename Signature>
+using sfo_function = fu2::function_base<Signature, testing_sfo_capacity, true>;
+
+template<typename Signature>
+using sfo_unique_function = fu2::function_base<Signature, testing_sfo_capacity, false>;
 
 int main(int argc, char** argv)
 {
@@ -421,6 +435,32 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
 
         REQUIRE(left());
     }
+
+    SECTION("Evade copy of implementations when move constructing")
+    {
+        function<bool()> right([store = std::make_shared<bool>(true)]
+        {
+            return store.unique() && *store;
+        });
+
+        function<bool()> left(std::move(right));
+
+        REQUIRE(left());
+    }
+
+    SECTION("Evade copy of implementations when move assigning")
+    {
+        function<bool()> left;
+
+        function<bool()> right([store = std::make_shared<bool>(true)]
+        {
+            return store.unique() && *store;
+        });
+
+        left = std::move(right);
+
+        REQUIRE(left());
+    }
 }
 
 constexpr std::size_t sz1 = sizeof(std::function<bool(int, float, long)>);
@@ -433,7 +473,7 @@ TEST_CASE("Functions with SFO optimization", "[function<>]")
         bool deleted = false;
 
         {
-            function_base<bool() const, 100, true> left;
+            sfo_function<bool() const> left;
 
             std::shared_ptr<int> ptr(new int(77), [&deleted](int* p)
             {
