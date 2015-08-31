@@ -942,7 +942,7 @@ public:
 
 }; // class function
 
-static constexpr std::size_t default_capacity = 64UL;
+static constexpr std::size_t default_capacity = 16UL;
 
 } // inline namespace v0
 

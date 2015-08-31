@@ -43,11 +43,17 @@ using sfo_function = fu2::function_base<Signature, testing_sfo_capacity, true>;
 template<typename Signature>
 using sfo_unique_function = fu2::function_base<Signature, testing_sfo_capacity, false>;
 
+constexpr std::size_t sz1 = sizeof(std::function<bool(int, float, long)>);
+constexpr std::size_t sz2 = sizeof(std::function<void()>);
+
 int main(int argc, char** argv)
 {
     runBenchmark();
     // test_mockup();
     // test_incubator();
+
+    std::cout << "sizeof(std::function<bool(int, float, long)>) == " << sz1 << std::endl;
+    std::cout << "sizeof(std::function<void()>) == " << sz2 << std::endl;
 
     int const result = Catch::Session().run(argc, argv);
 
@@ -513,9 +519,6 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
         REQUIRE(left());
     }
 }
-
-constexpr std::size_t sz1 = sizeof(std::function<bool(int, float, long)>);
-constexpr std::size_t sz2 = sizeof(std::function<void()>);
 
 TEST_CASE("Functions with SFO optimization", "[function<>]")
 {
