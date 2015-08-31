@@ -601,7 +601,10 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         else if (right._impl->can_allocate_copyable_inplace(Capacity))
+        {
+            change_to_locale();
             right._impl->clone_copyable_inplace(_impl); // in-place copy
+        }
         else
             _impl = right._impl->clone_heap(); // heap clone
     }
@@ -635,14 +638,14 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     auto do_move_allocate_inplace(T&& right)
         -> std::enable_if_t<Copyable && deduce_t<T>::value>
     {
-        right._impl->move_copyable_inplace(reinterpret_cast<interface_t*>(&_locale));
+        right._impl->move_copyable_inplace(_impl);
     }
 
     template<typename T>
     auto do_move_allocate_inplace(T&& right)
         -> std::enable_if_t<!Copyable && deduce_t<T>::value>
     {
-        right._impl->move_unique_inplace(reinterpret_cast<interface_t*>(&_locale));
+        right._impl->move_unique_inplace(_impl);
     }
 
 
@@ -661,9 +664,9 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
             clean(); // Deallocate if right is unallocated
         else if (can_allocate_inplace(right))
         {
+            change_to_locale();
             do_move_allocate_inplace(std::move(right)); // in-place move
             right.deallocate();
-            change_to_locale();
         }
         else // heap move
         {
