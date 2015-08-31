@@ -93,7 +93,7 @@ void take_time(std::string const& name)
 
 void runBenchmark()
 {
-    take_time<CopyFunctions<std::function<void()>>, CopyFunctions<fu2::function_base<void(), 20UL, true>>>("Construct test");
+    take_time<CopyFunctions<std::function<void()>>, CopyFunctions<fu2::function_base<void(), 64UL, true>>>("Construct test");
 
-    take_time<MoveFunctions<std::function<void()>>, MoveFunctions<fu2::function_base<void(), 0UL, false>>>("Move test");
+    take_time<MoveFunctions<std::function<void()>>, MoveFunctions<fu2::function_base<void(), 64UL, false>>>("Move test");
 }

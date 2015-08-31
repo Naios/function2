@@ -754,6 +754,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     {
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
+        // Disable this to use heap second chance on move...
         else if (can_allocate_inplace(right))
         {
             // in-place move
@@ -941,7 +942,7 @@ public:
 
 }; // class function
 
-static constexpr std::size_t default_capacity = 0UL;
+static constexpr std::size_t default_capacity = 64UL;
 
 } // inline namespace v0
 
