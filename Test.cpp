@@ -559,7 +559,6 @@ TEST_CASE("Functions with SFO optimization", "[function<>]")
 
     SECTION("Function SFO copying from no sfo functions")
     {
-        /*
         sfo_function<bool()> left;
 
         function<bool()> right([]
@@ -570,7 +569,6 @@ TEST_CASE("Functions with SFO optimization", "[function<>]")
         left = right;
 
         REQUIRE(left());
-        */
     }
 }
 

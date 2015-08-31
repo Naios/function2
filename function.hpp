@@ -510,7 +510,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     {
         if (is_inplace())
             _impl->~interface_t();
-        else if (_impl == nullptr)
+        else if (_impl)
             delete _impl;
     }
 
@@ -521,17 +521,13 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     }
 
     explicit storage_t(storage_t const& right)
-        : _impl(nullptr)
     {
-        // TODO
-        copy_assign(right);
+        weak_copy_assign(right);
     }
 
     explicit storage_t(storage_t&& right)
-        : _impl(nullptr)
     {
-        // TODO
-        move_assign(std::forward<storage_t>(right));
+        weak_move_assign(std::forward<storage_t>(right));
     }
 
     storage_t& operator= (storage_t const& right)
@@ -566,36 +562,42 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         _impl = reinterpret_cast<interface_t*>(&_locale);
     }
 
+    template<typename T>
+    void allocate(T&& functor)
+    {
+        weak_deallocate();
+        weak_allocate(std::forward<T>(functor));
+    }
+
     /// Direct allocate (use capacity)
     template<typename T>
-    auto allocate(T&& functor)
+    auto weak_allocate(T&& functor)
         -> std::enable_if_t<is_local_allocateable<implementation_t<std::decay_t<T>>>::value>
     {
-        static_assert(sizeof(implementation_t<std::decay_t<T>>) <= Capacity, "[Debug] Overflow!");
-
-        weak_deallocate();
-
         new (&_locale) implementation_t<std::decay_t<T>>(std::forward<T>(functor));
         change_to_locale();
     }
 
     /// Heap allocate
     template<typename T>
-    auto allocate(T&& functor)
+    auto weak_allocate(T&& functor)
         -> std::enable_if_t<!is_local_allocateable<implementation_t<std::decay_t<T>>>::value>
     {
-        weak_deallocate();
-
         _impl = new implementation_t<std::decay_t<T>>(std::forward<T>(functor));
+    }
+
+    template<typename T>
+    void copy_assign(T const& right)
+    {
+        weak_deallocate();
+        weak_copy_assign(right);
     }
 
     // Copy assign with in-place capability.
     template<std::size_t RightCapacity, bool RightConstant,
              std::enable_if_t<(Capacity > 0UL) && deduce_sz<RightCapacity>::value>* = nullptr>
-    void copy_assign(storage_t<function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile>> const& right)
+    void weak_copy_assign(storage_t<function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile>> const& right)
     {
-        weak_deallocate();
-
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         else if (right._impl->can_allocate_copyable_inplace(Capacity))
@@ -607,10 +609,8 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     // Copy assign with no in-place capability.
     template<std::size_t RightCapacity, bool RightConstant,
              std::enable_if_t<(Capacity == 0UL) && deduce_sz<RightCapacity>::value>* = nullptr>
-    void copy_assign(storage_t<function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile>> const& right)
+    void weak_copy_assign(storage_t<function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile>> const& right)
     {
-        weak_deallocate();
-
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         else
@@ -645,17 +645,24 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         right._impl->move_unique_inplace(reinterpret_cast<interface_t*>(&_locale));
     }
 
-    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
-             std::enable_if_t<(Capacity > 0UL) && deduce_sz<RightCapacity>::value>* = nullptr>
-    void move_assign(storage_t<function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>>&& right)
+
+    template<typename T>
+    void move_assign(T&& right)
     {
         weak_deallocate();
+        weak_move_assign(std::forward<T>(right));
+    }
 
+    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
+             std::enable_if_t<(Capacity > 0UL) && deduce_sz<RightCapacity>::value>* = nullptr>
+    void weak_move_assign(storage_t<function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>>&& right)
+    {
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         else if (can_allocate_inplace(right))
         {
             do_move_allocate_inplace(std::move(right)); // in-place move
+            right.deallocate();
             change_to_locale();
         }
         else // heap move
@@ -667,10 +674,8 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 
     template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
              std::enable_if_t<(Capacity == 0UL) && deduce_sz<RightCapacity>::value>* = nullptr>
-    void move_assign(storage_t<function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>>&& right)
+    void weak_move_assign(storage_t<function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>>&& right)
     {
-        weak_deallocate();
-
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         else // heap move
@@ -758,26 +763,43 @@ struct storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile
     void allocate(T&& functor)
     {
         weak_deallocate();
+        weak_allocate(std::forward<T>(functor));
+    }
+
+    template<typename T>
+    void weak_allocate(T&& functor)
+    {
         _impl = new implementation_t<std::decay_t<T>>(std::forward<T>(functor));
+    }
+
+    template<typename T>
+    void copy_assign(T const& right)
+    {
+        weak_deallocate();
+        weak_copy_assign(right);
     }
 
     // Copy assign
     template<bool RightConstant>
-    void copy_assign(storage_t<function<ReturnType(Args...), 0UL, true, RightConstant, Volatile>> const& right)
+    void weak_copy_assign(storage_t<function<ReturnType(Args...), 0UL, true, RightConstant, Volatile>> const& right)
     {
-        weak_deallocate();
-        
         if (right._impl)
             _impl = right._impl->clone_heap();
         else
             _impl = nullptr;
     }
 
-    // Move assign
-    template<bool RightCopyable, bool RightConstant>
-    void move_assign(storage_t<function<ReturnType(Args...), 0UL, RightCopyable, RightConstant, Volatile>>&& right)
+    template<typename T>
+    void move_assign(T&& right)
     {
         weak_deallocate();
+        weak_move_assign(std::forward<T>(right));
+    }
+
+    // Move assign
+    template<bool RightCopyable, bool RightConstant>
+    void weak_move_assign(storage_t<function<ReturnType(Args...), 0UL, RightCopyable, RightConstant, Volatile>>&& right)
+    {
         _impl = right._impl;
         right._impl = nullptr;
     }
@@ -789,6 +811,7 @@ struct storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile
     }
 
 }; // struct storage_t
+
 
 template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
 class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
@@ -859,7 +882,7 @@ public:
              typename = std::enable_if_t<is_constant_correct_to_this<RightConstant>::value>>
     explicit function(function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile> const& right)
     {
-        _storage.copy_assign(right._storage);
+        _storage.weak_copy_assign(right._storage);
     }
 
     /// Move construct
@@ -868,7 +891,7 @@ public:
                         is_copyable_correct_to_this<RightCopyable>::value>>
     explicit function(function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>&& right)
     {
-        _storage.move_assign(std::move(right._storage));
+        _storage.weak_move_assign(std::move(right._storage));
     }
 
     /// Constructor taking a function pointer
@@ -880,7 +903,7 @@ public:
     template<typename T, typename = std::enable_if_t<is_functor_assignable_to_this<T>::value>>
     function(T functor)
     {
-        _storage.allocate(std::forward<T>(functor));
+        _storage.weak_allocate(std::forward<T>(functor));
     }
 
     explicit function(std::nullptr_t)
