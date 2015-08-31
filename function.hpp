@@ -247,13 +247,16 @@ struct call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>
     /// Placed unique move
     virtual void move_unique_inplace(call_wrapper_interface* ptr) = 0;
 
+    /// Move the unique implementation to the heap
+    virtual call_wrapper_interface* move_unique_to_heap() = 0;
+
 }; // struct call_wrapper_interface
 
 /// Interface: copyable wrapper
 template<typename ReturnType, typename... Args, bool Constant, bool Volatile>
 struct call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>
     // Inherit the non copyable base struct
-    : call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>
+     : call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>
 {
     virtual ~call_wrapper_interface() { }
 
@@ -262,6 +265,9 @@ struct call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>
 
     /// Placed clone move
     virtual void move_copyable_inplace(call_wrapper_interface* ptr) = 0;
+
+    /// Move the copyable implementation to the heap
+    virtual call_wrapper_interface* move_copyable_to_heap() = 0;
 
     /// Placed clone
     virtual void clone_copyable_inplace(call_wrapper_interface* ptr) const = 0;
@@ -367,6 +373,11 @@ struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Vola
         new (ptr) call_wrapper_implementation(std::move(_impl));
     }
 
+    call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* move_unique_to_heap() override
+    {
+        return new call_wrapper_implementation(std::move(_impl));
+    }
+
     using call_virtual_operator<call_wrapper_implementation, ReturnType(Args...), false, Constant, Volatile>::operator();
 
 }; // struct call_wrapper_implementation
@@ -415,6 +426,17 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
     void move_copyable_inplace(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* ptr) override
     {
         new (ptr) call_wrapper_implementation(std::move(_impl));
+    }
+
+    call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* move_unique_to_heap() override
+    {
+        // Downcast to unique impl
+        return new call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>(std::move(_impl));
+    }
+
+    call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* move_copyable_to_heap() override
+    {
+        return new call_wrapper_implementation(std::move(_impl));
     }
 
     void clone_copyable_inplace(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* ptr) const override
@@ -684,6 +706,22 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     }
 
     template<typename T>
+    auto do_move_allocate_to_heap(T&& right)
+        -> std::enable_if_t<Copyable && deduce_t<T>::value>
+    {
+        this->_impl = right._impl->move_copyable_to_heap();
+        right.deallocate();
+    }
+
+    template<typename T>
+    auto do_move_allocate_to_heap(T&& right)
+        -> std::enable_if_t<!Copyable && deduce_t<T>::value>
+    {
+        this->_impl = right._impl->move_unique_to_heap();
+        right.deallocate();
+    }
+
+    template<typename T>
     void move_assign(T&& right)
     {
         this->weak_deallocate();
@@ -706,9 +744,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         else
         {
             if (right.is_inplace())
-            {
-                // FIXME
-            }
+                do_move_allocate_to_heap(std::move(right));
             else
             {
                 this->_impl = right._impl;
@@ -726,9 +762,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         else
         {
             if (right.is_inplace())
-            {
-                // FIXME
-            }
+                do_move_allocate_to_heap(std::move(right));
             else
             {
                 this->_impl = right._impl;
