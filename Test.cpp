@@ -207,6 +207,29 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
 
         REQUIRE(left() == 5);
     }
+
+    SECTION("Copy assign between function<int()> and unique_function<int()>")
+    {
+        /*int counter = 0;
+        unique_function<int()> left;
+        function<int()> right([counter]() mutable
+        {
+            return counter++;
+        });
+
+        REQUIRE(right() == 0);
+        REQUIRE(right() == 1);
+        REQUIRE(right() == 2);
+
+        left = right;
+        REQUIRE(left() == 3);
+        REQUIRE(left() == 4);
+
+        REQUIRE(right() == 3);
+        REQUIRE(right() == 4);
+
+        REQUIRE(left() == 5);*/
+    }
 }
 
 TEST_CASE("Functions are convertible to and from functors", "[function<>]")

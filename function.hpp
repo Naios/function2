@@ -276,7 +276,8 @@ struct call_virtual_operator<Base, ReturnType(Args...), Copyable, false, false>
     {
         return (static_cast<Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
-};
+
+}; // struct call_virtual_operator
 
 template<typename Base, typename ReturnType, typename... Args, bool Copyable>
 struct call_virtual_operator<Base, ReturnType(Args...), Copyable, true, false>
@@ -288,7 +289,8 @@ struct call_virtual_operator<Base, ReturnType(Args...), Copyable, true, false>
     {
         return (static_cast<const Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
-};
+
+}; // struct call_virtual_operator
 
 template<typename Base, typename ReturnType, typename... Args, bool Copyable>
 struct call_virtual_operator<Base, ReturnType(Args...), Copyable, false, true>
@@ -300,7 +302,8 @@ struct call_virtual_operator<Base, ReturnType(Args...), Copyable, false, true>
     {
         return (static_cast<volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
-};
+
+}; // struct call_virtual_operator
 
 template<typename Base, typename ReturnType, typename... Args, bool Copyable>
 struct call_virtual_operator<Base, ReturnType(Args...), Copyable , true, true>
@@ -312,7 +315,8 @@ struct call_virtual_operator<Base, ReturnType(Args...), Copyable , true, true>
     {
         return (static_cast<const volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
-};
+
+}; // struct call_virtual_operator
 
 template<typename T>
 using required_capacity_to_allocate_inplace = std::integral_constant<std::size_t,
@@ -432,7 +436,8 @@ struct call_operator<Base, ReturnType(Args...), Copyable, false, false>
     {
         return (*static_cast<Base*>(this)->_storage._impl)(std::forward<Args>(args)...);
     }
-};
+
+}; // struct call_operator
 
 template<typename Base, typename ReturnType, typename... Args, bool Copyable>
 struct call_operator<Base, ReturnType(Args...), Copyable, true, false>
@@ -441,7 +446,8 @@ struct call_operator<Base, ReturnType(Args...), Copyable, true, false>
     {
         return (*static_cast<const Base*>(this)->_storage._impl)(std::forward<Args>(args)...);
     }
-};
+
+}; // struct call_operator
 
 template<typename Base, typename ReturnType, typename... Args, bool Copyable>
 struct call_operator<Base, ReturnType(Args...), Copyable, false, true>
@@ -450,7 +456,8 @@ struct call_operator<Base, ReturnType(Args...), Copyable, false, true>
     {
         return (*static_cast<volatile Base*>(this)->_storage._impl)(std::forward<Args>(args)...);
     }
-};
+
+}; // struct call_operator
 
 template<typename Base, typename ReturnType, typename... Args, bool Copyable>
 struct call_operator<Base, ReturnType(Args...), Copyable, true, true>
@@ -459,7 +466,8 @@ struct call_operator<Base, ReturnType(Args...), Copyable, true, true>
     {
         return (*static_cast<const volatile Base*>(this)->_storage._impl)(std::forward<Args>(args)...);
     }
-};
+
+}; // struct call_operator
 
 template<typename /*Fn*/>
 struct storage_t;
@@ -557,6 +565,20 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         _impl = new T(std::forward<T>(functor));
     }
 
+    template<typename T, typename R = bool,
+        std::enable_if_t<Copyable, R>>
+    static bool can_allocate_inplace(T const& right)
+    {
+        return right._impl->can_allocate_copyable_inplace(Capacity)
+    }
+
+    template<typename T, typename R = bool,
+        std::enable_if_t<!Copyable, R>>
+        static bool can_allocate_inplace(T const& right)
+    {
+        return right._impl->can_allocate_unique_inplace(Capacity)
+    }
+
     // Copy assign
     template<std::size_t RightCapacity, bool RightConstant>
     void copy_assign(storage_t<function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile>> const& right)
@@ -569,12 +591,15 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
             return;
         }
 
-        if (right.is_inplace())
+        if (right._impl->can_allocate_copyable_inplace(Capacity))
         {
+
+            // int i = 0;
 
         }
         else
         {
+
         }
 
         /*
@@ -608,7 +633,8 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         weak_deallocate();
         clean();
     }
-};
+
+}; // struct storage_t
 
 template<typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
 struct storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile>>
@@ -704,7 +730,8 @@ struct storage_t<function<ReturnType(Args...), 0UL, Copyable, Constant, Volatile
         weak_deallocate();
         _impl = nullptr;
     }
-};
+
+}; // struct storage_t
 
 template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
 class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
@@ -712,6 +739,12 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
       public signature<ReturnType, Args...>,
       public copyable<Copyable>
 {
+    template<typename, std::size_t, bool, bool, bool>
+    friend class function;
+
+    template<typename>
+    friend struct storage_t;
+
     friend struct call_operator<function, ReturnType(Args...), Copyable, Constant, Volatile>;
 
     // Is a true type if the given function is copyable correct to this.
