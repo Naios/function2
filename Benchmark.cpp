@@ -18,6 +18,7 @@
 #include <chrono>
 #include <string>
 #include <iostream>
+#include <vector>
 
 #include "function.hpp"
 
@@ -47,18 +48,20 @@ struct MoveFunctions
 {
     static void invoke()
     {
-        int c = 0;
+        std::size_t c = 0;
+
+        std::vector<int> vec = { 1 };
+
+        F right = [&c, vec = std::move(vec)]
+        {
+            c += vec.size();
+        };
 
         for (int i = 0; i < 100000; ++i)
         {
-            F right = [&c]
-            {
-                ++c;
-            };
-
             F fun = std::move(right);
-
             fun();
+            right = std::move(fun);
         }
     }
 };
@@ -90,7 +93,7 @@ void take_time(std::string const& name)
 
 void runBenchmark()
 {
-    take_time<CopyFunctions<std::function<void()>>, CopyFunctions<fu2::function_base<void(), 100, true>>>("Construct test");
+    take_time<CopyFunctions<std::function<void()>>, CopyFunctions<fu2::function_base<void(), 20UL, true>>>("Construct test");
 
-    take_time<CopyFunctions<std::function<void()>>, CopyFunctions<fu2::unique_function<void()>>>("Move test");
+    take_time<MoveFunctions<std::function<void()>>, MoveFunctions<fu2::function_base<void(), 0UL, false>>>("Move test");
 }

@@ -29,10 +29,10 @@ void runBenchmark();
 
 // Functions without sfo optimization
 template<typename Signature>
-using function = fu2::function_base<Signature, 0, true>;
+using function = fu2::function_base<Signature, 0UL, true>;
 
 template<typename Signature>
-using unique_function = fu2::function_base<Signature, 0, false>;
+using unique_function = fu2::function_base<Signature, 0UL, false>;
 
 // Functions with sfo optimization
 static constexpr std::size_t testing_sfo_capacity = 256UL;
@@ -45,7 +45,7 @@ using sfo_unique_function = fu2::function_base<Signature, testing_sfo_capacity, 
 
 int main(int argc, char** argv)
 {
-    // runBenchmark();
+    runBenchmark();
     // test_mockup();
     // test_incubator();
 
