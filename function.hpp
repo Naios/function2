@@ -559,12 +559,12 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     storage_t()
         : base_t(nullptr) { }
 
-    explicit storage_t(storage_t const& right)
+    explicit storage_t(storage_t const& right) : base_t()
     {
         weak_copy_assign(right);
     }
 
-    explicit storage_t(storage_t&& right)
+    explicit storage_t(storage_t&& right) : base_t()
     {
         weak_move_assign(std::forward<storage_t>(right));
     }
