@@ -25,6 +25,7 @@
 
 void test_mockup();
 void test_incubator();
+void runBenchmark();
 
 // Functions without sfo optimization
 template<typename Signature>
@@ -44,8 +45,10 @@ using sfo_unique_function = fu2::function_base<Signature, testing_sfo_capacity, 
 
 int main(int argc, char** argv)
 {
+    runBenchmark();
     test_mockup();
     // test_incubator();
+
     int const result = Catch::Session().run(argc, argv);
 
     // Attach breakpoint here ,-)
@@ -210,7 +213,7 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
 
     SECTION("Copy assign between function<int()> and unique_function<int()>")
     {
-        /*int counter = 0;
+        int counter = 0;
         unique_function<int()> left;
         function<int()> right([counter]() mutable
         {
@@ -222,13 +225,38 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
         REQUIRE(right() == 2);
 
         left = right;
+
         REQUIRE(left() == 3);
         REQUIRE(left() == 4);
 
         REQUIRE(right() == 3);
         REQUIRE(right() == 4);
 
-        REQUIRE(left() == 5);*/
+        REQUIRE(left() == 5);
+    }
+
+    SECTION("Copy construct between function<int()> and unique_function<int()>")
+    {
+        int counter = 0;
+
+        function<int()> right([counter]() mutable
+        {
+            return counter++;
+        });
+
+        REQUIRE(right() == 0);
+        REQUIRE(right() == 1);
+        REQUIRE(right() == 2);
+
+        unique_function<int()> left(right);
+
+        REQUIRE(left() == 3);
+        REQUIRE(left() == 4);
+
+        REQUIRE(right() == 3);
+        REQUIRE(right() == 4);
+
+        REQUIRE(left() == 5);
     }
 }
 
