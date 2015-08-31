@@ -638,7 +638,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         {
             // in-place copy
             change_to_locale();
-            right._impl->clone_copyable_inplace(_impl);
+            right._impl->clone_copyable_inplace(this->_impl);
         }
         else
             this->_impl = right._impl->clone_heap(); // heap clone
