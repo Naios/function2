@@ -167,6 +167,10 @@ template<typename ReturnType, typename... Args>
 struct is_function_pointer<ReturnType(*)(Args...)>
     : std::true_type { };
 
+template<typename>
+struct deduce_t
+    : std::true_type { };
+
 template<bool>
 struct copyable { };
 
@@ -565,16 +569,16 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         _impl = new T(std::forward<T>(functor));
     }
 
-    template<typename T, typename R = bool,
-        std::enable_if_t<Copyable, R>>
-    static bool can_allocate_inplace(T const& right)
+    template<typename T>
+    static auto can_allocate_inplace(T const& right)
+        -> std::enable_if_t<Copyable && deduce_t<T>::value, bool>
     {
         return right._impl->can_allocate_copyable_inplace(Capacity);
     }
 
-    template<typename T, typename R = bool,
-        std::enable_if_t<!Copyable, R>>
-        static bool can_allocate_inplace(T const& right)
+    template<typename T>
+    static auto can_allocate_inplace(T const& right)
+        -> std::enable_if_t<!Copyable && deduce_t<T>::value, bool>
     {
         return right._impl->can_allocate_unique_inplace(Capacity);
     }
@@ -591,10 +595,12 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
             return;
         }
 
-        if (right._impl->can_allocate_copyable_inplace(Capacity))
+        if (can_allocate_inplace(right))
         {
 
-            // int i = 0;
+            int i = 0;
+
+            ++i;
 
         }
         else
@@ -741,9 +747,6 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
 {
     template<typename, std::size_t, bool, bool, bool>
     friend class function;
-
-    template<typename>
-    friend struct storage_t;
 
     friend struct call_operator<function, ReturnType(Args...), Copyable, Constant, Volatile>;
 
