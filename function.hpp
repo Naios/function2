@@ -583,17 +583,17 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 
     ~storage_t()
     {
-        weak_deallocate();
+        this->weak_deallocate();
     }
 
     bool is_allocated() const
     {
-        return _impl != nullptr;
+        return this->_impl != nullptr;
     }
 
     void change_to_locale()
     {
-        _impl = reinterpret_cast<interface_t*>(&_locale);
+        this->_impl = reinterpret_cast<interface_t*>(&this->_locale);
     }
 
     template<typename T>
@@ -608,7 +608,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     auto weak_allocate(T&& functor)
         -> std::enable_if_t<is_local_allocateable<implementation_t<std::decay_t<T>>>::value>
     {
-        new (&_locale) implementation_t<std::decay_t<T>>(std::forward<T>(functor));
+        new (&this->_locale) implementation_t<std::decay_t<T>>(std::forward<T>(functor));
         change_to_locale();
     }
 
@@ -617,7 +617,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     auto weak_allocate(T&& functor)
         -> std::enable_if_t<!is_local_allocateable<implementation_t<std::decay_t<T>>>::value>
     {
-        _impl = new implementation_t<std::decay_t<T>>(std::forward<T>(functor));
+        this->_impl = new implementation_t<std::decay_t<T>>(std::forward<T>(functor));
     }
 
     template<typename T>
@@ -641,7 +641,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
             right._impl->clone_copyable_inplace(_impl);
         }
         else
-            _impl = right._impl->clone_heap(); // heap clone
+            this->_impl = right._impl->clone_heap(); // heap clone
     }
 
     // Copy assign with no in-place capability.
@@ -652,7 +652,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         else
-            _impl = right._impl->clone_heap(); // heap clone
+            this->_impl = right._impl->clone_heap(); // heap clone
     }
 
     template<typename T>
@@ -673,20 +673,20 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     auto do_move_allocate_inplace(T&& right)
         -> std::enable_if_t<Copyable && deduce_t<T>::value>
     {
-        right._impl->move_copyable_inplace(_impl);
+        right._impl->move_copyable_inplace(this->_impl);
     }
 
     template<typename T>
     auto do_move_allocate_inplace(T&& right)
         -> std::enable_if_t<!Copyable && deduce_t<T>::value>
     {
-        right._impl->move_unique_inplace(_impl);
+        right._impl->move_unique_inplace(this->_impl);
     }
 
     template<typename T>
     void move_assign(T&& right)
     {
-        weak_deallocate();
+        this->weak_deallocate();
         weak_move_assign(std::forward<T>(right));
     }
 
@@ -708,11 +708,10 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
             if (right.is_inplace())
             {
                 // FIXME
-                (*static_cast<int*>(nullptr)) = 0;
             }
             else
             {
-                _impl = right._impl;
+                this->_impl = right._impl;
                 right._impl = nullptr;
             }
         }
@@ -729,11 +728,10 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
             if (right.is_inplace())
             {
                 // FIXME
-                (*static_cast<int*>(nullptr)) = 0;
             }
             else
             {
-                _impl = right._impl;
+                this->_impl = right._impl;
                 right._impl = nullptr;
             }
         }
@@ -741,12 +739,12 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 
     void clean()
     {
-        _impl = nullptr;
+        this->_impl = nullptr;
     }
 
     void deallocate()
     {
-        weak_deallocate();
+        this->weak_deallocate();
         clean();
     }
 
@@ -825,7 +823,7 @@ public:
 
     /// Move construct
     template<std::size_t RightCapacity, bool RightCopyable,
-             typename = std::enable_if_t<iis_copyable_correct_to_this<RightCopyable>::value>>
+             typename = std::enable_if_t<is_copyable_correct_to_this<RightCopyable>::value>>
     explicit function(function<ReturnType(Args...), RightCapacity, RightCopyable, Constant, Volatile>&& right)
     {
         _storage.weak_move_assign(std::move(right._storage));
