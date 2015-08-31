@@ -45,7 +45,7 @@ using sfo_unique_function = fu2::function_base<Signature, testing_sfo_capacity, 
 
 int main(int argc, char** argv)
 {
-    runBenchmark();
+    // runBenchmark();
     test_mockup();
     // test_incubator();
 
@@ -553,6 +553,22 @@ TEST_CASE("Functions with SFO optimization", "[function<>]")
         });
 
         left = right;
+
+        REQUIRE(left());
+    }
+
+    SECTION("Function SFO copying from no sfo functions")
+    {
+        sfo_function<bool()> left;
+
+        function<bool()> right([]
+        {
+            return true;
+        });
+
+        left = right;
+
+        REQUIRE(left());
     }
 }
 

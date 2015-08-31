@@ -171,6 +171,10 @@ template<typename>
 struct deduce_t
     : std::true_type { };
 
+template<std::size_t>
+struct deduce_sz
+    : std::true_type { };
+
 template<bool>
 struct copyable { };
 
@@ -566,7 +570,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     {
         weak_deallocate();
 
-        _impl = new T(std::forward<T>(functor));
+        _impl = new implementation_t<std::decay_t<T>>(std::forward<T>(functor));
     }
 
     template<typename T>
@@ -583,45 +587,39 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         return right._impl->can_allocate_unique_inplace(Capacity);
     }
 
-    // Copy assign
-    template<std::size_t RightCapacity, bool RightConstant>
+    // Copy assign with in-place capability.
+    template<std::size_t RightCapacity, bool RightConstant,
+             std::enable_if_t<(Capacity > 0UL) && deduce_sz<RightCapacity>::value>* = nullptr>
     void copy_assign(storage_t<function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile>> const& right)
     {
         weak_deallocate();
 
         if (!right.is_allocated())
-        {
-            clean();
-            return;
-        }
-
-        if (can_allocate_inplace(right))
-        {
-
-            int i = 0;
-
-            ++i;
-
-        }
+            clean(); // Deallocate if right is unallocated
+        else if (right._impl->can_allocate_copyable_inplace(Capacity))
+            right._impl->clone_copyable_inplace(_impl); // in-place copy
         else
-        {
+            _impl = right._impl->clone_heap(); // heap clone
+    }
 
-        }
+    // Copy assign with no in-place capability.
+    template<std::size_t RightCapacity, bool RightConstant,
+             std::enable_if_t<(Capacity == 0UL) && deduce_sz<RightCapacity>::value>* = nullptr>
+    void copy_assign(storage_t<function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile>> const& right)
+    {
+        weak_deallocate();
 
-        /*
-        
-
-        if (right._impl)
-            _impl = right._impl->clone();
+        if (!right.is_allocated())
+            clean(); // Deallocate if right is unallocated
         else
-            _impl = nullptr;
-            */
+            _impl = right._impl->clone_heap(); // heap clone
     }
 
     // Move assign
     template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant>
-    void move_assign(storage_t<function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>>&& right)
+    void move_assign(storage_t<function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>>&& /*right*/)
     {
+        static_assert(deduce_sz<RightCapacity>::value , "not implemented!");
         /*
         weak_deallocate();
         _impl = right._impl;
@@ -855,7 +853,7 @@ public:
     }
 
     /// Copy assign taking a function pointer
-    template<typename T, typename = std::enable_if_t<is_function_pointer_assignable_to_this<T>::value>, typename = void>
+    template<typename T, std::enable_if_t<is_function_pointer_assignable_to_this<T>::value>* = nullptr>
     function& operator= (T function_pointer)
     {
         _storage.allocate(lambda_wrap(function_pointer));
@@ -863,7 +861,7 @@ public:
     }
 
     /// Copy assign taking a functor
-    template<typename T, typename = std::enable_if_t<is_functor_assignable_to_this<T>::value>>
+    template<typename T, std::enable_if_t<is_functor_assignable_to_this<T>::value>* = nullptr>
     function& operator= (T functor)
     {
         _storage.allocate(std::forward<T>(functor));
