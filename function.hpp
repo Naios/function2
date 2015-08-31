@@ -11,6 +11,8 @@
 #include <cstdint>
 #include <type_traits>
 
+inline void bp() { }
+
 namespace fu2
 {
 
@@ -496,7 +498,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 
     interface_t* _impl;
 
-    std::uint8_t _storage[Capacity];
+    std::uint8_t _locale[Capacity];
 
     template<typename T>
     using is_local_allocateable =
@@ -508,19 +510,28 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     {
         if (is_inplace())
             _impl->~interface_t();
-        else if (!_impl)
+        else if (_impl == nullptr)
             delete _impl;
     }
 
     storage_t()
-        : _impl(nullptr) { }
-
-    storage_t(storage_t const& right)
-        : _impl() { }
-
-    storage_t(storage_t&& right)
-        : _impl()
+        : _impl(nullptr)
     {
+        bp();
+    }
+
+    explicit storage_t(storage_t const& right)
+        : _impl(nullptr)
+    {
+        // TODO
+        copy_assign(right);
+    }
+
+    explicit storage_t(storage_t&& right)
+        : _impl(nullptr)
+    {
+        // TODO
+        move_assign(std::forward<storage_t>(right));
     }
 
     storage_t& operator= (storage_t const& right)
@@ -542,12 +553,17 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 
     bool is_inplace() const
     {
-        return _impl == static_cast<void const*>(&_storage);
+        return _impl == static_cast<void const*>(&_locale);
     }
 
     bool is_allocated() const
     {
         return _impl != nullptr;
+    }
+
+    void change_to_locale()
+    {
+        _impl = reinterpret_cast<interface_t*>(&_locale);
     }
 
     /// Direct allocate (use capacity)
@@ -559,8 +575,8 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 
         weak_deallocate();
 
-        new (&_storage) implementation_t<std::decay_t<T>>(std::forward<T>(functor));
-        _impl = reinterpret_cast<interface_t*>(&_storage);
+        new (&_locale) implementation_t<std::decay_t<T>>(std::forward<T>(functor));
+        change_to_locale();
     }
 
     /// Heap allocate
@@ -571,20 +587,6 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         weak_deallocate();
 
         _impl = new implementation_t<std::decay_t<T>>(std::forward<T>(functor));
-    }
-
-    template<typename T>
-    static auto can_allocate_inplace(T const& right)
-        -> std::enable_if_t<Copyable && deduce_t<T>::value, bool>
-    {
-        return right._impl->can_allocate_copyable_inplace(Capacity);
-    }
-
-    template<typename T>
-    static auto can_allocate_inplace(T const& right)
-        -> std::enable_if_t<!Copyable && deduce_t<T>::value, bool>
-    {
-        return right._impl->can_allocate_unique_inplace(Capacity);
     }
 
     // Copy assign with in-place capability.
@@ -615,16 +617,67 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
             _impl = right._impl->clone_heap(); // heap clone
     }
 
-    // Move assign
-    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant>
-    void move_assign(storage_t<function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>>&& /*right*/)
+    template<typename T>
+    static auto can_allocate_inplace(T const& right)
+        -> std::enable_if_t<Copyable && deduce_t<T>::value, bool>
     {
-        static_assert(deduce_sz<RightCapacity>::value , "not implemented!");
-        /*
+        return right._impl->can_allocate_copyable_inplace(Capacity);
+    }
+
+    template<typename T>
+    static auto can_allocate_inplace(T const& right)
+        -> std::enable_if_t<!Copyable && deduce_t<T>::value, bool>
+    {
+        return right._impl->can_allocate_unique_inplace(Capacity);
+    }
+
+    template<typename T>
+    auto do_move_allocate_inplace(T&& right)
+        -> std::enable_if_t<Copyable && deduce_t<T>::value>
+    {
+        right._impl->move_copyable_inplace(reinterpret_cast<interface_t*>(&_locale));
+    }
+
+    template<typename T>
+    auto do_move_allocate_inplace(T&& right)
+        -> std::enable_if_t<!Copyable && deduce_t<T>::value>
+    {
+        right._impl->move_unique_inplace(reinterpret_cast<interface_t*>(&_locale));
+    }
+
+    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
+             std::enable_if_t<(Capacity > 0UL) && deduce_sz<RightCapacity>::value>* = nullptr>
+    void move_assign(storage_t<function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>>&& right)
+    {
         weak_deallocate();
-        _impl = right._impl;
-        right._impl = nullptr;
-        */
+
+        if (!right.is_allocated())
+            clean(); // Deallocate if right is unallocated
+        else if (can_allocate_inplace(right))
+        {
+            do_move_allocate_inplace(std::move(right)); // in-place move
+            change_to_locale();
+        }
+        else // heap move
+        {
+            _impl = right._impl;
+            right._impl = nullptr;
+        }
+    }
+
+    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
+             std::enable_if_t<(Capacity == 0UL) && deduce_sz<RightCapacity>::value>* = nullptr>
+    void move_assign(storage_t<function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>>&& right)
+    {
+        weak_deallocate();
+
+        if (!right.is_allocated())
+            clean(); // Deallocate if right is unallocated
+        else // heap move
+        {
+            _impl = right._impl;
+            right._impl = nullptr;
+        }
     }
 
     void clean()
