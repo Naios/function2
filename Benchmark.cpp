@@ -68,7 +68,7 @@ auto measure()
 {
     auto const start = std::chrono::high_resolution_clock::now();
 
-    typename T::invoke();
+    T::invoke();
 
     auto const end = std::chrono::high_resolution_clock::now();
 
@@ -83,7 +83,9 @@ void take_time(std::string const& name)
 
     std::cout << "========\nBenchmark: " << name << std::endl;
     std::cout << "std::function:         " << left << "ns." << std::endl;
-    std::cout << "fu2::(unique)function: " << right << "ns." << std::endl  << std::endl;
+    std::cout << "fu2::(unique)function: " << right << "ns." << std::endl;
+
+    std::cout << " -> " << right / left << "%" << std::endl << std::endl;
 }
 
 void runBenchmark()
