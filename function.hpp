@@ -715,14 +715,18 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     auto do_move_allocate_inplace(T&& right)
         -> std::enable_if_t<Copyable && deduce_t<T>::value>
     {
+        change_to_locale();
         right._impl->move_copyable_inplace(this->_impl);
+        right.deallocate();
     }
 
     template<typename T>
     auto do_move_allocate_inplace(T&& right)
         -> std::enable_if_t<!Copyable && deduce_t<T>::value>
     {
+        change_to_locale();
         right._impl->move_unique_inplace(this->_impl);
+        right.deallocate();
     }
 
     template<typename T>
@@ -755,13 +759,10 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         // Disable this to use heap second chance on move...
+        /*
         else if (can_allocate_inplace(right))
-        {
-            // in-place move
-            change_to_locale();
             do_move_allocate_inplace(std::move(right));
-            right.deallocate();
-        }
+        */
         else
         {
             if (right.is_inplace())
@@ -942,7 +943,7 @@ public:
 
 }; // class function
 
-static constexpr std::size_t default_capacity = 16UL;
+static constexpr std::size_t default_capacity = 32UL;
 
 } // inline namespace v0
 

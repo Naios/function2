@@ -46,6 +46,12 @@ using sfo_unique_function = fu2::function_base<Signature, testing_sfo_capacity, 
 constexpr std::size_t sz1 = sizeof(std::function<bool(int, float, long)>);
 constexpr std::size_t sz2 = sizeof(std::function<void()>);
 
+constexpr std::size_t sz3 = sizeof(fu2::function<bool(int, float, long)>);
+constexpr std::size_t sz4 = sizeof(fu2::unique_function<void()>);
+
+constexpr std::size_t sz5 = sizeof(fu2::function_base<bool(int, float, long), 0UL, true>);
+constexpr std::size_t sz6 = sizeof(fu2::function_base<void(), 0UL, false>);
+
 int main(int argc, char** argv)
 {
     runBenchmark();
@@ -54,6 +60,12 @@ int main(int argc, char** argv)
 
     std::cout << "sizeof(std::function<bool(int, float, long)>) == " << sz1 << std::endl;
     std::cout << "sizeof(std::function<void()>) == " << sz2 << std::endl;
+
+    std::cout << "sizeof(fu2::function<bool(int, float, long)>) == " << sz3 << std::endl;
+    std::cout << "sizeof(fu2::unique_function<void()>) == " << sz4 << std::endl;
+
+    std::cout << "sizeof(fu2::function<bool(int, float, long)>) (no sfo) == " << sz5 << std::endl;
+    std::cout << "sizeof(fu2::unique_function<void()>) (no sfo) == " << sz6 << std::endl;
 
     int const result = Catch::Session().run(argc, argv);
 
