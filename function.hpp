@@ -599,7 +599,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     template<typename T>
     void allocate(T&& functor)
     {
-        weak_deallocate();
+        this->weak_deallocate();
         weak_allocate(std::forward<T>(functor));
     }
 
@@ -623,7 +623,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     template<typename T>
     void copy_assign(T const& right)
     {
-        weak_deallocate();
+        this->weak_deallocate();
         weak_copy_assign(right);
     }
 
