@@ -1,8 +1,8 @@
 
-//              Copyright Denis Blank 2015
-// Distributed under the Boost Software License, Version 1.0.
-//    (See accompanying file LICENSE_1_0.txt or copy at
-//          http://www.boost.org/LICENSE_1_0.txt)
+//  Copyright 2015 Denis Blank <denis.blank at outlook dot com>
+//   Distributed under the Boost Software License, Version 1.0
+//      (See accompanying file LICENSE_1_0.txt or copy at
+//           http://www.boost.org/LICENSE_1_0.txt)
 
 #ifndef function_hpp__
 #define function_hpp__
@@ -345,16 +345,20 @@ struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Vola
 {
     friend struct call_virtual_operator<call_wrapper_implementation, ReturnType(Args...), false, Constant, Volatile>;
 
-    typename qualified_t<T, Constant, Volatile>::type _impl;
+    std::decay_t<T> _impl;
 
     call_wrapper_implementation() = delete;
+    call_wrapper_implementation(call_wrapper_implementation const&) = delete;
+    call_wrapper_implementation(call_wrapper_implementation&&) = delete;
+    call_wrapper_implementation& operator= (call_wrapper_implementation const&) = delete;
+    call_wrapper_implementation& operator= (call_wrapper_implementation&&) = delete;
 
     template<typename A>
     call_wrapper_implementation(A&& impl)
         : _impl(std::forward<A>(impl))
     {
-        static_assert(!std::is_rvalue_reference<A>::value,
-            "Can't create a non copyable wrapper with non r-value ref!");
+        /*static_assert(!std::is_rvalue_reference<A>::value,
+            "Can't create a non copyable wrapper with non r-value ref!");*/
     }
 
     virtual ~call_wrapper_implementation() { }
@@ -364,9 +368,9 @@ struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Vola
         return sizeof(call_wrapper_implementation);
     }
 
-    virtual void move_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* /*ptr*/) override
+    void move_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* /*ptr*/) override
     {
-        // new (ptr) call_wrapper_implementation(std::move(_impl));
+        // new /*(ptr)*/ call_wrapper_implementation(std::move(_impl));
     }
 
     using call_virtual_operator<call_wrapper_implementation, ReturnType(Args...), false, Constant, Volatile>::operator();
@@ -380,9 +384,13 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
 {
     friend struct call_virtual_operator<call_wrapper_implementation, ReturnType(Args...), true, Constant, Volatile>;
 
-    typename qualified_t<std::decay_t<T>, Constant, Volatile>::type _impl;
+    std::decay_t<T> _impl;
 
     call_wrapper_implementation() = delete;
+    call_wrapper_implementation(call_wrapper_implementation const&) = delete;
+    call_wrapper_implementation(call_wrapper_implementation&&) = delete;
+    call_wrapper_implementation& operator= (call_wrapper_implementation const&) = delete;
+    call_wrapper_implementation& operator= (call_wrapper_implementation&&) = delete;
 
     template<typename A>
     call_wrapper_implementation(A&& impl)
@@ -400,24 +408,24 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
         return sizeof(call_wrapper_implementation);
     }
 
-    void move_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* /*ptr*/) override
+    void move_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* ptr) override
     {
-        // new (ptr) call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>(T(std::move(_impl)));
+        new (ptr) call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>(std::move(_impl));
     }
 
-    void move_copyable_inplace(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* /*ptr*/) override
+    void move_copyable_inplace(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* ptr) override
     {
-        // new (ptr) call_wrapper_implementation(T(std::move(_impl)));
+        new (ptr) call_wrapper_implementation(std::move(_impl));
     }
 
-    void clone_copyable_inplace(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* /*ptr*/) const
+    void clone_copyable_inplace(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* ptr) const
     {
-        // new (ptr) call_wrapper_implementation(T(_impl));
+        new (ptr) call_wrapper_implementation(std::move(_impl));
     }
 
     call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* clone_heap() const override
     {
-        return new call_wrapper_implementation(T(_impl));
+        return new call_wrapper_implementation(_impl);
     };
 
     using call_virtual_operator<call_wrapper_implementation, ReturnType(Args...), true, Constant, Volatile>::operator();
@@ -484,9 +492,10 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     >;
 
     // Call wrapper qualified storage
-    using interface_holder_t = typename qualified_t<
+    using interface_holder_t = interface_t*;
+    /*typename qualified_t<
         interface_t, Constant, Volatile
-    >::type*;
+    >::type**/;
 
     interface_holder_t _impl;
 

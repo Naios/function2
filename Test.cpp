@@ -32,7 +32,6 @@ int main(int argc, char** argv)
 {
     test_mockup();
     // test_incubator();
-
     int const result = Catch::Session().run(argc, argv);
 
     // Attach breakpoint here ,-)
@@ -451,5 +450,38 @@ TEST_CASE("Functions with SFO optimization", "[function<>]")
         }
 
         REQUIRE(deleted);
+    }
+}
+
+struct volatile_functor
+{
+    bool operator() () volatile
+    {
+        return true;
+    }
+};
+
+struct const_volatile_functor
+{
+    bool operator() () const volatile
+    {
+        return true;
+    }
+};
+
+TEST_CASE("Functions with volatile qualifier", "[function<>]")
+{
+    SECTION("Function accepts volatile qualifier")
+    {
+        function<bool() volatile> left = volatile_functor{};
+
+        REQUIRE(left());
+    }
+
+    SECTION("Function accepts const volatile qualifier")
+    {
+        function<bool() const volatile> left = const_volatile_functor{};
+
+        REQUIRE(left());
     }
 }
