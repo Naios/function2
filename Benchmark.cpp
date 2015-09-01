@@ -31,7 +31,7 @@ struct CopyFunctions
     {
         int c = 0;
 
-        for (int i = 0; i < 100000; ++i)
+        for (int i = 0; i < 1000000; ++i)
         {
             F fun = [&c]
             {
@@ -57,7 +57,7 @@ struct MoveFunctions
             c += vec.size();
         };
 
-        for (int i = 0; i < 100000; ++i)
+        for (int i = 0; i < 1000000; ++i)
         {
             F fun = std::move(right);
             fun();
@@ -95,5 +95,5 @@ void runBenchmark()
 {
     take_time<CopyFunctions<std::function<void()>>, CopyFunctions<fu2::function_base<void(), 64UL, true>>>("Construct test");
 
-    take_time<MoveFunctions<std::function<void()>>, MoveFunctions<fu2::function_base<void(), 64UL, false>>>("Move test");
+    take_time<MoveFunctions<std::function<void()>>, MoveFunctions<fu2::function_base<void(), 0UL, false>>>("Move test");
 }

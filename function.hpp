@@ -340,13 +340,52 @@ using required_capacity_to_allocate_inplace = std::integral_constant<std::size_t
     sizeof(T)
 >;
 
-template<typename /*T*/, typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
+/// Increases the chances when to fall back from in place to heap allocation for move performance.
+static constexpr std::size_t chances = 2UL;
+
+template<typename /*T*/, typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/, std::size_t Chance = chances>
 struct call_wrapper_implementation;
 
+template<typename /*T*/, typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/, std::size_t /*Chance*/>
+struct generate_next_impl;
+
+template<typename T, typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile, std::size_t Chance>
+struct generate_next_impl<T, ReturnType(Args...), Copyable, Constant, Volatile, Chance>
+{
+    using type = call_wrapper_implementation<T, ReturnType(Args...), Copyable, Constant, Volatile, Chance - 1>;
+};
+
+template<typename T, typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile>
+struct generate_next_impl<T, ReturnType(Args...), Copyable, Constant, Volatile, 0UL>
+{
+    using type = call_wrapper_implementation<T, ReturnType(Args...), Copyable, Constant, Volatile, 0UL>;
+};
+
+template <typename T, std::size_t Chance>
+struct can_allocate_inplace_helper
+{
+    static bool can_allocate_inplace(std::size_t size)
+    {
+        return required_capacity_to_allocate_inplace<T>::value <= size;
+    }
+};
+
+template <typename T>
+struct can_allocate_inplace_helper<T, 0UL>
+{
+    static bool can_allocate_inplace(std::size_t /*size*/)
+    {
+        return false;
+    }
+};
+
+template<typename T, typename Fn, bool Copyable, bool Constant, bool Volatile, std::size_t Chance>
+using generate_next_impl_t = typename generate_next_impl<T, Fn, Copyable, Constant, Volatile, Chance>::type;
+
 /// Implementation: move only wrapper
-template<typename T, typename ReturnType, typename... Args, bool Constant, bool Volatile>
-struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>
-     : call_virtual_operator<call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>, ReturnType(Args...), false, Constant, Volatile>
+template<typename T, typename ReturnType, typename... Args, bool Constant, bool Volatile, std::size_t Chance>
+struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile, Chance>
+     : call_virtual_operator<call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile, Chance>, ReturnType(Args...), false, Constant, Volatile>
 {
     friend struct call_virtual_operator<call_wrapper_implementation, ReturnType(Args...), false, Constant, Volatile>;
 
@@ -366,14 +405,14 @@ struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Vola
 
     bool can_allocate_unique_inplace(std::size_t size) const override
     {
-        return required_capacity_to_allocate_inplace<
-            call_wrapper_implementation
-        >::value <= size;
+        return can_allocate_inplace_helper<
+            generate_next_impl_t<T, ReturnType(Args...), false, Constant, Volatile, Chance>, Chance
+        >::can_allocate_inplace(size);
     }
 
     void move_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* ptr) override
     {
-        new (ptr) call_wrapper_implementation(std::move(_impl));
+        new (ptr) generate_next_impl_t<T, ReturnType(Args...), false, Constant, Volatile, Chance>(std::move(_impl));
     }
 
     call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* move_unique_to_heap() override
@@ -386,9 +425,9 @@ struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Vola
 }; // struct call_wrapper_implementation
 
 /// Implementation: copyable wrapper
-template<typename T, typename ReturnType, typename... Args, bool Constant, bool Volatile>
-struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volatile>
-     : call_virtual_operator<call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volatile>, ReturnType(Args...), true, Constant, Volatile>
+template<typename T, typename ReturnType, typename... Args, bool Constant, bool Volatile, std::size_t Chance>
+struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volatile, Chance>
+     : call_virtual_operator<call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volatile, Chance>, ReturnType(Args...), true, Constant, Volatile>
 {
     friend struct call_virtual_operator<call_wrapper_implementation, ReturnType(Args...), true, Constant, Volatile>;
 
@@ -408,27 +447,27 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
 
     bool can_allocate_unique_inplace(std::size_t size) const override
     {
-        return required_capacity_to_allocate_inplace<
-            call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>
-        >::value <= size;
+        return can_allocate_inplace_helper<
+            generate_next_impl_t<T, ReturnType(Args...), false, Constant, Volatile, Chance>, Chance
+        >::can_allocate_inplace(size);
     }
 
     bool can_allocate_copyable_inplace(std::size_t size) const override
     {
-        return required_capacity_to_allocate_inplace<
-            call_wrapper_implementation
-        >::value <= size;
+        return can_allocate_inplace_helper<
+            generate_next_impl_t<T, ReturnType(Args...), true, Constant, Volatile, Chance>, Chance
+        >::can_allocate_inplace(size);
     }
 
     void move_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* ptr) override
     {
         // Downcast to unique impl
-        new (ptr) call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>(std::move(_impl));
+        new (ptr) generate_next_impl_t<T, ReturnType(Args...), false, Constant, Volatile, Chance>(std::move(_impl));
     }
 
     void move_copyable_inplace(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* ptr) override
     {
-        new (ptr) call_wrapper_implementation(std::move(_impl));
+        new (ptr) generate_next_impl_t<T, ReturnType(Args...), true, Constant, Volatile, Chance>(std::move(_impl));
     }
 
     call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* move_unique_to_heap() override
@@ -758,11 +797,8 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     {
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
-        // Disable this to use heap second chance on move...
-        /*
         else if (can_allocate_inplace(right))
             do_move_allocate_inplace(std::move(right));
-        */
         else
         {
             if (right.is_inplace())
@@ -975,6 +1011,9 @@ using unique_function = function_base<
     false
 >;
 
+namespace experimental
+{
+
 /// Creates a functional object which type depends on the given functor or function pointer.
 /// The second template parameter can be used to adjust the capacity
 /// for small functor optimization (in-place allocation for small objects).
@@ -996,6 +1035,8 @@ auto make_function(Fn functional)
         unwrap_t::is_volatile
     >(std::forward<Fn>(functional));
 }
+
+} // namespace experimental
 
 } // namespace fu2
 

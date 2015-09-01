@@ -69,6 +69,14 @@ int main(int argc, char** argv)
 
     int const result = Catch::Session().run(argc, argv);
 
+    std::function<void()> stdfun([]
+    {
+    });
+
+    fu2::function<void()> fun = stdfun;
+
+    fu2::unique_function<void()> ufun = fun;
+
     // Attach breakpoint here ,-)
     return result;
 }
