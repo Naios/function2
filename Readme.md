@@ -76,12 +76,12 @@ otherfun();
   - `unique = copyable`
   - `copyable = copyable`
 
-| From \ To | `fu2::function` | `fu2::unique_function` | `std::function` |
-| -- | -- | -- | -- |
-| `fu2::function` | Yes | Yes | Yes |
-| `fu2::unique_function` | No | Yes | No |
-| `std::function` | Yes | Yes | Yes |
 
+| From \ To            | fu2::function | fu2::unique_function | std::function |
+|----------------------|---------------|----------------------|---------------|
+| fu2::function        | Yes           | Yes                  | Yes           |
+| fu2::unique_function | No            | Yes                  | No            |
+| std::function        | Yes           | Yes                  | Yes           |
 
 ```c++
 fu2::function<void()> fun = []{};
