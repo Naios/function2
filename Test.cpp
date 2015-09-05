@@ -43,24 +43,16 @@ int main(int argc, char** argv)
 {
     runBenchmark();
 
-    std::cout << "sizeof(std::function<bool(int, float, long)>) == " << sz1 << std::endl;
+    std::cout << "\nsizeof(std::function<bool(int, float, long)>) == " << sz1 << std::endl;
     std::cout << "sizeof(std::function<void()>) == " << sz2 << std::endl;
 
-    std::cout << "sizeof(fu2::function<bool(int, float, long)>) == " << sz3 << std::endl;
+    std::cout << "\nsizeof(fu2::function<bool(int, float, long)>) == " << sz3 << std::endl;
     std::cout << "sizeof(fu2::unique_function<void()>) == " << sz4 << std::endl;
 
-    std::cout << "sizeof(fu2::function<bool(int, float, long)>) (no sfo) == " << sz5 << std::endl;
-    std::cout << "sizeof(fu2::unique_function<void()>) (no sfo) == " << sz6 << std::endl;
+    std::cout << "\nsizeof(fu2::function<bool(int, float, long)>) (no sfo) == " << sz5 << std::endl;
+    std::cout << "sizeof(fu2::unique_function<void()>) (no sfo) == " << sz6 << std::endl << std::endl;
 
     int const result = Catch::Session().run(argc, argv);
-
-    std::function<void()> stdfun([]
-    {
-    });
-
-    fu2::function<void()> fun = stdfun;
-
-    fu2::unique_function<void()> ufun = fun;
 
     // Attach breakpoint here ,-)
     return result;

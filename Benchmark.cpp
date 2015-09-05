@@ -13,6 +13,8 @@
 
 #include <functional>
 
+static constexpr std::size_t runs = 1000000;
+
 template<typename F>
 struct CopyFunctions
 {
@@ -20,7 +22,7 @@ struct CopyFunctions
     {
         int c = 0;
 
-        for (int i = 0; i < 1000000; ++i)
+        for (int i = 0; i < runs; ++i)
         {
             F fun = [&c]
             {
@@ -46,7 +48,7 @@ struct MoveFunctions
             c += vec.size();
         };
 
-        for (int i = 0; i < 1000000; ++i)
+        for (int i = 0; i < runs; ++i)
         {
             F fun = std::move(right);
             fun();
@@ -55,15 +57,29 @@ struct MoveFunctions
     }
 };
 
+template<typename F>
+struct InvokeFunctions
+{
+    static void invoke()
+    {
+        std::size_t c = 0;
+
+        F right = [&c](int i)
+        {
+            c += i;
+        };
+
+        for (int i = 0; i < runs; ++i)
+            right(i);
+    }
+};
+
 template<typename T>
 auto measure()
 {
     auto const start = std::chrono::high_resolution_clock::now();
-
     T::invoke();
-
     auto const end = std::chrono::high_resolution_clock::now();
-
     return std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 }
 
@@ -73,16 +89,26 @@ void take_time(std::string const& name)
     auto const left = measure<StdImpl>();
     auto const right = measure<OwnImpl>();
 
-    std::cout << "========\nBenchmark: " << name << std::endl;
-    std::cout << "std::function:         " << left << "ns." << std::endl;
-    std::cout << "fu2::(unique)function: " << right << "ns." << std::endl;
+    auto pct = static_cast<int>((static_cast<double>(left) / static_cast<double>(right)) * 100) - 100;
 
-    std::cout << " -> " << right / left << "%" << std::endl << std::endl;
+    std::cout << "========\nBenchmark: " << name << std::endl << std::endl;
+    std::cout << "std::function:         " << left << "ns" << std::endl;
+    std::cout << "fu2::(unique)function: " << right << "ns\t " << (pct > 0 ? "+" : "") << pct << "%\n\n";
 }
 
 void runBenchmark()
 {
-    take_time<CopyFunctions<std::function<void()>>, CopyFunctions<fu2::function_base<void(), 64UL, true>>>("Construct test");
+    take_time<
+        CopyFunctions<std::function<void()>>, CopyFunctions<fu2::function_base<void(), 64UL, true>>>
+        ("Construct and copy function wrapper");
 
-    take_time<MoveFunctions<std::function<void()>>, MoveFunctions<fu2::function_base<void(), 0UL, false>>>("Move test");
+    take_time<
+        MoveFunctions<std::function<void()>>, MoveFunctions<fu2::function_base<void(), 0UL, false>>>
+        ("Move function wrapper around");
+
+    take_time<
+        InvokeFunctions<std::function<void(int)>>, InvokeFunctions<fu2::function_base<void(int), 64UL, true>>>
+        ("Invoke function wrapper");
+
+    std::cout << "========" << std::endl;
 }
