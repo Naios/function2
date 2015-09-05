@@ -22,7 +22,7 @@ struct CopyFunctions
     {
         int c = 0;
 
-        for (int i = 0; i < runs; ++i)
+        for (std::size_t i = 0; i < runs; ++i)
         {
             F fun = [&c]
             {
@@ -48,7 +48,7 @@ struct MoveFunctions
             c += vec.size();
         };
 
-        for (int i = 0; i < runs; ++i)
+        for (std::size_t i = 0; i < runs; ++i)
         {
             F fun = std::move(right);
             fun();
@@ -69,7 +69,7 @@ struct InvokeFunctions
             c += i;
         };
 
-        for (int i = 0; i < runs; ++i)
+        for (std::size_t i = 0; i < runs; ++i)
             right(i);
     }
 };
