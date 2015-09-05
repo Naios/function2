@@ -40,5 +40,5 @@ install:
   - cmake ../ -DCMAKE_BUILD_TYPE=Release
 
 script:
-  make -j2
-  ./Test
+  - make -j2
+  - ./Test
