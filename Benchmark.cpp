@@ -64,7 +64,7 @@ struct InvokeFunctions
     {
         std::size_t c = 0;
 
-        F right = [&c](int i)
+        F right = [&c](std::size_t i)
         {
             c += i;
         };
@@ -107,7 +107,7 @@ void runBenchmark()
         ("Move function wrapper around");
 
     take_time<
-        InvokeFunctions<std::function<void(int)>>, InvokeFunctions<fu2::function_base<void(int), 64UL, true>>>
+        InvokeFunctions<std::function<void(std::size_t)>>, InvokeFunctions<fu2::function_base<void(std::size_t), 64UL, true>>>
         ("Invoke function wrapper");
 
     std::cout << "========" << std::endl;
