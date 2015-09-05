@@ -41,4 +41,4 @@ install:
 
 script:
   make -j2
-  - ./Test
+  ./Test
