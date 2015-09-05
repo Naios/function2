@@ -144,11 +144,11 @@ namespace is_functor_impl
         : std::true_type { };
 
     template<typename T>
-    static inline constexpr auto test_functor(int)
+    static constexpr auto test_functor(int)
         -> to_true<decltype(&T::operator())>;
 
     template<typename T>
-    static inline constexpr auto test_functor(...)
+    static constexpr auto test_functor(...)
         -> std::false_type;
 
 } // namespace is_functor_impl
