@@ -11,13 +11,12 @@ Provides two improved implementations of `std::function`:
 which are:
 
 - **const** and **volatile** correct (qualifiers are part of the `operator()` signature).
-- **compatible** to `std::function`.
+- **convertible** to and from `std::function`.
 - **adaptable** through `fu2::function_base` (internal capacity, copyable).
 - **covered** by unit tests and continuous integration.
 - **header only**, just copy and include `function.hpp` in your project.
 
 ## Table of Contents
-
 * **[Documentation](#documentation)**
   * **[How to use](#how-to-use)**
   * **[Constructing a function](#constructing-a-function)**
@@ -33,6 +32,37 @@ which are:
 
 Function2 is implemented in one header only file `function.hpp`, no compilation is required.
 Just drop and include `function.hpp` to start!
+
+Use `fu2::function` as a wrapper for copyable function wrappers and `fu2::unique_function` for move only types.
+In most cases is `std::function` and `fu2::function` compatible, see [the chapter converbility of functions](#converbility-of-functions) for details.
+
+A function wrapper is declared as followed:
+```c++
+fu2::function<void(int, float) const>
+// Return type ~^   ^     ^     ^
+// Arguments ~~~~~~~|~~~~~|     ^
+// Qualifier ~~~~~~~~~~~~~~~~~~~|
+```
+
+#### Return type
+The return type of the function to wrap.
+
+#### Arguments
+The argument types of the function to wrap.
+Any argument types are allowed.
+
+#### Qualifiers
+
+There are several qualifiers allowed:
+
+- **no qualifier** provides `ReturnType operator() (Args...)`
+  - Can be assigned from const and no const objects (*mutable lambdas* for example).
+- **const** provides `ReturnType operator() (Args...) const`
+  - Requires that the assigned functor is const callable (won't work with *mutable lambdas*),
+- **volatile** provides `ReturnType operator() (Args...) volatile`
+  - Can only be assigned from volatile qualified functors.
+- **const volatile** provides `ReturnType operator() (Args...) const volatile`
+  - Same as const and volatile together.
 
 ### Constructing a function
 
