@@ -8,20 +8,29 @@ Provides two improved implementations of `std::function`:
 
 which are:
 
-- **const** and **volatile** correct (qualifiers are part of the signature).
+- **const** and **volatile** correct (qualifiers are part of the `operator()` signature).
 - **compatible** to `std::function`.
 - **adaptable** through `fu2::function_base` (internal capacity, copyable).
 - **covered** by unit tests and continuous integration.
-- **header only**, just include `function.hpp` in your project.
+- **header only**, just copy and include `function.hpp` in your project.
 
 ## Table of Contents
 
 * **[Documentation](#documentation)**
-  * **[Scheduling Tasks](#scheduling-tasks)**
+  * **[How to use](#how-to-use)**
+  * **[Constructing a function](#constructing-a-function)**
+  * **[Non copyable unique functions](#non-copyable-unique-functions)**
+  * **[Converbility of functions](#converbility-of-functions)**
+* **[Coverage and runtime checks](#coverage-and-runtime-checks)**
 * **[Compatibility](#compatibility)**
 * **[License](#licence)**
 
 ## Documentation
+
+### How to use
+
+Function2 is implemented in one header only file `function.hpp`, no compilation is required.
+Just drop and include `function.hpp` to start!
 
 ### Constructing a function
 
@@ -66,20 +75,45 @@ otherfun();
 - The functions are copyable correct
   - `unique = copyable`
   - `copyable = copyable`
-  - | From \ To | `fu2::function` | `fu2::unique_function` | `std::function`
-    | --
-    | `fu2::function` | Yes | Yes | Yes
-    | `fu2::unique_function` | No | Yes | No
-    | `std::function` | Yes | Yes | Yes
+
+| From \ To | `fu2::function` | `fu2::unique_function` | `std::function`
+| --
+| `fu2::function` | Yes | Yes | Yes
+| `fu2::unique_function` | No | Yes | No
+| `std::function` | Yes | Yes | Yes
+
 
 ```c++
 fu2::function<void()> fun = []{};
+// OK
 std::function<void()> std_fun = fun;
+// OK
 fu2::unique_function<void()> un_fun = fun;
 
-fun = std_fun;
+// Error (non copyable -> copyable)
+fun = un_fun;
+// Error (non copyable -> copyable)
+fun = un_fun;
+
 ```
 
+## Coverage and runtime checks
+
+Function2 is checked with unit tests and was tested with valgrind for memory leaks:
+
+```
+===============================================================================
+All tests passed (73 assertions in 7 test cases)
+
+==15215== LEAK SUMMARY:
+==15215==    definitely lost: 0 bytes in 0 blocks
+==15215==    indirectly lost: 0 bytes in 0 blocks
+==15215==      possibly lost: 0 bytes in 0 blocks
+==15215==    still reachable: 72,704 bytes in 1 blocks
+==15215==         suppressed: 0 bytes in 0 blocks
+==15215==
+==15215== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+```
 
 ## Compatibility
 
@@ -92,4 +126,4 @@ Tested with:
 Every compiler with full C++14 support should work (`constexpr` excluded for msvc).
 
 ## License
-
+Function2 is licensed under the Boost 1.0 License.
