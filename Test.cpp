@@ -604,3 +604,154 @@ TEST_CASE("Functions with volatile qualifier", "[function<>]")
         REQUIRE(left());
     }
 }
+
+namespace fn_test_types
+{
+    struct member
+    {
+        int operator() ()
+        {
+            return 0;
+        }
+    };
+
+    struct const_member
+    {
+        int operator() () const
+        {
+            return 0;
+        }
+    };
+
+    struct volatile_member
+    {
+        int operator() () volatile
+        {
+            return 0;
+        }
+    };
+
+    struct const_volatile_member
+    {
+        int operator() () const volatile
+        {
+            return 0;
+        }
+    };
+
+    struct static_member
+    {
+        static int my_fn()
+        {
+            return 0;
+        }
+    };
+
+    int my_fn()
+    {
+        return 0;
+    }
+
+    int my_fn_volatile()
+    {
+        return 0;
+    }
+
+    struct empty_struct
+    {
+
+    };
+
+    struct volatile_tests
+    {
+        int a = 0;
+
+        volatile int b = 0;
+
+        int access_a()
+        {
+            return a;
+        }
+
+        int access_b()
+        {
+            return b;
+        }
+
+        int access_a_vol() volatile
+        {
+            return a;
+        }
+
+        int access_b_vol() volatile
+        {
+            return b;
+        }
+
+
+    };
+}
+
+template<typename T>
+using unwrap = fu2::detail::unwrap_traits::unwrap<T>;
+
+TEST_CASE("Static asserts", "[function<>]")
+{
+    // Const lambda function
+    auto lam1 = [] {};
+    static_assert(unwrap<decltype(&decltype(lam1)::operator())>::is_member,
+        "check failed!");
+    static_assert(unwrap<decltype(&decltype(lam1)::operator())>::is_const,
+        "check failed!");
+    static_assert(!unwrap<decltype(&decltype(lam1)::operator())>::is_volatile,
+        "check failed!");
+
+    // Mutable lambda function
+    auto lam2 = []() mutable -> int { return  0; };
+    static_assert(unwrap<decltype(&decltype(lam2)::operator())>::is_member,
+        "check failed!");
+    static_assert(!unwrap<decltype(&decltype(lam2)::operator())>::is_const,
+        "check failed!");
+    static_assert(!unwrap<decltype(&decltype(lam2)::operator())>::is_volatile,
+        "check failed!");
+
+    // Class methods
+    static_assert(unwrap<decltype(&fn_test_types::member::operator())>::is_member,
+        "check failed!");
+    static_assert(!unwrap<decltype(&fn_test_types::member::operator())>::is_const,
+        "check failed!");
+    static_assert(!unwrap<decltype(&fn_test_types::member::operator())>::is_volatile,
+        "check failed!");
+
+    // Class const methods
+    static_assert(unwrap<decltype(&fn_test_types::const_member::operator())>::is_member,
+        "check failed!");
+    static_assert(unwrap<decltype(&fn_test_types::const_member::operator())>::is_const,
+        "check failed!");
+    static_assert(!unwrap<decltype(&fn_test_types::const_member::operator())>::is_volatile,
+        "check failed!");
+
+    // Class volatile methods
+    static_assert(unwrap<decltype(&fn_test_types::volatile_member::operator())>::is_member,
+        "check failed!");
+    static_assert(!unwrap<decltype(&fn_test_types::volatile_member::operator())>::is_const,
+        "check failed!");
+    static_assert(unwrap<decltype(&fn_test_types::volatile_member::operator())>::is_volatile,
+        "check failed!");
+
+    // Class const volatile methods
+    static_assert(unwrap<decltype(&fn_test_types::const_volatile_member::operator())>::is_member,
+        "check failed!");
+    static_assert(unwrap<decltype(&fn_test_types::const_volatile_member::operator())>::is_const,
+        "check failed!");
+    static_assert(unwrap<decltype(&fn_test_types::const_volatile_member::operator())>::is_volatile,
+        "check failed!");
+
+    // Static member functions
+    static_assert(!unwrap<decltype(fn_test_types::static_member::my_fn)>::is_member,
+        "check failed!");
+    static_assert(!unwrap<decltype(fn_test_types::static_member::my_fn)>::is_const,
+        "check failed!");
+    static_assert(!unwrap<decltype(fn_test_types::static_member::my_fn)>::is_volatile,
+        "check failed!");
+}
