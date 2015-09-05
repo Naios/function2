@@ -32,6 +32,7 @@ matrix:
       env: COMPILER=clang++-3.6
 
 install:
+  - export CXX=$COMPILER
   - $CXX --version
 
   - mkdir bin
@@ -39,5 +40,5 @@ install:
   - cmake ../ -DCMAKE_BUILD_TYPE=Release
 
 script:
-  - make -j 4
-  - ./Tests
+  make -j2
+  - ./Test
