@@ -1,6 +1,8 @@
 
 # C++14 Function 2 - fu2::
 
+[![Build Status](https://travis-ci.org/Naios/Function2.svg?branch=master)](https://travis-ci.org/Naios//Function2)
+
 Provides two improved implementations of `std::function`:
 
 - **copyable** `fu2::function`
@@ -77,11 +79,11 @@ otherfun();
   - `copyable = copyable`
 
 
-| From \ To            | fu2::function | fu2::unique_function | std::function |
-|----------------------|---------------|----------------------|---------------|
-| fu2::function        | Yes           | Yes                  | Yes           |
-| fu2::unique_function | No            | Yes                  | No            |
-| std::function        | Yes           | Yes                  | Yes           |
+| Cobvertible from \ to | fu2::function | fu2::unique_function | std::function |
+|-----------------------|---------------|----------------------|---------------|
+| fu2::function         | Yes           | Yes                  | Yes           |
+| fu2::unique_function  | No            | Yes                  | No            |
+| std::function         | Yes           | Yes                  | Yes           |
 
 ```c++
 fu2::function<void()> fun = []{};
