@@ -144,11 +144,11 @@ namespace is_functor_impl
         : std::true_type { };
 
     template<typename T>
-    static constexpr auto test_functor(int)
+    static auto test_functor(int)
         -> to_true<decltype(&T::operator())>;
 
     template<typename T>
-    static constexpr auto test_functor(...)
+    static auto test_functor(...)
         -> std::false_type;
 
 } // namespace is_functor_impl
@@ -341,7 +341,7 @@ using required_capacity_to_allocate_inplace = std::integral_constant<std::size_t
 >;
 
 /// Increases the chances when to fall back from in place to heap allocation for move performance.
-static constexpr std::size_t chances = 2UL;
+static std::size_t const chances = 2UL;
 
 template<typename /*T*/, typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/, std::size_t Chance = chances>
 struct call_wrapper_implementation;
@@ -675,18 +675,18 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     /// Direct allocate (use capacity)
     template<typename T>
     auto weak_allocate(T&& functor)
-        -> std::enable_if_t<is_local_allocateable<implementation_t<std::decay_t<T>>>::value>
+        -> typename std::enable_if<is_local_allocateable<implementation_t<typename std::decay<T>::type>>::value>::type
     {
-        new (&this->_locale) implementation_t<std::decay_t<T>>(std::forward<T>(functor));
+        new (&this->_locale) implementation_t<typename std::decay<T>::type>(std::forward<T>(functor));
         change_to_locale();
     }
 
     /// Heap allocate
     template<typename T>
     auto weak_allocate(T&& functor)
-        -> std::enable_if_t<!is_local_allocateable<implementation_t<std::decay_t<T>>>::value>
+        -> typename std::enable_if<!is_local_allocateable<implementation_t<typename std::decay<T>::type>>::value>::type
     {
-        this->_impl = new implementation_t<std::decay_t<T>>(std::forward<T>(functor));
+        this->_impl = new implementation_t<typename std::decay<T>::type>(std::forward<T>(functor));
     }
 
     template<typename T>
@@ -698,7 +698,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 
     template<typename T>
     auto do_copy_allocate(T const& right)
-        -> std::enable_if_t<Copyable && deduce_t<T>::value>
+        -> typename std::enable_if<Copyable && deduce_t<T>::value>::type
     {
         change_to_locale();
         right._impl->clone_copyable_inplace(this->_impl);
@@ -706,7 +706,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 
     template<typename T>
     auto do_copy_allocate(T const& right)
-        -> std::enable_if_t<!Copyable && deduce_t<T>::value>
+        -> typename std::enable_if<!Copyable && deduce_t<T>::value>::type
     {
         change_to_locale();
         right._impl->clone_unique_inplace(this->_impl);
@@ -714,7 +714,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 
     // Copy assign with in-place capability.
     template<std::size_t RightCapacity, bool RightConstant,
-             std::enable_if_t<(Capacity > 0UL) && deduce_sz<RightCapacity>::value>* = nullptr>
+             typename std::enable_if<(Capacity > 0UL) && deduce_sz<RightCapacity>::value>::type* = nullptr>
     void weak_copy_assign(storage_t<function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile>> const& right)
     {
         if (!right.is_allocated())
@@ -727,7 +727,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 
     // Copy assign with no in-place capability.
     template<std::size_t RightCapacity, bool RightConstant,
-             std::enable_if_t<(Capacity == 0UL) && deduce_sz<RightCapacity>::value>* = nullptr>
+             typename std::enable_if<(Capacity == 0UL) && deduce_sz<RightCapacity>::value>::type* = nullptr>
     void weak_copy_assign(storage_t<function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile>> const& right)
     {
         if (!right.is_allocated())
@@ -738,21 +738,21 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 
     template<typename T>
     static auto can_allocate_inplace(T const& right)
-        -> std::enable_if_t<Copyable && deduce_t<T>::value, bool>
+        -> typename std::enable_if<Copyable && deduce_t<T>::value, bool>::type
     {
         return right._impl->can_allocate_copyable_inplace(Capacity);
     }
 
     template<typename T>
     static auto can_allocate_inplace(T const& right)
-        -> std::enable_if_t<!Copyable && deduce_t<T>::value, bool>
+        -> typename std::enable_if<!Copyable && deduce_t<T>::value, bool>::type
     {
         return right._impl->can_allocate_unique_inplace(Capacity);
     }
 
     template<typename T>
     auto do_move_allocate_inplace(T&& right)
-        -> std::enable_if_t<Copyable && deduce_t<T>::value>
+        -> typename std::enable_if<Copyable && deduce_t<T>::value>::type
     {
         change_to_locale();
         right._impl->move_copyable_inplace(this->_impl);
@@ -761,7 +761,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 
     template<typename T>
     auto do_move_allocate_inplace(T&& right)
-        -> std::enable_if_t<!Copyable && deduce_t<T>::value>
+        -> typename std::enable_if<!Copyable && deduce_t<T>::value>::type
     {
         change_to_locale();
         right._impl->move_unique_inplace(this->_impl);
@@ -770,7 +770,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 
     template<typename T>
     auto do_move_allocate_to_heap(T&& right)
-        -> std::enable_if_t<Copyable && deduce_t<T>::value>
+        -> typename std::enable_if<Copyable && deduce_t<T>::value>::type
     {
         this->_impl = right._impl->move_copyable_to_heap();
         right.deallocate();
@@ -778,7 +778,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 
     template<typename T>
     auto do_move_allocate_to_heap(T&& right)
-        -> std::enable_if_t<!Copyable && deduce_t<T>::value>
+        -> typename std::enable_if<!Copyable && deduce_t<T>::value>::type
     {
         this->_impl = right._impl->move_unique_to_heap();
         right.deallocate();
@@ -792,7 +792,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     }
 
     template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
-             std::enable_if_t<(Capacity > 0UL) && deduce_sz<RightCapacity>::value>* = nullptr>
+             typename std::enable_if<(Capacity > 0UL) && deduce_sz<RightCapacity>::value>::type* = nullptr>
     void weak_move_assign(storage_t<function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>>&& right)
     {
         if (!right.is_allocated())
@@ -812,7 +812,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     }
 
     template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
-             std::enable_if_t<(Capacity == 0UL) && deduce_sz<RightCapacity>::value>* = nullptr>
+             typename std::enable_if<(Capacity == 0UL) && deduce_sz<RightCapacity>::value>::type* = nullptr>
     void weak_move_assign(storage_t<function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>>&& right)
     {
         if (!right.is_allocated())
@@ -915,7 +915,7 @@ public:
 
     /// Move construct
     template<std::size_t RightCapacity, bool RightCopyable,
-             typename = std::enable_if_t<is_copyable_correct_to_this<RightCopyable>::value>>
+             typename = typename std::enable_if<is_copyable_correct_to_this<RightCopyable>::value>::type>
     explicit function(function<ReturnType(Args...), RightCapacity, RightCopyable, Constant, Volatile>&& right)
     {
         _storage.weak_move_assign(std::move(right._storage));
