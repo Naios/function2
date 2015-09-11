@@ -123,12 +123,12 @@ namespace unwrap_traits
 
     /// 0. Unwrap classes through function pointer to operator()
     template<typename Fn>
-    static constexpr auto do_unwrap(int)
+    auto do_unwrap(int)
         -> unwrap<decltype(&Fn::operator())>;
 
     /// 1. Unwrap through plain type (function pointer)
     template<typename Fn>
-    static constexpr auto do_unwrap(long)
+    auto do_unwrap(long)
         -> unwrap<Fn>;
 
 } // namespace unwrap_traits
@@ -144,11 +144,11 @@ namespace is_functor_impl
         : std::true_type { };
 
     template<typename T>
-    static auto test_functor(int)
+    auto test_functor(int)
         -> to_true<decltype(&T::operator())>;
 
     template<typename T>
-    static auto test_functor(...)
+    auto test_functor(...)
         -> std::false_type;
 
 } // namespace is_functor_impl
