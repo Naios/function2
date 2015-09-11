@@ -507,6 +507,8 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
         REQUIRE(left());
     }
 
+#ifdef HAS_CXX14_LAMBDA_CAPTURE
+
     SECTION("Evade copy of implementations when move constructing")
     {
         function<bool()> right([store = std::make_shared<bool>(true)]
@@ -519,16 +521,20 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
         REQUIRE(left());
     }
 
+#endif // #ifdef HAS_CXX14_LAMBDA_CAPTURE
+
     SECTION("Evade copy of implementations when move assigning")
     {
-        function<bool()> left;
-
-        function<bool()> right([store = std::make_shared<bool>(true)]
+        function<bool()> right;
         {
-            return store.unique() && *store;
-        });
+            auto store = std::make_shared<bool>(true);
+            right = [=]
+            {
+                return store.unique() && *store;
+            };
+        }
 
-        left = std::move(right);
+        function<bool()> left(std::move(right));
 
         REQUIRE(left());
     }
