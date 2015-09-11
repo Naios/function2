@@ -56,9 +56,9 @@ struct impl_is_callable_with_qualifiers<ReturnType(Args...)>
 {
     template<typename T>
     static auto test(int)
-        -> typename std::is_same<
-            ReturnType,
-            decltype(std::declval<T>()(std::declval<Args>()...))
+        -> typename std::is_convertible<
+            decltype(std::declval<T&>()(std::declval<Args>()...)),
+            ReturnType
            >;
 
     template<typename T>
@@ -77,6 +77,13 @@ template<bool Condition, typename T>
 using add_volatile_if_t = typename std::conditional<
     Condition,
     typename std::add_volatile<T>::type,
+    T
+>::type;
+
+template<bool Condition, typename T>
+using add_lvalue_if_t = typename std::conditional<
+    Condition,
+    typename std::add_lvalue_reference<T>::type,
     T
 >::type;
 
