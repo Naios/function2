@@ -48,9 +48,9 @@ else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic -Wextra")
 endif()
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(testing)
 
-file(GLOB TEST_SOURCES *.cpp *.hpp *.h)
+file(GLOB TEST_SOURCES testing/*.cpp *.hpp)
 
 add_executable(Test ${TEST_SOURCES})
-

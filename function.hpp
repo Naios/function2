@@ -1041,7 +1041,7 @@ namespace experimental
 /// Creates a functional object which type depends on the given functor or function pointer.
 /// The second template parameter can be used to adjust the capacity
 /// for small functor optimization (in-place allocation for small objects).
-template<typename Fn, std::size_t Capacity = detail::default_capacity::value>
+/*template<typename Fn, std::size_t Capacity = detail::default_capacity::value>
 auto make_function(Fn functional)
 {
     static_assert(detail::is_function_pointer<Fn>::value || detail::is_functor<typename std::decay<Fn>::type>::value,
@@ -1058,7 +1058,7 @@ auto make_function(Fn functional)
         unwrap_t::is_const,
         unwrap_t::is_volatile
     >(std::forward<Fn>(functional));
-}
+}*/
 
 } // namespace experimental
 
