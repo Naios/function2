@@ -13,7 +13,7 @@ matrix:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-4.8']
-      env: CXX=g++-4.8
+      env: COMPILER=g++-4.8
 
     - os: linux
       compiler: gcc
@@ -21,7 +21,7 @@ matrix:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-4.9']
-      env: CXX=g++-4.9
+      env: COMPILER=g++-4.9
 
     - os: linux
       compiler: gcc
@@ -29,7 +29,7 @@ matrix:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-5']
-      env: CXX=g++-5
+      env: COMPILER=g++-5
 
     - os: linux
       addons:
@@ -37,7 +37,7 @@ matrix:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-4.8']
       compiler: clang
-      env: CXX=clang++
+      env: COMPILER=clang++
 
     - os: linux
       compiler: clang
@@ -45,7 +45,7 @@ matrix:
         apt:
           sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.5']
           packages: ['clang-3.5']
-      env: CXX=clang++-3.5
+      env: COMPILER=clang++-3.5
 
     - os: linux
       compiler: clang
@@ -53,7 +53,7 @@ matrix:
         apt:
           sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.6']
           packages: ['clang-3.6']
-      env: CXX=clang++-3.6
+      env: COMPILER=clang++-3.6
 
     - os: linux
       compiler: clang
@@ -61,9 +61,12 @@ matrix:
         apt:
           sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.7']
           packages: ['clang-3.7']
-      env: CXX=clang++-3.7
+      env: COMPILER=clang++-3.7
 
 install:
+  - export CXX=$COMPILER
+  - $CXX --version
+
   - mkdir bin
   - cd bin
   - cmake ../ -DCMAKE_BUILD_TYPE=Release
