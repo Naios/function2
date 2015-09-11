@@ -901,14 +901,25 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
     // Implementation storage
     storage_t<function> _storage;
 
+    // Box for small copyable types (function pointers)
     template<typename T>
-    static auto lambda_wrap(T&& arg)
+    class functor_box
     {
-        return [arg = std::forward<T>(arg)](Args&&... args)
+        T _boxed;
+
+    public:
+        template<typename B>
+        functor_box(B&& box)
+            : _boxed(std::forward<B>(box)) { }
+
+        ReturnType operator() (Args&&... args) const
         {
-            return arg(std::forward<Args>(args)...);
-        };
-    }
+            return _boxed(std::forward<Args>(args)...);
+        }
+    };
+
+    template<typename T>
+    using functor_box_of = functor_box<typename std::decay<T>::type>;
 
 public:
     function() = default;
@@ -931,7 +942,7 @@ public:
     /// Constructor taking a function pointer
     template<typename T, typename = std::enable_if_t<is_function_pointer_assignable_to_this<T>::value>, typename = void>
     function(T function_pointer)
-        : function(lambda_wrap(function_pointer)) { }
+        : function(functor_box_of<T>(std::forward<T>(function_pointer))) { }
 
     /// Constructor taking a functor
     template<typename T, typename = std::enable_if_t<is_functor_assignable_to_this<T>::value>>
@@ -964,7 +975,7 @@ public:
     template<typename T, std::enable_if_t<is_function_pointer_assignable_to_this<T>::value>* = nullptr>
     function& operator= (T function_pointer)
     {
-        _storage.allocate(lambda_wrap(function_pointer));
+        _storage.allocate(functor_box_of<T>(std::forward<T>(function_pointer)));
         return *this;
     }
 
