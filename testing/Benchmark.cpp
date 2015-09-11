@@ -93,9 +93,9 @@ void take_time(std::string const& name)
 
     auto pct = static_cast<int>((static_cast<double>(left) / static_cast<double>(right)) * 100) - 100;
 
-    std::cout << "========\nBenchmark: " << name << std::endl << std::endl;
-    std::cout << "std::function:         " << left << "ns" << std::endl;
-    std::cout << "fu2::(unique)function: " << right << "ns\t " << (pct > 0 ? "+" : "") << pct << "%\n\n";
+    std::cout << "\nBenchmark: " << name << std::endl;
+    std::cout << "    std::function:         " << left << "ns" << std::endl;
+    std::cout << "    fu2::(unique)function: " << right << "ns\t " << (pct > 0 ? "+" : "") << pct << "%\n";
 }
 
 void runBenchmark()
@@ -112,7 +112,7 @@ void runBenchmark()
         InvokeFunctions<std::function<void(std::size_t)>>, InvokeFunctions<fu2::function_base<void(std::size_t), 64UL, true>>>
         ("Invoke function wrapper");
 
-    std::cout << "========" << std::endl;
+    std::cout << std::endl;
 }
 
 #else
