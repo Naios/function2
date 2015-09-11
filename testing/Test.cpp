@@ -140,6 +140,8 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
         REQUIRE(left());
     }
 
+#ifdef HAS_CXX14_LAMBDA_CAPTURE
+
     SECTION("Move assign a lambda bool() const to unique_function<bool() const>")
     {
         unique_function<bool() const> left;
@@ -151,6 +153,8 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
 
         REQUIRE(left());
     }
+
+#endif // #ifdef HAS_CXX14_LAMBDA_CAPTURE
 
     SECTION("Move construct between function<bool() const>")
     {
@@ -447,6 +451,8 @@ TEST_CASE("Functions are convertible from function pointers", "[function<>]")
 
 TEST_CASE("unique_function's are convertible to non copyable functors and from copyable functors", "[unique_function<>]")
 {
+#ifdef HAS_CXX14_LAMBDA_CAPTURE
+
     SECTION("Move construct fu2::function from non copyable lambda")
     {
         auto right = [up = std::make_unique<bool>(true)]
@@ -472,6 +478,8 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
 
         REQUIRE(left());
     }
+
+#endif // #ifdef HAS_CXX14_LAMBDA_CAPTURE
 
     SECTION("Move construct fu2::unique_function from std::function")
     {
