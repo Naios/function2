@@ -48,6 +48,32 @@ constexpr std::size_t pd4 = std::alignment_of<fu2::unique_function<void()>>::val
 constexpr std::size_t pd5 = std::alignment_of<fu2::function_base<bool(int, float, long), 0UL, true>>::value;
 constexpr std::size_t pd6 = std::alignment_of<fu2::function_base<void(), 0UL, false>>::value;
 
+template<typename Signature>
+struct signature;
+
+template<typename ReturnType, typename... Args>
+struct signature<ReturnType(Args...)>
+{
+    /// The return type of the function.
+    using return_type = ReturnType;
+
+    /// The argument types of the function as pack in std::tuple.
+    using argument_type = std::tuple<Args...>;
+};
+
+template<bool Constant = false, bool Volatile = false, bool RValue = false>
+struct qualifier
+{
+    /// Is true if the qualifier has const.
+    static constexpr bool is_const = Constant;
+
+    /// Is true if the qualifier has volatile.
+    static constexpr bool is_volatile = Volatile;
+
+    /// Is true if the qualifier has r-value reference.
+    static constexpr bool is_rvalue = RValue;
+};
+
 template<typename Fn>
 struct impl_is_callable_with_qualifiers;
 
@@ -57,7 +83,7 @@ struct impl_is_callable_with_qualifiers<ReturnType(Args...)>
     template<typename T>
     static auto test(int)
         -> typename std::is_convertible<
-            decltype(std::declval<T&>()(std::declval<Args>()...)),
+            decltype(std::declval<T>()(std::declval<Args>()...)),
             ReturnType
            >;
 
@@ -87,9 +113,12 @@ using add_lvalue_if_t = typename std::conditional<
     T
 >::type;
 
-template<typename T, typename Fn, bool Constant, bool Volatile>
+template<typename T, typename Fn, typename Qualifier>
 using is_callable_with_qualifiers = decltype(impl_is_callable_with_qualifiers<Fn>::template test<
-    add_volatile_if_t<Volatile, add_const_if_t<Constant, typename std::decay<T>::type>>
+    add_lvalue_if_t<!Qualifier::is_rvalue,
+        add_volatile_if_t<Qualifier::is_volatile,
+            add_const_if_t<Qualifier::is_const,
+                typename std::decay<T>::type>>>
 >(0));
 
 struct callable
@@ -97,8 +126,29 @@ struct callable
     void huhu(int) const { }
 };
 
+struct callable_move_only
+{
+    void huhu(int)&& { }
+};
+
+template<typename T>
+struct is_function_const
+    : std::false_type { };
+
+template<typename ReturnType, typename... Args>
+struct is_function_const<ReturnType(Args...) volatile&&>
+    : std::true_type { };
+
+static constexpr bool cv = is_function_const<void() volatile&&>::value;
+
 int main(int argc, char** argv)
 {
+    static_assert(cv, "blub");
+
+    callable_move_only cmo;
+
+    std::move(cmo).huhu(0);
+
     runBenchmark();
 
     std::cout << "\nsizeof(std::function<bool(int, float, long)>) == " << sz1 << std::endl;
@@ -112,8 +162,6 @@ int main(int argc, char** argv)
 
     int const result = Catch::Session().run(argc, argv);
 
-    
-
     /*
     using ty = decltype(&decltype(fun)::operator()<int>);
     // ty = void(decltype(fun)::*)(int) const
@@ -126,15 +174,15 @@ int main(int argc, char** argv)
     // static_assert(fu2::detail::is_functor<decltype(fun)>::value, "ok");
 
     auto fun = [](auto) mutable { };
-    static_assert(is_callable_with_qualifiers<decltype(fun), void(int), false, false>::value, "1 failed");
-    static_assert(!is_callable_with_qualifiers<decltype(fun), void(int), true, true>::value, "2 failed");
+    static_assert(is_callable_with_qualifiers<decltype(fun), void(int), qualifier<>>::value, "1 failed");
+    static_assert(!is_callable_with_qualifiers<decltype(fun), void(int), qualifier<true, true, false>>::value, "2 failed");
 
     auto fun2 = std::bind(&callable::huhu, callable{}, std::placeholders::_1);
 
     // std::bind isn't const correct anyway...
-    static_assert(is_callable_with_qualifiers<decltype(fun2), void(int), false, false>::value, "3 failed");
-    static_assert(is_callable_with_qualifiers<decltype(fun2), void(int), true, false>::value, "4 failed");
-    static_assert(!is_callable_with_qualifiers<decltype(fun2), void(int), true, true>::value, "5 failed");
+    static_assert(is_callable_with_qualifiers<decltype(fun2), void(int), qualifier<false, false, false>>::value, "3 failed");
+    static_assert(is_callable_with_qualifiers<decltype(fun2), void(int), qualifier<true, false, false>>::value, "4 failed");
+    static_assert(!is_callable_with_qualifiers<decltype(fun2), void(int), qualifier<true, true, false>>::value, "5 failed");
 
     // static_assert(!is_callable_with_qualifiers<decltype(fun), void(int), true, true>::value, "ok");
 
