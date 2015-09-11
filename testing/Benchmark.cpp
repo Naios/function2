@@ -119,7 +119,7 @@ void runBenchmark()
 
 void runBenchmark()
 {
-    std::cout << "Skipped tests due to no C++14 support" << std::endl;
+    std::cout << "Skipped benchmark due to no C++14 support" << std::endl;
 }
 
 #endif // #ifdef HAS_CXX14_LAMBDA_CAPTURE

@@ -549,16 +549,18 @@ TEST_CASE("Functions with SFO optimization", "[function<>]")
         {
             sfo_function<bool()> left;
 
-            std::shared_ptr<int> ptr(new int(77), [&deleted](int* p)
             {
-                deleted = true;
-                delete p;
-            });
+                std::shared_ptr<int> ptr(new int(77), [&deleted](int* p)
+                {
+                    deleted = true;
+                    delete p;
+                });
 
-            left = [ptr = std::move(ptr)]
-            {
-                return *ptr == 77;
-            };
+                left = [=]
+                {
+                    return *ptr == 77;
+                };
+            }
 
             REQUIRE(left());
         }
