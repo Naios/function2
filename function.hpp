@@ -124,7 +124,11 @@ using is_callable_with_qualifiers = decltype(impl_is_callable_with_qualifiers<Fn
 
 /// Function unwrap trait
 template<typename Fn>
-struct unwrap;
+struct unwrap
+{
+    static_assert(!deduce_t<Fn>::value,
+        "Incompatible signature given, signature must be in the form of \"ReturnType(Arg...) Qualifier\".");
+};
 
 template<typename ReturnType, typename... Args>
 struct unwrap<ReturnType(Args...)>
@@ -142,6 +146,7 @@ template<typename ReturnType, typename... Args>
 struct unwrap<ReturnType(Args...) const volatile>
     : signature<ReturnType(Args...)>, qualifier<true, true, false> { };
 
+/*
 template<typename ReturnType, typename... Args>
 struct unwrap<ReturnType(Args...)&>
     : signature<ReturnType(Args...)>, qualifier<false, false, false> { };
@@ -173,6 +178,7 @@ struct unwrap<ReturnType(Args...) volatile&&>
 template<typename ReturnType, typename... Args>
 struct unwrap<ReturnType(Args...) const volatile&&>
     : signature<ReturnType(Args...)>, qualifier<true, true, true> { };
+*/
 
 template<typename T>
 struct is_function_pointer

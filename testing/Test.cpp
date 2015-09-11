@@ -48,34 +48,8 @@ constexpr std::size_t pd4 = std::alignment_of<fu2::unique_function<void()>>::val
 constexpr std::size_t pd5 = std::alignment_of<fu2::function_base<bool(int, float, long), 0UL, true>>::value;
 constexpr std::size_t pd6 = std::alignment_of<fu2::function_base<void(), 0UL, false>>::value;
 
-struct callable
-{
-    void huhu(int) const { }
-};
-
-struct callable_move_only
-{
-    void huhu(int)&& { }
-};
-
-template<typename T>
-struct is_function_const
-    : std::false_type { };
-
-template<typename ReturnType, typename... Args>
-struct is_function_const<ReturnType(Args...) volatile&&>
-    : std::true_type { };
-
-static constexpr bool cv = is_function_const<void() volatile&&>::value;
-
 int main(int argc, char** argv)
 {
-    static_assert(cv, "blub");
-
-    callable_move_only cmo;
-
-    std::move(cmo).huhu(0);
-
     runBenchmark();
 
     std::cout << "\nsizeof(std::function<bool(int, float, long)>) == " << sz1 << std::endl;
@@ -88,47 +62,6 @@ int main(int argc, char** argv)
     std::cout << "sizeof(fu2::unique_function<void()>) (no sfo) == " << sz6 << std::endl << std::endl;
 
     int const result = Catch::Session().run(argc, argv);
-
-    fu2::function<void() const> fn2 = []()
-    {
-    };
-
-    /*
-    using ty = decltype(&decltype(fun)::operator()<int>);
-    // ty = void(decltype(fun)::*)(int) const
-    
-    auto fun2 = std::bind([](int) { });
-    using ty2 = decltype(&decltype(fun2)::operator()<int>);
-    // ty2 = void(decltype(fun2)::*)(int)
-    */
-
-    // static_assert(fu2::detail::is_functor<decltype(fun)>::value, "ok");
-
-    /*auto fun = [](auto) mutable { };
-    static_assert(is_callable_with_qualifiers<decltype(fun), void(int), qualifier<>>::value, "1 failed");
-    static_assert(!is_callable_with_qualifiers<decltype(fun), void(int), qualifier<true, true, false>>::value, "2 failed");
-
-    auto fun2 = std::bind(&callable::huhu, callable{}, std::placeholders::_1);
-
-    // std::bind isn't const correct anyway...
-    static_assert(is_callable_with_qualifiers<decltype(fun2), void(int), qualifier<false, false, false>>::value, "3 failed");
-    static_assert(is_callable_with_qualifiers<decltype(fun2), void(int), qualifier<true, false, false>>::value, "4 failed");
-    static_assert(!is_callable_with_qualifiers<decltype(fun2), void(int), qualifier<true, true, false>>::value, "5 failed");*/
-
-    // static_assert(!is_callable_with_qualifiers<decltype(fun), void(int), true, true>::value, "ok");
-
-    // static_assert(!is_callable_with_qualifiers<void(int), decltype(fun), true, false>::value, "blub");
-    
-    /*static_assert(!is_callable_with_qualifiers<void(int), decltype(fun), true, false>::value, "blub");
-    static_assert(!is_callable_with_qualifiers<void(int), decltype(fun), true, true>::value, "blub");*/
-
-    // fu2::function<void(int)> ff = fun;
-
-    // using ty = decltype(&decltype(fun)::operator<void(*)(int)>())
-
-    // fun.operator()
-
-    // 
 
     // Attach breakpoint here ,-)
     return result;
@@ -514,6 +447,45 @@ TEST_CASE("Functions are convertible from function pointers", "[function<>]")
 
         REQUIRE_FALSE(left());
     }
+}
+
+struct bind_class
+{
+    bool through(bool ret) const
+    {
+        return ret;
+    }
+};
+
+TEST_CASE("Functions are convertible from templated functors", "[function<>]")
+{
+    SECTION("Tests with std::bind")
+    {
+        bind_class bc;
+
+        function<bool()> left = std::bind(&bind_class::through, bc, true);
+
+        REQUIRE(left());
+
+        left = std::bind(&bind_class::through, bc, false);
+
+        REQUIRE_FALSE(left());
+    }
+
+#ifdef HAS_CXX14_LAMBDA_CAPTURE
+
+    SECTION("Tests with auto lambdas")
+    {
+        function<bool(bool)> left = [](auto ret)
+        {
+            return ret;
+        };
+
+        REQUIRE(left(true));
+        REQUIRE_FALSE(left(false));
+    }
+
+#endif // #ifdef HAS_CXX14_LAMBDA_CAPTURE
 }
 
 TEST_CASE("unique_function's are convertible to non copyable functors and from copyable functors", "[unique_function<>]")
