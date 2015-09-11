@@ -13,6 +13,8 @@
 
 #include <functional>
 
+#ifdef HAS_CXX14_LAMBDA_CAPTURE
+
 static constexpr std::size_t runs = 1000000;
 
 template<typename F>
@@ -112,3 +114,12 @@ void runBenchmark()
 
     std::cout << "========" << std::endl;
 }
+
+#else
+
+void runBenchmark()
+{
+    std::cout << "Skipped tests due to no C++14 support" << std::endl;
+}
+
+#endif // #ifdef HAS_CXX14_LAMBDA_CAPTURE
