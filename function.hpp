@@ -128,7 +128,7 @@ namespace unwrap_traits
 
     /// 1. Unwrap through plain type (function pointer)
     template<typename Fn>
-    auto do_unwrap(long)
+    auto do_unwrap(...)
         -> unwrap<Fn>;
 
 } // namespace unwrap_traits

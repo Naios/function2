@@ -30,6 +30,7 @@ which are:
 * **[Coverage and runtime checks](#coverage-and-runtime-checks)**
 * **[Compatibility](#compatibility)**
 * **[License](#licence)**
+* **[Similar implementations](#similar-implementations)**
 
 ## Documentation
 
@@ -179,7 +180,7 @@ int main(int argc, char**)
 }
 ```
 
-[Clang 3.7 with -O3 compiles it into](https://goo.gl/F7saQy):
+[Clang 3.4+ with -O3 compiles it into](https://goo.gl/F7saQy):
 
 ```asm
 main: # @main
@@ -236,3 +237,8 @@ Function2 only depends on the standard library.
 
 ## License
 Function2 is licensed under the Boost 1.0 License.
+
+## Similar implementations
+
+- [potswa/cxx_function](https://github.com/potswa/cxx_function)
+- [pmed/fixed_size_function](https://github.com/pmed/fixed_size_function)

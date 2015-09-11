@@ -48,6 +48,48 @@ constexpr std::size_t pd4 = std::alignment_of<fu2::unique_function<void()>>::val
 constexpr std::size_t pd5 = std::alignment_of<fu2::function_base<bool(int, float, long), 0UL, true>>::value;
 constexpr std::size_t pd6 = std::alignment_of<fu2::function_base<void(), 0UL, false>>::value;
 
+template<typename Fn>
+struct impl_is_callable_with_qualifiers;
+
+template<typename ReturnType, typename... Args>
+struct impl_is_callable_with_qualifiers<ReturnType(Args...)>
+{
+    template<typename T>
+    static auto test(int)
+        -> typename std::is_same<
+            ReturnType,
+            decltype(std::declval<T>()(std::declval<Args>()...))
+           >;
+
+    template<typename T>
+    static auto test(...)
+        -> std::false_type;
+};
+
+template<bool Condition, typename T>
+using add_const_if_t = typename std::conditional<
+    Condition,
+    typename std::add_const<T>::type,
+    T
+>::type;
+
+template<bool Condition, typename T>
+using add_volatile_if_t = typename std::conditional<
+    Condition,
+    typename std::add_volatile<T>::type,
+    T
+>::type;
+
+template<typename T, typename Fn, bool Constant, bool Volatile>
+using is_callable_with_qualifiers = decltype(impl_is_callable_with_qualifiers<Fn>::template test<
+    add_volatile_if_t<Volatile, add_const_if_t<Constant, typename std::decay<T>::type>>
+>(0));
+
+struct callable
+{
+    void huhu(int) const { }
+};
+
 int main(int argc, char** argv)
 {
     runBenchmark();
@@ -62,6 +104,45 @@ int main(int argc, char** argv)
     std::cout << "sizeof(fu2::unique_function<void()>) (no sfo) == " << sz6 << std::endl << std::endl;
 
     int const result = Catch::Session().run(argc, argv);
+
+    
+
+    /*
+    using ty = decltype(&decltype(fun)::operator()<int>);
+    // ty = void(decltype(fun)::*)(int) const
+    
+    auto fun2 = std::bind([](int) { });
+    using ty2 = decltype(&decltype(fun2)::operator()<int>);
+    // ty2 = void(decltype(fun2)::*)(int)
+    */
+
+    // static_assert(fu2::detail::is_functor<decltype(fun)>::value, "ok");
+
+    auto fun = [](auto) mutable { };
+    static_assert(is_callable_with_qualifiers<decltype(fun), void(int), false, false>::value, "1 failed");
+    static_assert(!is_callable_with_qualifiers<decltype(fun), void(int), true, true>::value, "2 failed");
+
+    auto fun2 = std::bind(&callable::huhu, callable{}, std::placeholders::_1);
+
+    // std::bind isn't const correct anyway...
+    static_assert(is_callable_with_qualifiers<decltype(fun2), void(int), false, false>::value, "3 failed");
+    static_assert(is_callable_with_qualifiers<decltype(fun2), void(int), true, false>::value, "4 failed");
+    static_assert(!is_callable_with_qualifiers<decltype(fun2), void(int), true, true>::value, "5 failed");
+
+    // static_assert(!is_callable_with_qualifiers<decltype(fun), void(int), true, true>::value, "ok");
+
+    // static_assert(!is_callable_with_qualifiers<void(int), decltype(fun), true, false>::value, "blub");
+    
+    /*static_assert(!is_callable_with_qualifiers<void(int), decltype(fun), true, false>::value, "blub");
+    static_assert(!is_callable_with_qualifiers<void(int), decltype(fun), true, true>::value, "blub");*/
+
+    // fu2::function<void(int)> ff = fun;
+
+    // using ty = decltype(&decltype(fun)::operator<void(*)(int)>())
+
+    // fun.operator()
+
+    // 
 
     // Attach breakpoint here ,-)
     return result;
