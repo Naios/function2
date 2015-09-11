@@ -28,13 +28,21 @@ if(MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
 
 else()
-  # Check C++11 Compiler support.
-  CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+  # Check C++14 Compiler support.
+  CHECK_CXX_COMPILER_FLAG("-std=c++14" COMPILER_SUPPORTS_CXX14)
 
-  if(NOT COMPILER_SUPPORTS_CXX11)
-    message(FATAL_ERROR "Your compiler has no C++11 capability!")
+  if(NOT COMPILER_SUPPORTS_CXX14)
+    # Check C++11 Compiler support.
+    CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+
+    if(COMPILER_SUPPORTS_CXX11)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    else()
+      message(FATAL_ERROR "Your compiler has no C++11 capability!")
+    endif()
+
   else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
   endif()
 
   # Enable full warnings
