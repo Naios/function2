@@ -26,7 +26,7 @@ which are:
 * **[Performance and optimization](#performance-and-optimization)**
   * **[Small functor optimization](#small-functor-optimization)**
   * **[Compiler optimization](#compiler-optimization)**
-  * **[std::function vs fu2::function](#std::function_vs_fu2::function)**
+  * **[std::function vs fu2::function](#stdfunction-vs-fu2function)**
 * **[Coverage and runtime checks](#coverage-and-runtime-checks)**
 * **[Compatibility](#compatibility)**
 * **[License](#licence)**
@@ -191,6 +191,20 @@ main: # @main
 
 ### std::function vs fu2::function
 
+```
+Benchmark: Construct and copy function wrapper
+    std::function:         172535130ns
+    fu2::(unique)function: 112452593ns       +53%
+
+Benchmark: Move function wrapper around
+    std::function:         313446044ns
+    fu2::(unique)function: 110743394ns       +183%
+
+Benchmark: Invoke function wrapper
+    std::function:         38555121ns
+    fu2::(unique)function: 28355481ns        +35%
+```
+
 ## Coverage and runtime checks
 
 Function2 is checked with unit tests and was tested with valgrind for memory leaks:
@@ -213,11 +227,13 @@ All tests passed (73 assertions in 7 test cases)
 
 Tested with:
 
+- Visual Studio 2013
 - Visual Studio 2015
-- Clang 3.6+
-- GCC 4.9.2+
+- Clang 3.4+
+- GCC 4.8+
 
-Every compiler with full C++14 support should work (`constexpr` excluded for msvc).
+Every compiler with C++11 capability should work.
+Function2 only depends on the standard library.
 
 ## License
 Function2 is licensed under the Boost 1.0 License.
