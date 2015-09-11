@@ -863,18 +863,6 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
         Copyable == RightCopyable
     >;
 
-    // Is a true type if the given function is constant correct to this.
-    template<bool RightConstant>
-    using is_constant_correct_to_this = std::integral_constant<bool,
-        !(Constant && !RightConstant)
-    >;
-
-    // Is a true type if the given function is volatile correct to this.
-    template<bool RightVolatile>
-    using is_volatile_correct_to_this = std::integral_constant<bool,
-        Volatile == RightVolatile
-    >;
-
     // Is a true type if the given function pointer is assignable to this.
     template<typename T>
     using is_function_pointer_assignable_to_this = std::integral_constant<bool,
