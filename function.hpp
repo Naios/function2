@@ -1035,33 +1035,6 @@ using unique_function = function_base<
     false
 >;
 
-namespace experimental
-{
-
-/// Creates a functional object which type depends on the given functor or function pointer.
-/// The second template parameter can be used to adjust the capacity
-/// for small functor optimization (in-place allocation for small objects).
-/*template<typename Fn, std::size_t Capacity = detail::default_capacity::value>
-auto make_function(Fn functional)
-{
-    static_assert(detail::is_function_pointer<Fn>::value || detail::is_functor<typename std::decay<Fn>::type>::value,
-        "Can only create functions from functors and function pointers!");
-
-    using unwrap_t = detail::unwrap_t<typename std::decay<Fn>::type>;
-
-    return detail::function<
-        typename unwrap_t::decayed_type,
-        Capacity,
-        // Check if the given argument is copyable in any way.
-        std::is_copy_assignable<typename std::decay<Fn>::type>::value ||
-        std::is_copy_constructible<typename std::decay<Fn>::type>::value,
-        unwrap_t::is_const,
-        unwrap_t::is_volatile
-    >(std::forward<Fn>(functional));
-}*/
-
-} // namespace experimental
-
 } // namespace fu2
 
 #endif // function_hpp__
