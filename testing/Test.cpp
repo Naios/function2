@@ -48,79 +48,6 @@ constexpr std::size_t pd4 = std::alignment_of<fu2::unique_function<void()>>::val
 constexpr std::size_t pd5 = std::alignment_of<fu2::function_base<bool(int, float, long), 0UL, true>>::value;
 constexpr std::size_t pd6 = std::alignment_of<fu2::function_base<void(), 0UL, false>>::value;
 
-template<typename Signature>
-struct signature;
-
-template<typename ReturnType, typename... Args>
-struct signature<ReturnType(Args...)>
-{
-    /// The return type of the function.
-    using return_type = ReturnType;
-
-    /// The argument types of the function as pack in std::tuple.
-    using argument_type = std::tuple<Args...>;
-};
-
-template<bool Constant = false, bool Volatile = false, bool RValue = false>
-struct qualifier
-{
-    /// Is true if the qualifier has const.
-    static constexpr bool is_const = Constant;
-
-    /// Is true if the qualifier has volatile.
-    static constexpr bool is_volatile = Volatile;
-
-    /// Is true if the qualifier has r-value reference.
-    static constexpr bool is_rvalue = RValue;
-};
-
-template<typename Fn>
-struct impl_is_callable_with_qualifiers;
-
-template<typename ReturnType, typename... Args>
-struct impl_is_callable_with_qualifiers<ReturnType(Args...)>
-{
-    template<typename T>
-    static auto test(int)
-        -> typename std::is_convertible<
-            decltype(std::declval<T>()(std::declval<Args>()...)),
-            ReturnType
-           >;
-
-    template<typename T>
-    static auto test(...)
-        -> std::false_type;
-};
-
-template<bool Condition, typename T>
-using add_const_if_t = typename std::conditional<
-    Condition,
-    typename std::add_const<T>::type,
-    T
->::type;
-
-template<bool Condition, typename T>
-using add_volatile_if_t = typename std::conditional<
-    Condition,
-    typename std::add_volatile<T>::type,
-    T
->::type;
-
-template<bool Condition, typename T>
-using add_lvalue_if_t = typename std::conditional<
-    Condition,
-    typename std::add_lvalue_reference<T>::type,
-    T
->::type;
-
-template<typename T, typename Fn, typename Qualifier>
-using is_callable_with_qualifiers = decltype(impl_is_callable_with_qualifiers<Fn>::template test<
-    add_lvalue_if_t<!Qualifier::is_rvalue,
-        add_volatile_if_t<Qualifier::is_volatile,
-            add_const_if_t<Qualifier::is_const,
-                typename std::decay<T>::type>>>
->(0));
-
 struct callable
 {
     void huhu(int) const { }
@@ -162,6 +89,10 @@ int main(int argc, char** argv)
 
     int const result = Catch::Session().run(argc, argv);
 
+    fu2::function<void() const> fn2 = []()
+    {
+    };
+
     /*
     using ty = decltype(&decltype(fun)::operator()<int>);
     // ty = void(decltype(fun)::*)(int) const
@@ -173,7 +104,7 @@ int main(int argc, char** argv)
 
     // static_assert(fu2::detail::is_functor<decltype(fun)>::value, "ok");
 
-    auto fun = [](auto) mutable { };
+    /*auto fun = [](auto) mutable { };
     static_assert(is_callable_with_qualifiers<decltype(fun), void(int), qualifier<>>::value, "1 failed");
     static_assert(!is_callable_with_qualifiers<decltype(fun), void(int), qualifier<true, true, false>>::value, "2 failed");
 
@@ -182,7 +113,7 @@ int main(int argc, char** argv)
     // std::bind isn't const correct anyway...
     static_assert(is_callable_with_qualifiers<decltype(fun2), void(int), qualifier<false, false, false>>::value, "3 failed");
     static_assert(is_callable_with_qualifiers<decltype(fun2), void(int), qualifier<true, false, false>>::value, "4 failed");
-    static_assert(!is_callable_with_qualifiers<decltype(fun2), void(int), qualifier<true, true, false>>::value, "5 failed");
+    static_assert(!is_callable_with_qualifiers<decltype(fun2), void(int), qualifier<true, true, false>>::value, "5 failed");*/
 
     // static_assert(!is_callable_with_qualifiers<decltype(fun), void(int), true, true>::value, "ok");
 
@@ -848,11 +779,10 @@ namespace fn_test_types
         {
             return b;
         }
-
-
     };
 }
 
+/*
 template<typename T>
 using unwrap = fu2::detail::unwrap_traits::unwrap<T>;
 
@@ -916,3 +846,4 @@ TEST_CASE("Static asserts", "[function<>]")
     static_assert(!unwrap<decltype(fn_test_types::static_member::my_fn)>::is_volatile,
         "check failed!");
 }
+*/

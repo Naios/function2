@@ -20,162 +20,18 @@ namespace detail
 inline namespace v0
 {
 
-template<typename ReturnType, typename... Args>
-struct signature
-{
-    /// The return type of the function.
-    using return_type = ReturnType;
-
-    /// The argument types of the function as pack in std::tuple.
-    using argument_type = std::tuple<Args...>;
-};
-
-namespace unwrap_traits
-{
-    template<
-        typename /*DecayedFunction*/,
-        bool /*IsMember*/,
-        bool /*IsConst*/,
-        bool /*IsVolatile*/>
-    struct unwrap_trait_base;
-
-    /// Unwrap base
-    template<
-        typename ReturnType, typename... Args,
-        bool IsMember,
-        bool IsConst,
-        bool IsVolatile>
-    struct unwrap_trait_base<ReturnType(Args...), IsMember, IsConst, IsVolatile>
-         : signature<ReturnType, Args...>
-    {
-        ///  The decayed type of the function without qualifiers.
-        using decayed_type = ReturnType(Args...);
-
-        /// Is true if the given function is a member function.
-        static constexpr bool is_member = IsMember;
-
-        /// Is true if the given function is const.
-        static constexpr bool is_const = IsConst;
-
-        /// Is true if the given function is volatile.
-        static constexpr bool is_volatile = IsVolatile;
-    };
-
-    template<typename ClassType>
-    struct class_trait_base
-    {
-        /// Class type of the given function.
-        using class_type = ClassType;
-    };
-
-    /// Function unwrap trait
-    template<typename /*Fn*/>
-    struct unwrap;
-
-    /// Function
-    template<typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(Args...)>
-        : unwrap_trait_base<ReturnType(Args...), false, false, false> { };
-
-    /// Const function
-    template<typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(Args...) const>
-        : unwrap_trait_base<ReturnType(Args...), false, true, false> { };
-
-    /// Volatile function
-    template<typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(Args...) volatile>
-        : unwrap_trait_base<ReturnType(Args...), false, false, true> { };
-
-    /// Const volatile function
-    template<typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(Args...) const volatile>
-        : unwrap_trait_base<ReturnType(Args...), false, true, true> { };
-
-    /// Function pointer
-    template<typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(*)(Args...)>
-        : unwrap_trait_base<ReturnType(Args...), false, true, false> { };
-
-    /// Class method pointer
-    template<typename ClassType, typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(ClassType::*)(Args...)>
-        : unwrap_trait_base<ReturnType(Args...), true, false, false>,
-          class_trait_base<ClassType> { };
-
-    /// Const class method pointer
-    template<typename ClassType, typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(ClassType::*)(Args...) const>
-        : unwrap_trait_base<ReturnType(Args...), true, true, false>,
-          class_trait_base<ClassType> { };
-
-    /// Volatile class method pointer
-    template<typename ClassType, typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(ClassType::*)(Args...) volatile>
-        : unwrap_trait_base<ReturnType(Args...), true, false, true>,
-          class_trait_base<ClassType> { };
-
-    /// Const volatile class method pointer
-    template<typename ClassType, typename ReturnType, typename... Args>
-    struct unwrap<ReturnType(ClassType::*)(Args...) const volatile>
-        : unwrap_trait_base<ReturnType(Args...), true, true, true>,
-          class_trait_base<ClassType> { };
-
-    /// 0. Unwrap classes through function pointer to operator()
-    template<typename Fn>
-    auto do_unwrap(int)
-        -> unwrap<decltype(&Fn::operator())>;
-
-    /// 1. Unwrap through plain type (function pointer)
-    template<typename Fn>
-    auto do_unwrap(...)
-        -> unwrap<Fn>;
-
-} // namespace unwrap_traits
-
-/// Functional unwraps the given functional type
-template<typename Fn>
-using unwrap_t = decltype(unwrap_traits::do_unwrap<Fn>(0));
-
-namespace is_functor_impl
-{
-    template<typename>
-    struct to_true
-        : std::true_type { };
-
-    template<typename T>
-    auto test_functor(int)
-        -> to_true<decltype(&T::operator())>;
-
-    template<typename T>
-    auto test_functor(...)
-        -> std::false_type;
-
-} // namespace is_functor_impl
-
-/// Is functor trait
-template<typename T>
-struct is_functor
-    : decltype(is_functor_impl::test_functor<T>(0)) { };
-
-/// Is function pointer trait
-template<typename T>
-struct is_function_pointer
-    : std::false_type { };
-
-template<typename ReturnType, typename... Args>
-struct is_function_pointer<ReturnType(*)(Args...)>
-    : std::true_type { };
-
+/// Type deducer
 template<typename>
 struct deduce_t
     : std::true_type { };
 
+/// Size deducer
 template<std::size_t>
 struct deduce_sz
     : std::true_type { };
 
-template<bool>
+/// Copy enabler helper class
+template<bool Copyable>
 struct copyable { };
 
 template <>
@@ -187,6 +43,144 @@ struct copyable<false>
     copyable& operator=(copyable const&) = delete;
     copyable& operator=(copyable&&) = default;
 };
+
+/// Helper to store function signature
+template<typename Signature>
+struct signature;
+
+template<typename ReturnType, typename... Args>
+struct signature<ReturnType(Args...)>
+{
+    /// The function type
+    using type = ReturnType(Args...);
+
+    /// The return type of the function.
+    using return_type = ReturnType;
+
+    /// The argument types of the function as pack in std::tuple.
+    using argument_type = std::tuple<Args...>;
+};
+
+/// Helper to store function qualifiers
+template<bool Constant = false, bool Volatile = false, bool RValue = false>
+struct qualifier
+{
+    /// Is true if the qualifier has const.
+    static constexpr bool is_const = Constant;
+
+    /// Is true if the qualifier has volatile.
+    static constexpr bool is_volatile = Volatile;
+
+    /// Is true if the qualifier has r-value reference.
+    static constexpr bool is_rvalue = RValue;
+};
+
+template<typename Fn>
+struct impl_is_callable_with_qualifiers;
+
+template<typename ReturnType, typename... Args>
+struct impl_is_callable_with_qualifiers<ReturnType(Args...)>
+{
+    template<typename T>
+    static auto test(int)
+        -> typename std::is_convertible<
+            decltype(std::declval<T>()(std::declval<Args>()...)),
+            ReturnType
+           >;
+
+    template<typename T>
+    static auto test(...)
+        -> std::false_type;
+};
+
+template<bool Condition, typename T>
+using add_const_if_t = typename std::conditional<
+    Condition,
+    typename std::add_const<T>::type,
+    T
+>::type;
+
+template<bool Condition, typename T>
+using add_volatile_if_t = typename std::conditional<
+    Condition,
+    typename std::add_volatile<T>::type,
+    T
+>::type;
+
+template<bool Condition, typename T>
+using add_lvalue_if_t = typename std::conditional<
+    Condition,
+    typename std::add_lvalue_reference<T>::type,
+    T
+>::type;
+
+template<typename T, typename Fn, typename Qualifier>
+using is_callable_with_qualifiers = decltype(impl_is_callable_with_qualifiers<Fn>::template test<
+    add_lvalue_if_t<!Qualifier::is_rvalue,
+        add_volatile_if_t<Qualifier::is_volatile,
+            add_const_if_t<Qualifier::is_const,
+                typename std::decay<T>::type>>>
+>(0));
+
+/// Function unwrap trait
+template<typename Fn>
+struct unwrap;
+
+template<typename ReturnType, typename... Args>
+struct unwrap<ReturnType(Args...)>
+    : signature<ReturnType(Args...)>, qualifier<false, false, false> { };
+
+template<typename ReturnType, typename... Args>
+struct unwrap<ReturnType(Args...) const>
+    : signature<ReturnType(Args...)>, qualifier<true, false, false> { };
+
+template<typename ReturnType, typename... Args>
+struct unwrap<ReturnType(Args...) volatile>
+    : signature<ReturnType(Args...)>, qualifier<false, true, false> { };
+
+template<typename ReturnType, typename... Args>
+struct unwrap<ReturnType(Args...) const volatile>
+    : signature<ReturnType(Args...)>, qualifier<true, true, false> { };
+
+template<typename ReturnType, typename... Args>
+struct unwrap<ReturnType(Args...)&>
+    : signature<ReturnType(Args...)>, qualifier<false, false, false> { };
+
+template<typename ReturnType, typename... Args>
+struct unwrap<ReturnType(Args...) const&>
+    : signature<ReturnType(Args...)>, qualifier<true, false, false> { };
+
+template<typename ReturnType, typename... Args>
+struct unwrap<ReturnType(Args...) volatile&>
+    : signature<ReturnType(Args...)>, qualifier<false, true, false> { };
+
+template<typename ReturnType, typename... Args>
+struct unwrap<ReturnType(Args...) const volatile&>
+    : signature<ReturnType(Args...)>, qualifier<true, true, false> { };
+
+template<typename ReturnType, typename... Args>
+struct unwrap<ReturnType(Args...)&&>
+    : signature<ReturnType(Args...)>, qualifier<false, false, true> { };
+
+template<typename ReturnType, typename... Args>
+struct unwrap<ReturnType(Args...) const&&>
+    : signature<ReturnType(Args...)>, qualifier<true, false, true> { };
+
+template<typename ReturnType, typename... Args>
+struct unwrap<ReturnType(Args...) volatile&&>
+    : signature<ReturnType(Args...)>, qualifier<false, true, true> { };
+
+template<typename ReturnType, typename... Args>
+struct unwrap<ReturnType(Args...) const volatile&&>
+    : signature<ReturnType(Args...)>, qualifier<true, true, true> { };
+
+template<typename T>
+struct is_function_pointer
+    : std::false_type { };
+
+template<typename ReturnType, typename... Args>
+struct is_function_pointer<ReturnType(*)(Args...)>
+    : std::true_type { };
 
 template<typename /*Fn*/, bool /*Constant*/, bool /*Volatile*/>
 struct call_wrapper_operator_interface;
@@ -855,7 +849,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
 template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
 class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
     : public call_operator<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>, ReturnType(Args...), Copyable, Constant, Volatile>,
-      public signature<ReturnType, Args...>,
+      public signature<ReturnType(Args...)>,
       public copyable<Copyable>
 {
     template<typename, std::size_t, bool, bool, bool>
@@ -865,41 +859,35 @@ class function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>
 
     // Is a true type if the given function is copyable correct to this.
     template<bool RightCopyable>
-    using is_copyable_correct_to_this =
-        std::integral_constant<bool,
-            Copyable == RightCopyable
-        >;
+    using is_copyable_correct_to_this = std::integral_constant<bool,
+        Copyable == RightCopyable
+    >;
 
     // Is a true type if the given function is constant correct to this.
     template<bool RightConstant>
-    using is_constant_correct_to_this =
-        std::integral_constant<bool,
-            !(Constant && !RightConstant)
-        >;
+    using is_constant_correct_to_this = std::integral_constant<bool,
+        !(Constant && !RightConstant)
+    >;
 
     // Is a true type if the given function is volatile correct to this.
     template<bool RightVolatile>
-    using is_volatile_correct_to_this =
-        std::integral_constant<bool,
-            Volatile == RightVolatile
-        >;
+    using is_volatile_correct_to_this = std::integral_constant<bool,
+        Volatile == RightVolatile
+    >;
 
     // Is a true type if the given function pointer is assignable to this.
     template<typename T>
-    using is_function_pointer_assignable_to_this =
-        std::integral_constant<bool,
-            is_function_pointer<T>::value &&
-            !Volatile
-        >;
+    using is_function_pointer_assignable_to_this = std::integral_constant<bool,
+        is_function_pointer<T>::value &&
+        !Volatile
+    >;
 
     // Is a true type if the functor class is assignable to this.
     template<typename T>
-    using is_functor_assignable_to_this =
-        std::integral_constant<bool,
-            is_functor<T>::value &&
-            is_constant_correct_to_this<unwrap_t<T>::is_const>::value &&
-            is_volatile_correct_to_this<unwrap_t<T>::is_volatile>::value
-        >;
+    using is_functor_assignable_to_this = std::integral_constant<std::size_t,
+        !is_function_pointer_assignable_to_this<T>::value &&
+        is_callable_with_qualifiers<T, ReturnType(Args...), qualifier<Constant, Volatile, false>>::value
+    >;
 
     // Implementation storage
     storage_t<function> _storage;
@@ -1012,11 +1000,11 @@ using default_capacity = std::integral_constant<std::size_t,
 /// Function wrapper base
 template<typename Signature, std::size_t Capacity, bool Copyable>
 using function_base = detail::function<
-    typename detail::unwrap_traits::unwrap<Signature>::decayed_type,
+    typename detail::unwrap<Signature>::type,
     Capacity,
     Copyable,
-    detail::unwrap_traits::unwrap<Signature>::is_const,
-    detail::unwrap_traits::unwrap<Signature>::is_volatile
+    detail::unwrap<Signature>::is_const,
+    detail::unwrap<Signature>::is_volatile
 >;
 
 /// Copyable function wrapper
