@@ -20,6 +20,34 @@ namespace detail
 inline namespace v0
 {
 
+// If macro
+#define FU2_MACRO_IF(cond) \
+    FU2_MACRO_IF_ ## cond
+#define FU2_MACRO_IF_true(EXPRESSION) EXPRESSION
+#define FU2_MACRO_IF_false(EXPRESSION)
+
+// Qualifier without r-value ref.
+#define FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) \
+    FU2_MACRO_IF(IS_CONST)(const) \
+    FU2_MACRO_IF(IS_VOLATILE)(volatile)
+
+// Full qualifier
+#define FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) \
+    FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) \
+    FU2_MACRO_IF(IS_RVALUE)(&&)
+
+// Expand a macro which takes 3 bool
+// with all possible values.
+#define FU2_MACRO_EXPAND3X3(EXPRESSION) \
+    EXPRESSION(false, false, false); \
+    EXPRESSION(false, false, true); \
+    EXPRESSION(false, true, false); \
+    EXPRESSION(false, true, true); \
+    EXPRESSION(true, false, false); \
+    EXPRESSION(true, false, true); \
+    EXPRESSION(true, true, false); \
+    EXPRESSION(true, true, true);
+
 /// Type deducer
 template<typename>
 struct deduce_t
@@ -62,11 +90,14 @@ struct signature<ReturnType(Args...)>
 };
 
 /// Helper to store function qualifiers.
-template<bool Constant = false, bool Volatile = false, bool RValue = false>
+template<bool Constant, bool Volatile, bool RValue>
 struct qualifier
 {
     /// Is true if the qualifier has const.
     static constexpr bool is_const = Constant;
+
+    // template<bool NewConst>
+    // using set_const = qualifier<NewConst, Volatile, RValue>;
 
     /// Is true if the qualifier has volatile.
     static constexpr bool is_volatile = Volatile;
@@ -76,14 +107,14 @@ struct qualifier
 };
 
 /// Helper to store the function configuration.
-template<std::size_t Size = 0UL, bool Copyable = true>
-struct configuration
+template<std::size_t Size, bool Copyable>
+struct config
 {
     /// The internal capacity of the function for sfo optimization.
     static constexpr std::size_t size = Size;
 
     /// Is true if the function is copyable.
-    static constexpr bool is_copyable = Constant;
+    static constexpr bool is_copyable = Copyable;
 };
 
 template<typename Fn>
@@ -168,39 +199,37 @@ template<typename ReturnType, typename... Args>
 struct unwrap<ReturnType(Args...) const volatile>
     : unwrap_base<signature<ReturnType(Args...)>, qualifier<true, true, false>> { };
 
-/*
 template<typename ReturnType, typename... Args>
 struct unwrap<ReturnType(Args...)&>
-    : signature<ReturnType(Args...)>, qualifier<false, false, false> { };
+    : unwrap_base<signature<ReturnType(Args...)>, qualifier<false, false, false>> { };
 
 template<typename ReturnType, typename... Args>
 struct unwrap<ReturnType(Args...) const&>
-    : signature<ReturnType(Args...)>, qualifier<true, false, false> { };
+    : unwrap_base<signature<ReturnType(Args...)>, qualifier<true, false, false>> { };
 
 template<typename ReturnType, typename... Args>
 struct unwrap<ReturnType(Args...) volatile&>
-    : signature<ReturnType(Args...)>, qualifier<false, true, false> { };
+    : unwrap_base<signature<ReturnType(Args...)>, qualifier<false, true, false>> { };
 
 template<typename ReturnType, typename... Args>
 struct unwrap<ReturnType(Args...) const volatile&>
-    : signature<ReturnType(Args...)>, qualifier<true, true, false> { };
+    : unwrap_base<signature<ReturnType(Args...)>, qualifier<true, true, false>> { };
 
 template<typename ReturnType, typename... Args>
 struct unwrap<ReturnType(Args...)&&>
-    : signature<ReturnType(Args...)>, qualifier<false, false, true> { };
+    : unwrap_base<signature<ReturnType(Args...)>, qualifier<false, false, true>> { };
 
 template<typename ReturnType, typename... Args>
 struct unwrap<ReturnType(Args...) const&&>
-    : signature<ReturnType(Args...)>, qualifier<true, false, true> { };
+    : unwrap_base<signature<ReturnType(Args...)>, qualifier<true, false, true>> { };
 
 template<typename ReturnType, typename... Args>
 struct unwrap<ReturnType(Args...) volatile&&>
-    : signature<ReturnType(Args...)>, qualifier<false, true, true> { };
+    : unwrap_base<signature<ReturnType(Args...)>, qualifier<false, true, true>> { };
 
 template<typename ReturnType, typename... Args>
 struct unwrap<ReturnType(Args...) const volatile&&>
-    : signature<ReturnType(Args...)>, qualifier<true, true, true> { };
-*/
+    : unwrap_base<signature<ReturnType(Args...)>, qualifier<true, true, true>> { };
 
 template<typename T>
 struct is_function_pointer
@@ -406,7 +435,7 @@ struct can_allocate_inplace_helper
 template <typename T>
 struct can_allocate_inplace_helper<T, 0UL>
 {
-    static bool can_allocate_inplace(std::size_t /*size*/)
+    static bool can_allocate_inplace(std::size_t)
     {
         return false;
     }
@@ -533,51 +562,25 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
 
 }; // struct call_wrapper_implementation
 
-template<typename /*Signature*/, typename /*Qualifier*/, typename /*Configuration*/>
+template<typename /*Signature*/, typename /*Qualifier*/, typename /*Config*/>
 class function;
 
-template <typename /*Base*/, typename /*Fn*/, bool Copyable, bool /*Constant*/, bool /*Volatile*/>
+template <typename /*Fn*/>
 struct call_operator;
 
-template<typename Base, typename ReturnType, typename... Args, bool Copyable>
-struct call_operator<Base, ReturnType(Args...), Copyable, false, false>
-{
-    ReturnType operator()(Args... args)
-    {
-        return (*static_cast<Base*>(this)->_storage._impl)(std::forward<Args>(args)...);
+#define FU2_MACRO_DEFINE_CALL_OPERATOR(IS_CONST, IS_VOLATILE, IS_RVALUE) \
+    template<typename ReturnType, typename... Args, typename Config> \
+    struct call_operator<function<signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Config>> \
+    { \
+        ReturnType operator()(Args...) FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) \
+        { \
+            return ReturnType(); /* (*static_cast<function<signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Config>*>(this)->_storage._impl)(std::forward<Args>(args)...); */ \
+        } \
     }
 
-}; // struct call_operator
+FU2_MACRO_EXPAND3X3(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
-template<typename Base, typename ReturnType, typename... Args, bool Copyable>
-struct call_operator<Base, ReturnType(Args...), Copyable, true, false>
-{
-    ReturnType operator()(Args... args) const
-    {
-        return (*static_cast<const Base*>(this)->_storage._impl)(std::forward<Args>(args)...);
-    }
-
-}; // struct call_operator
-
-template<typename Base, typename ReturnType, typename... Args, bool Copyable>
-struct call_operator<Base, ReturnType(Args...), Copyable, false, true>
-{
-    ReturnType operator()(Args... args) volatile
-    {
-        return (*static_cast<volatile Base*>(this)->_storage._impl)(std::forward<Args>(args)...);
-    }
-
-}; // struct call_operator
-
-template<typename Base, typename ReturnType, typename... Args, bool Copyable>
-struct call_operator<Base, ReturnType(Args...), Copyable, true, true>
-{
-    ReturnType operator()(Args... args) const volatile
-    {
-        return (*static_cast<const volatile Base*>(this)->_storage._impl)(std::forward<Args>(args)...);
-    }
-
-}; // struct call_operator
+#undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
 template<typename T, std::size_t Capacity>
 struct storage_base_t
@@ -629,7 +632,8 @@ struct storage_base_t<T, 0UL>
 
 }; // struct storage_base_t
 
-template<typename /*Fn*/>
+/*
+template<typename /n>
 struct storage_t;
 
 template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
@@ -873,22 +877,24 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     }
 
 }; // struct storage_t
+*/
 
-template<typename ReturnType, typename... Args, typename Qualifier, typename Configuration>
-class function<signature<ReturnType(Args...)>, Qualifier, Configuration>
-    : public call_operator<function<signature<ReturnType(Args...)>, Qualifier, Configuration>, ReturnType(Args...), Configuration::is_copyable, Qualifier::is_const, Qualifier::is_volatile>,
+template<typename ReturnType, typename... Args, typename Qualifier, typename Config>
+class function<signature<ReturnType(Args...)>, Qualifier, Config>
+    : public call_operator<function<signature<ReturnType(Args...)>, Qualifier, Config>>,
       public signature<ReturnType(Args...)>,
-      public copyable<Configuration::is_volatile>
+      public copyable<Config::is_copyable>
 {
     template<typename, typename, typename>
     friend class function;
 
-    friend struct call_operator<function, ReturnType(Args...), Configuration::is_volatile, Qualifier::is_const, Qualifier::is_volatile>;
+    friend struct call_operator<function>;
 
     // Is a true type if the given function is copyable correct to this.
     template<bool RightCopyable>
     using is_copyable_correct_to_this = std::integral_constant<bool,
-        Configuration::is_const == RightCopyable
+        // FIXME
+        Config::is_copyable == RightCopyable
     >;
 
     // Is a true type if the given function pointer is assignable to this.
@@ -902,11 +908,11 @@ class function<signature<ReturnType(Args...)>, Qualifier, Configuration>
     template<typename T>
     using is_functor_assignable_to_this = std::integral_constant<std::size_t,
         !is_function_pointer_assignable_to_this<T>::value &&
-        is_callable_with_qualifiers<T, ReturnType(Args...), qualifier<Qualifier::is_const, Qualifier::is_volatile, false>>::value
+        is_callable_with_qualifiers<T, ReturnType(Args...), Qualifier>::value
     >;
 
     // Implementation storage
-    storage_t<function> _storage;
+    // storage_t<function> _storage;
 
     // Box for small copyable types (function pointers)
     template<typename T>
@@ -933,17 +939,17 @@ public:
 
     /// Copy construct
     template<std::size_t RightCapacity>
-    explicit function(function<signature<ReturnType(Args...)>, Qualifier, configuration<RightCapacity, true>> const& right)
+    explicit function(function<signature<ReturnType(Args...)>, Qualifier, config<RightCapacity, true>> const& /*right*/)
     {
-        _storage.weak_copy_assign(right._storage);
+        // _storage.weak_copy_assign(right._storage);
     }
 
     /// Move construct
     template<std::size_t RightCapacity, bool RightCopyable,
              typename = typename std::enable_if<is_copyable_correct_to_this<RightCopyable>::value>::type>
-    explicit function(function<ReturnType(Args...), RightCapacity, RightCopyable, Qualifier::is_const, Qualifier::is_volatile>&& right)
+    explicit function(function<signature<ReturnType(Args...)>, Qualifier, config<RightCapacity, RightCopyable>>&& /*right*/)
     {
-        _storage.weak_move_assign(std::move(right._storage));
+        // _storage.weak_move_assign(std::move(right._storage));
     }
 
     /// Constructor taking a function pointer
@@ -953,54 +959,54 @@ public:
 
     /// Constructor taking a functor
     template<typename T, typename = typename std::enable_if<is_functor_assignable_to_this<T>::value>::type>
-    function(T functor)
+    function(T /*functor*/)
     {
-        _storage.weak_allocate(std::forward<T>(functor));
+        // _storage.weak_allocate(std::forward<T>(functor));
     }
 
     explicit function(std::nullptr_t)
-        : _storage() { }
+        /*: _storage()*/ { }
 
     /// Copy assign
     template<std::size_t RightCapacity>
-    function& operator= (function<ReturnType(Args...), RightCapacity, true, Qualifier::is_const, Qualifier::is_volatile> const& right)
+    function& operator= (function<signature<ReturnType(Args...)>, Qualifier, config<RightCapacity, true>> const& /*right*/)
     {
-        _storage.copy_assign(right._storage);
+        // _storage.copy_assign(right._storage);
         return *this;
     }
 
     /// Move assign
     template<std::size_t RightCapacity, bool RightCopyable,
              typename std::enable_if<is_copyable_correct_to_this<RightCopyable>::value>::type* = nullptr>
-    function& operator= (function<ReturnType(Args...), RightCapacity, RightCopyable, Qualifier::is_const, Qualifier::is_volatile>&& right)
+    function& operator= (function<signature<ReturnType(Args...)>, Qualifier, config<RightCapacity, RightCopyable>>&& /*right*/)
     {
-        _storage.move_assign(std::move(right._storage));
+        // _storage.move_assign(std::move(right._storage));
         return *this;
     }
 
     /// Copy assign taking a function pointer
     template<typename T, typename std::enable_if<is_function_pointer_assignable_to_this<T>::value>::type* = nullptr>
-    function& operator= (T function_pointer)
+    function& operator= (T /*function_pointer*/)
     {
-        _storage.allocate(functor_box_of<T>(std::forward<T>(function_pointer)));
+        // _storage.allocate(functor_box_of<T>(std::forward<T>(function_pointer)));
         return *this;
     }
 
     /// Copy assign taking a functor
     template<typename T, typename std::enable_if<is_functor_assignable_to_this<T>::value>::type* = nullptr>
-    function& operator= (T functor)
+    function& operator= (T /*functor*/)
     {
-        _storage.allocate(std::forward<T>(functor));
+        // _storage.allocate(std::forward<T>(functor));
         return *this;
     }
 
     function& operator= (std::nullptr_t)
     {
-        _storage.deallocate();
+        // _storage.deallocate();
         return *this;
     }
 
-    using call_operator<function, ReturnType(Args...), Configuration::is_volatile, Qualifier::is_const, Qualifier::is_volatile>::operator();
+    using call_operator<function>::operator();
 
 }; // class function
 
@@ -1009,6 +1015,13 @@ using default_capacity = std::integral_constant<std::size_t,
     32UL
 >;
 
+#undef FU2_MACRO_IF
+#undef FU2_MACRO_IF_true
+#undef FU2_MACRO_IF_false
+#undef FU2_MACRO_NO_REF_QUALIFIER
+#undef FU2_MACRO_FULL_QUALIFIER
+#undef FU2_MACRO_EXPAND3X3
+
 } // inline namespace v0
 
 } // namespace detail
@@ -1016,9 +1029,9 @@ using default_capacity = std::integral_constant<std::size_t,
 /// Function wrapper base
 template<typename Signature, std::size_t Capacity, bool Copyable>
 using function_base = detail::function<
-    typename detail::unwrap<Signature>::type,
+    typename detail::unwrap<Signature>::signature,
     typename detail::unwrap<Signature>::qualifier,
-    detail::configuration<Capacity, Copyable>
+    detail::config<Capacity, Copyable>
 >;
 
 /// Copyable function wrapper

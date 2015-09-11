@@ -63,6 +63,10 @@ int main(int argc, char** argv)
 
     int const result = Catch::Session().run(argc, argv);
 
+    function<void()&&> fff;
+
+    std::move(fff)();
+
     // Attach breakpoint here ,-)
     return result;
 }
