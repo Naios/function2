@@ -1,7 +1,7 @@
 
 # C++11 Function 2 - fu2::
 
-[![Build Status](https://travis-ci.org/Naios/Function2.svg?branch=master)](https://travis-ci.org/Naios//Function2)
+[![Build Status](https://travis-ci.org/Naios/Function2.svg?branch=master)](https://travis-ci.org/Naios/Function2)
 
 Provides two improved implementations of `std::function`:
 
