@@ -227,12 +227,11 @@ All tests passed (73 assertions in 7 test cases)
 
 Tested with:
 
-- Visual Studio 2013
-- Visual Studio 2015
+- Visual Studio 2015+
 - Clang 3.4+
 - GCC 4.8+
 
-Every compiler with C++11 capability should work.
+Every compiler with full C++11 capability should work.
 Function2 only depends on the standard library.
 
 ## License
