@@ -941,14 +941,14 @@ public:
     {
         _storage.weak_move_assign(std::move(right._storage));
     }
-
+    // typename std::enable_if<>::type* = nullptr
     /// Constructor taking a function pointer
-    template<typename T, typename = std::enable_if_t<is_function_pointer_assignable_to_this<T>::value>, typename = void>
+    template<typename T, typename = typename std::enable_if<is_function_pointer_assignable_to_this<T>::value>::type, typename = void>
     function(T function_pointer)
         : function(functor_box_of<T>(std::forward<T>(function_pointer))) { }
-
+    // typename std::enable_if<>::type* = nullptr
     /// Constructor taking a functor
-    template<typename T, typename = std::enable_if_t<is_functor_assignable_to_this<T>::value>>
+    template<typename T, typename = typename std::enable_if<is_functor_assignable_to_this<T>::value>::type>
     function(T functor)
     {
         _storage.weak_allocate(std::forward<T>(functor));
@@ -967,7 +967,7 @@ public:
 
     /// Move assign
     template<std::size_t RightCapacity, bool RightCopyable,
-             typename = std::enable_if_t<is_copyable_correct_to_this<RightCopyable>::value>>
+             typename std::enable_if<is_copyable_correct_to_this<RightCopyable>::value>::type* = nullptr>
     function& operator= (function<ReturnType(Args...), RightCapacity, RightCopyable, Constant, Volatile>&& right)
     {
         _storage.move_assign(std::move(right._storage));
@@ -975,7 +975,7 @@ public:
     }
 
     /// Copy assign taking a function pointer
-    template<typename T, std::enable_if_t<is_function_pointer_assignable_to_this<T>::value>* = nullptr>
+    template<typename T, typename std::enable_if<is_function_pointer_assignable_to_this<T>::value>::type* = nullptr>
     function& operator= (T function_pointer)
     {
         _storage.allocate(functor_box_of<T>(std::forward<T>(function_pointer)));
@@ -983,7 +983,7 @@ public:
     }
 
     /// Copy assign taking a functor
-    template<typename T, std::enable_if_t<is_functor_assignable_to_this<T>::value>* = nullptr>
+    template<typename T, typename std::enable_if<is_functor_assignable_to_this<T>::value>::type* = nullptr>
     function& operator= (T functor)
     {
         _storage.allocate(std::forward<T>(functor));
