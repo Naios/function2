@@ -1,5 +1,5 @@
 
-# C++14 Function 2 - fu2::
+# C++11 Function 2 - fu2::
 
 [![Build Status](https://travis-ci.org/Naios/Function2.svg?branch=master)](https://travis-ci.org/Naios//Function2)
 
@@ -22,6 +22,11 @@ which are:
   * **[Constructing a function](#constructing-a-function)**
   * **[Non copyable unique functions](#non-copyable-unique-functions)**
   * **[Converbility of functions](#converbility-of-functions)**
+  * **[Adapt function2](#adapt-function2)**
+* **[Performance and optimization](#performance-and-optimization)**
+  * **[Small functor optimization](#small-functor-optimization)**
+  * **[Compiler optimization](#compiler-optimization)**
+  * **[std::function vs fu2::function](#std::function_vs_fu2::function)**
 * **[Coverage and runtime checks](#coverage-and-runtime-checks)**
 * **[Compatibility](#compatibility)**
 * **[License](#licence)**
@@ -128,6 +133,63 @@ fun = un_fun;
 fun = un_fun;
 
 ```
+
+### Adapt function2
+
+function2 is adaptable through `fu2::function_base` which allows you to set:
+
+- **Signature:** defines the signature of the function.
+- **Capacity:** defines the internal capacity used for [sfo optimization](#small-functor-optimization).
+- **Copyable:** defines if the function is copyable or not.
+
+The following code defines a function with a variadic signature which is copyable and sfo optimization is disabled:
+
+```c++
+template<typename Signature>
+using my_function = fu2::function_base<Signature, 0UL, true>;
+```
+
+The following code defines a non copyable function which just takes 1 argument, and has a huge capacity for internal sfo optimization.
+
+```c++
+template<typename Arg>
+using my_consumer = fu2::function_base<void(Arg), 100UL, false>;
+```
+
+## Performance and optimization
+
+### Small functor optimization
+
+Function 2 uses small functor optimization like the most common std::function implementations which means it allocates a small internal capacity to evade heap allocation for small functors.
+
+Smart heap allocation moves the inplace allocated functor automatically to the heap to speed up moving between objects.
+
+### Compiler optimization
+
+Unique functions are heavily optimized by compilers see below:
+
+```c++
+int main(int argc, char**)
+{
+    fu2::unique_function<int()> fun([=]
+    {
+        return argc + 10;
+    );
+    return fun() + fun();
+}
+```
+
+[Clang 3.7 with -O3 compiles it into](https://goo.gl/F7saQy):
+
+```asm
+main: # @main
+    lea	eax, [rdi + rdi + 20]
+    ret
+```
+
+(`std::function` [compiles into ~70 instructions](https://goo.gl/GO4G4b)).
+
+### std::function vs fu2::function
 
 ## Coverage and runtime checks
 
