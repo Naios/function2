@@ -39,6 +39,15 @@ constexpr std::size_t sz4 = sizeof(fu2::unique_function<void()>);
 constexpr std::size_t sz5 = sizeof(fu2::function_base<bool(int, float, long), 0UL, true>);
 constexpr std::size_t sz6 = sizeof(fu2::function_base<void(), 0UL, false>);
 
+constexpr std::size_t pd1 = std::alignment_of<std::function<bool(int, float, long)>>::value;
+constexpr std::size_t pd2 = std::alignment_of<std::function<void()>>::value;
+
+constexpr std::size_t pd3 = std::alignment_of<fu2::function<bool(int, float, long)>>::value;
+constexpr std::size_t pd4 = std::alignment_of<fu2::unique_function<void()>>::value;
+
+constexpr std::size_t pd5 = std::alignment_of<fu2::function_base<bool(int, float, long), 0UL, true>>::value;
+constexpr std::size_t pd6 = std::alignment_of<fu2::function_base<void(), 0UL, false>>::value;
+
 int main(int argc, char** argv)
 {
     runBenchmark();

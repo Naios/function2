@@ -335,10 +335,18 @@ struct call_virtual_operator<Base, ReturnType(Args...), Copyable , true, true>
 
 }; // struct call_virtual_operator
 
+template<std::size_t Size, std::size_t Alignment>
+using round_up_to_alignment = typename std::conditional<Size % Alignment == 0,
+    std::integral_constant<std::size_t, Size>,
+    std::integral_constant<std::size_t,
+        // Rounds the required size up to the alignment
+        Size + (Alignment - (Size % Alignment))
+    >
+>::type;
+
 template<typename T>
-using required_capacity_to_allocate_inplace = std::integral_constant<std::size_t,
-    sizeof(T)
->;
+using required_capacity_to_allocate_inplace =
+    round_up_to_alignment<sizeof(T), std::alignment_of<T>::value>;
 
 /// Increases the chances when to fall back from in place to heap allocation for move performance.
 static std::size_t const chances = 2UL;
@@ -622,8 +630,7 @@ struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Vol
     template<typename T>
     using is_local_allocateable =
         std::integral_constant<bool,
-            required_capacity_to_allocate_inplace<T>::value <= Capacity
-        /*&& (std::alignment_of<uint8_t[Capacity]>::value % std::alignment_of<T>::value) == 0*/>;
+            required_capacity_to_allocate_inplace<T>::value <= Capacity>;
 
     storage_t()
         : base_t(nullptr) { }
