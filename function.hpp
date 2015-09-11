@@ -345,13 +345,16 @@ using round_up_to_alignment = typename std::conditional<Size % Alignment == 0,
 >::type;
 
 template<typename T>
-using required_capacity_to_allocate_inplace =
-    round_up_to_alignment<sizeof(T), std::alignment_of<T>::value>;
+using required_capacity_to_allocate_inplace = round_up_to_alignment<
+    sizeof(T), std::alignment_of<T>::value
+>;
 
 /// Increases the chances when to fall back from in place to heap allocation for move performance.
-static std::size_t const chances = 2UL;
+using default_chances = std::integral_constant<std::size_t,
+    2UL
+>;
 
-template<typename /*T*/, typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/, std::size_t Chance = chances>
+template<typename /*T*/, typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/, std::size_t Chance = default_chances::value>
 struct call_wrapper_implementation;
 
 template<typename /*T*/, typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/, std::size_t /*Chance*/>
@@ -997,7 +1000,10 @@ public:
 
 }; // class function
 
-static constexpr std::size_t default_capacity = 32UL;
+// Default capacity for small functor optimization
+using default_capacity = std::integral_constant<std::size_t,
+    32UL
+>;
 
 } // inline namespace v0
 
@@ -1017,7 +1023,7 @@ using function_base = detail::function<
 template<typename Signature>
 using function = function_base<
     Signature,
-    detail::default_capacity,
+    detail::default_capacity::value,
     true
 >;
 
@@ -1025,7 +1031,7 @@ using function = function_base<
 template<typename Signature>
 using unique_function = function_base<
     Signature,
-    detail::default_capacity,
+    detail::default_capacity::value,
     false
 >;
 
@@ -1035,20 +1041,20 @@ namespace experimental
 /// Creates a functional object which type depends on the given functor or function pointer.
 /// The second template parameter can be used to adjust the capacity
 /// for small functor optimization (in-place allocation for small objects).
-template<typename Fn, std::size_t Capacity = detail::default_capacity>
+template<typename Fn, std::size_t Capacity = detail::default_capacity::value>
 auto make_function(Fn functional)
 {
-    static_assert(detail::is_function_pointer<Fn>::value || detail::is_functor<std::decay_t<Fn>>::value,
+    static_assert(detail::is_function_pointer<Fn>::value || detail::is_functor<typename std::decay<Fn>::type>::value,
         "Can only create functions from functors and function pointers!");
 
-    using unwrap_t = detail::unwrap_t<std::decay_t<Fn>>;
+    using unwrap_t = detail::unwrap_t<typename std::decay<Fn>::type>;
 
     return detail::function<
         typename unwrap_t::decayed_type,
         Capacity,
         // Check if the given argument is copyable in any way.
-        std::is_copy_assignable<std::decay_t<Fn>>::value ||
-        std::is_copy_constructible<std::decay_t<Fn>>::value,
+        std::is_copy_assignable<typename std::decay<Fn>::type>::value ||
+        std::is_copy_constructible<typename std::decay<Fn>::type>::value,
         unwrap_t::is_const,
         unwrap_t::is_volatile
     >(std::forward<Fn>(functional));
