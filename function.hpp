@@ -4,8 +4,8 @@
 //      (See accompanying file LICENSE_1_0.txt or copy at
 //           http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef function_hpp__
-#define function_hpp__
+#ifndef fu2_included_function_hpp__
+#define fu2_included_function_hpp__
 
 #include <tuple>
 #include <cstdint>
@@ -20,43 +20,15 @@ namespace detail
 inline namespace v0
 {
 
-// If macro
-#define FU2_MACRO_IF(cond) \
-    FU2_MACRO_IF_ ## cond
-#define FU2_MACRO_IF_true(EXPRESSION) EXPRESSION
-#define FU2_MACRO_IF_false(EXPRESSION)
-
-// Qualifier without r-value ref.
-#define FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) \
-    FU2_MACRO_IF(IS_CONST)(const) \
-    FU2_MACRO_IF(IS_VOLATILE)(volatile)
-
-// Full qualifier
-#define FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) \
-    FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) \
-    FU2_MACRO_IF(IS_RVALUE)(&&)
-
-// Expand a macro which takes 3 bool
-// with all possible values.
-#define FU2_MACRO_EXPAND3X3(EXPRESSION) \
-    EXPRESSION(false, false, false); \
-    EXPRESSION(false, false, true); \
-    EXPRESSION(false, true, false); \
-    EXPRESSION(false, true, true); \
-    EXPRESSION(true, false, false); \
-    EXPRESSION(true, false, true); \
-    EXPRESSION(true, true, false); \
-    EXPRESSION(true, true, true);
-
 /// Type deducer
-template<typename>
+template<typename, typename T = std::true_type>
 struct deduce_t
-    : std::true_type { };
+    : T { };
 
 /// Size deducer
-template<std::size_t>
+template<std::size_t, typename T = std::true_type>
 struct deduce_sz
-    : std::true_type { };
+    : T { };
 
 /// Copy enabler helper class
 template<bool Copyable>
@@ -107,15 +79,42 @@ struct qualifier
 };
 
 /// Helper to store the function configuration.
-template<std::size_t Size, bool Copyable>
+template<std::size_t Capacity, bool Copyable>
 struct config
 {
     /// The internal capacity of the function for sfo optimization.
-    static constexpr std::size_t size = Size;
+    static constexpr std::size_t capacity = Capacity;
 
     /// Is true if the function is copyable.
     static constexpr bool is_copyable = Copyable;
 };
+
+// If macro
+#define FU2_MACRO_IF(cond) \
+    FU2_MACRO_IF_ ## cond
+#define FU2_MACRO_IF_true(EXPRESSION) EXPRESSION
+#define FU2_MACRO_IF_false(EXPRESSION)
+
+// Qualifier without r-value ref.
+#define FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) \
+    FU2_MACRO_IF(IS_CONST)(const) \
+    FU2_MACRO_IF(IS_VOLATILE)(volatile)
+
+// Full qualifier
+#define FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) \
+    FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) \
+    FU2_MACRO_IF(IS_RVALUE)(&&)
+
+// Expand the given macro with all possible combinations.
+#define FU2_MACRO_EXPAND_3(EXPRESSION) \
+    EXPRESSION(false, false, false) \
+    EXPRESSION(false, false, true) \
+    EXPRESSION(false, true, false) \
+    EXPRESSION(false, true, true) \
+    EXPRESSION(true, false, false) \
+    EXPRESSION(true, false, true) \
+    EXPRESSION(true, true, false) \
+    EXPRESSION(true, true, true)
 
 template<typename Fn>
 struct impl_is_callable_with_qualifiers;
@@ -576,9 +575,9 @@ struct call_operator;
         { \
             return ReturnType(); /* (*static_cast<function<signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Config>*>(this)->_storage._impl)(std::forward<Args>(args)...); */ \
         } \
-    }
+    };
 
-FU2_MACRO_EXPAND3X3(FU2_MACRO_DEFINE_CALL_OPERATOR)
+FU2_MACRO_EXPAND_3(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
 #undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
@@ -632,23 +631,22 @@ struct storage_base_t<T, 0UL>
 
 }; // struct storage_base_t
 
-/*
-template<typename /n>
+template<typename /*Fn*/>
 struct storage_t;
-
-template<typename ReturnType, typename... Args, std::size_t Capacity, bool Copyable, bool Constant, bool Volatile>
-struct storage_t<function<ReturnType(Args...), Capacity, Copyable, Constant, Volatile>>
-    : public storage_base_t<call_wrapper_interface<ReturnType(Args...), Copyable, Constant, Volatile>, Capacity>
+/*
+template<typename ReturnType, typename... Args, typename Qualifier, typename Config>
+struct storage_t<function<signature<ReturnType(Args...)>, Qualifier, Config>>
+    : public storage_base_t<call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, Config::is_copyable>, Config::size>
 {
     // Call wrapper interface
     using interface_t = call_wrapper_interface<
-        ReturnType(Args...), Copyable, Constant, Volatile
+        signature<ReturnType(Args...)>, Qualifier, Config::is_copyable
     >;
 
     // Call wrapper implementation
     template<typename T>
     using implementation_t = call_wrapper_implementation<
-        T, ReturnType(Args...), Copyable, Constant, Volatile
+        T, signature<ReturnType(Args...)>, Qualifier, Config::is_copyable
     >;
 
     // Storage base type
@@ -1020,7 +1018,7 @@ using default_capacity = std::integral_constant<std::size_t,
 #undef FU2_MACRO_IF_false
 #undef FU2_MACRO_NO_REF_QUALIFIER
 #undef FU2_MACRO_FULL_QUALIFIER
-#undef FU2_MACRO_EXPAND3X3
+#undef FU2_MACRO_EXPAND_3
 
 } // inline namespace v0
 
@@ -1052,4 +1050,4 @@ using unique_function = function_base<
 
 } // namespace fu2
 
-#endif // function_hpp__
+#endif // fu2_included_function_hpp__

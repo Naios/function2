@@ -63,7 +63,10 @@ int main(int argc, char** argv)
 
     int const result = Catch::Session().run(argc, argv);
 
-    function<void()&&> fff;
+    unique_function<void() &&> fff([]() mutable
+    {
+
+    });
 
     std::move(fff)();
 

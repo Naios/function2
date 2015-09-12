@@ -242,3 +242,4 @@ Function2 is licensed under the Boost 1.0 License.
 
 - [potswa/cxx_function](https://github.com/potswa/cxx_function)
 - [pmed/fixed_size_function](https://github.com/pmed/fixed_size_function)
+- [http://probablydance.com/2013/01/13/a-faster-implementation-of-stdfunction/](http://probablydance.com/2013/01/13/a-faster-implementation-of-stdfunction)

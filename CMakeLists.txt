@@ -52,13 +52,13 @@ endif()
 unset(has_cxx14_lambda_capture CACHE)
 check_cxx_source_compiles("
   #include <memory>
-  int main()
+  int main(int, char**)
   {
-    auto fun = [ptr = std::make_unique<int>(0)]
+    auto fun = [ptr = std::make_unique<int>(0)](auto)
     {
         return *ptr;
     };
-    return fun();
+    return fun(0);
   }"
 has_cxx14_lambda_capture)
 
