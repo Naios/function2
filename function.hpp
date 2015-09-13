@@ -339,7 +339,7 @@ struct call_virtual_operator<Base, ReturnType(Args...), Copyable, false, false>
 {
     virtual ~call_virtual_operator() { }
 
-    ReturnType operator()(Args&&... args) override
+    ReturnType operator()(Args&&... args) final override
     {
         return (static_cast<Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
@@ -352,7 +352,7 @@ struct call_virtual_operator<Base, ReturnType(Args...), Copyable, true, false>
 {
     virtual ~call_virtual_operator() { }
 
-    ReturnType operator()(Args&&... args) const override
+    ReturnType operator()(Args&&... args) const final override
     {
         return (static_cast<const Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
@@ -365,7 +365,7 @@ struct call_virtual_operator<Base, ReturnType(Args...), Copyable, false, true>
 {
     virtual ~call_virtual_operator() { }
 
-    ReturnType operator()(Args&&... args) volatile override
+    ReturnType operator()(Args&&... args) volatile final override
     {
         return (static_cast<volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
@@ -378,7 +378,7 @@ struct call_virtual_operator<Base, ReturnType(Args...), Copyable , true, true>
 {
     virtual ~call_virtual_operator() { }
 
-    ReturnType operator()(Args&&... args) const volatile override
+    ReturnType operator()(Args&&... args) const volatile final override
     {
         return (static_cast<const volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
     }
@@ -464,19 +464,19 @@ struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Vola
 
     virtual ~call_wrapper_implementation() { }
 
-    bool can_allocate_unique_inplace(std::size_t size) const override
+    bool can_allocate_unique_inplace(std::size_t size) const final override
     {
         return can_allocate_inplace_helper<
             generate_next_impl_t<T, ReturnType(Args...), false, Constant, Volatile, Chance>, Chance
         >::can_allocate_inplace(size);
     }
 
-    void move_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* ptr) override
+    void move_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* ptr) final override
     {
         new (ptr) generate_next_impl_t<T, ReturnType(Args...), false, Constant, Volatile, Chance>(std::move(_impl));
     }
 
-    call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* move_unique_to_heap() override
+    call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* move_unique_to_heap() final override
     {
         return new call_wrapper_implementation(std::move(_impl));
     }
@@ -506,53 +506,53 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
 
     virtual ~call_wrapper_implementation() { }
 
-    bool can_allocate_unique_inplace(std::size_t size) const override
+    bool can_allocate_unique_inplace(std::size_t size) const final override
     {
         return can_allocate_inplace_helper<
             generate_next_impl_t<T, ReturnType(Args...), false, Constant, Volatile, Chance>, Chance
         >::can_allocate_inplace(size);
     }
 
-    bool can_allocate_copyable_inplace(std::size_t size) const override
+    bool can_allocate_copyable_inplace(std::size_t size) const final override
     {
         return can_allocate_inplace_helper<
             generate_next_impl_t<T, ReturnType(Args...), true, Constant, Volatile, Chance>, Chance
         >::can_allocate_inplace(size);
     }
 
-    void move_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* ptr) override
+    void move_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* ptr) final override
     {
         // Downcast to unique impl
         new (ptr) generate_next_impl_t<T, ReturnType(Args...), false, Constant, Volatile, Chance>(std::move(_impl));
     }
 
-    void move_copyable_inplace(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* ptr) override
+    void move_copyable_inplace(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* ptr) final override
     {
         new (ptr) generate_next_impl_t<T, ReturnType(Args...), true, Constant, Volatile, Chance>(std::move(_impl));
     }
 
-    call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* move_unique_to_heap() override
+    call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* move_unique_to_heap() final override
     {
         // Downcast to unique impl
         return new call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>(std::move(_impl));
     }
 
-    call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* move_copyable_to_heap() override
+    call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* move_copyable_to_heap() final override
     {
         return new call_wrapper_implementation(std::move(_impl));
     }
 
-    void clone_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* ptr) const override
+    void clone_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* ptr) const final override
     {
         new (ptr) call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile>(_impl);
     }
 
-    void clone_copyable_inplace(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* ptr) const override
+    void clone_copyable_inplace(call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* ptr) const final override
     {
         new (ptr) call_wrapper_implementation(_impl);
     }
 
-    call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* clone_heap() const override
+    call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>* clone_heap() const final override
     {
         return new call_wrapper_implementation(_impl);
     };
@@ -936,22 +936,23 @@ public:
     function() = default;
 
     /// Copy construct
-    template<std::size_t RightCapacity>
-    explicit function(function<signature<ReturnType(Args...)>, Qualifier, config<RightCapacity, true>> const& /*right*/)
+    template<typename RightConfig, typename std::enable_if<RightConfig::is_copyable>::type* = nullptr>
+    explicit function(function<signature<ReturnType(Args...)>, Qualifier, RightConfig> const& /*right*/)
     {
         // _storage.weak_copy_assign(right._storage);
     }
 
     /// Move construct
-    template<std::size_t RightCapacity, bool RightCopyable,
-             typename = typename std::enable_if<is_copyable_correct_to_this<RightCopyable>::value>::type>
-    explicit function(function<signature<ReturnType(Args...)>, Qualifier, config<RightCapacity, RightCopyable>>&& /*right*/)
+    template<typename RightConfig,
+             typename = typename std::enable_if<is_copyable_correct_to_this<RightConfig::is_copyable>::value>::type>
+    explicit function(function<signature<ReturnType(Args...)>, Qualifier, RightConfig>&& /*right*/)
     {
         // _storage.weak_move_assign(std::move(right._storage));
     }
 
     /// Constructor taking a function pointer
-    template<typename T, typename = typename std::enable_if<is_function_pointer_assignable_to_this<T>::value>::type, typename = void>
+    template<typename T,
+             typename = typename std::enable_if<is_function_pointer_assignable_to_this<T>::value>::type, typename = void>
     function(T function_pointer)
         : function(functor_box_of<T>(std::forward<T>(function_pointer))) { }
 
@@ -966,17 +967,17 @@ public:
         /*: _storage()*/ { }
 
     /// Copy assign
-    template<std::size_t RightCapacity>
-    function& operator= (function<signature<ReturnType(Args...)>, Qualifier, config<RightCapacity, true>> const& /*right*/)
+    template<typename RightConfig, typename std::enable_if<RightConfig::is_copyable>::type* = nullptr>
+    function& operator= (function<signature<ReturnType(Args...)>, Qualifier, RightConfig> const& /*right*/)
     {
         // _storage.copy_assign(right._storage);
         return *this;
     }
 
     /// Move assign
-    template<std::size_t RightCapacity, bool RightCopyable,
-             typename std::enable_if<is_copyable_correct_to_this<RightCopyable>::value>::type* = nullptr>
-    function& operator= (function<signature<ReturnType(Args...)>, Qualifier, config<RightCapacity, RightCopyable>>&& /*right*/)
+    template<typename RightConfig,
+             typename std::enable_if<is_copyable_correct_to_this<RightConfig::is_copyable>::value>::type* = nullptr>
+    function& operator= (function<signature<ReturnType(Args...)>, Qualifier, RightConfig>&& /*right*/)
     {
         // _storage.move_assign(std::move(right._storage));
         return *this;
