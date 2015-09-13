@@ -621,9 +621,10 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
     using interface_t = call_wrapper_interface<
         signature<ReturnType(Args...)>, Qualifier, Config::is_copyable
     >;
+
     // Call wrapper implementation
     template<typename T>
-    using implementation_t = deduce_t<T>;
+    using implementation_t = deduce_t<T, interface_t>;
         /*call_wrapper_implementation<
         T, signature<ReturnType(Args...)>, Qualifier, Config
     >;*/
@@ -643,12 +644,12 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
 
     explicit storage_t(storage_t const& right) : base_t()
     {
-        // weak_copy_assign(right);
+        weak_copy_assign(right);
     }
 
     explicit storage_t(storage_t&& right) : base_t()
     {
-        // weak_move_assign(std::forward<storage_t>(right));
+        weak_move_assign(std::forward<storage_t>(right));
     }
 
     storage_t& operator= (storage_t const& right)
@@ -675,14 +676,14 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
 
     void change_to_locale()
     {
-        // this->_impl = reinterpret_cast<interface_t*>(&this->_locale);
+        this->_impl = reinterpret_cast<interface_t*>(&this->_locale);
     }
 
     template<typename T>
     void allocate(T&& functor)
     {
-        // this->weak_deallocate();
-        // weak_allocate(std::forward<T>(functor));
+        this->weak_deallocate();
+        weak_allocate(std::forward<T>(functor));
     }
 
     /// Direct allocate (use capacity)
@@ -691,7 +692,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
         -> typename std::enable_if<is_local_allocateable<implementation_t<typename std::decay<T>::type>>::value>::type
     {
         // new (&this->_locale) implementation_t<typename std::decay<T>::type>(std::forward<T>(functor));
-        // change_to_locale();
+        change_to_locale();
     }
 
     /// Heap allocate
@@ -705,24 +706,24 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
     template<typename T>
     void copy_assign(T const& right)
     {
-        // this->weak_deallocate();
-        // weak_copy_assign(right);
+        this->weak_deallocate();
+        weak_copy_assign(right);
     }
 
     template<typename T>
     auto do_copy_allocate(T const& right)
         -> typename std::enable_if<Config::is_copyable && deduce_t<T>::value>::type
     {
-        // change_to_locale();
-        // right._impl->clone_copyable_inplace(this->_impl);
+        change_to_locale();
+        right._impl->clone_copyable_inplace(this->_impl);
     }
 
     template<typename T>
     auto do_copy_allocate(T const& right)
         -> typename std::enable_if<!Config::is_copyable && deduce_t<T>::value>::type
     {
-        // change_to_locale();
-        // right._impl->clone_unique_inplace(this->_impl);
+        change_to_locale();
+        right._impl->clone_unique_inplace(this->_impl);
     }
 
     // Copy assign with in-place capability.
@@ -730,95 +731,84 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
              typename std::enable_if<(Config::capacity > 0UL) && RightConfig::is_copyable>::type* = nullptr>
     void weak_copy_assign(storage_t<signature<ReturnType(Args...)>, Qualifier, RightConfig> const& right)
     {
-        /*
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
-        else if (right._impl->can_allocate_copyable_inplace(Capacity))
+        else if (right._impl->can_allocate_copyable_inplace(Config::capacity))
             do_copy_allocate(right);
         else
             this->_impl = right._impl->clone_heap(); // heap clone
-        */
     }
 
     // Copy assign with no in-place capability.
     template<typename RightConfig,
              typename std::enable_if<(Config::capacity == 0UL) && RightConfig::is_copyable>::type* = nullptr>
-    void weak_copy_assign(storage_t<ReturnType(Args...), Qualifier, RightConfig> const& right)
+    void weak_copy_assign(storage_t<signature<ReturnType(Args...)>, Qualifier, RightConfig> const& right)
     {
-        /*
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         else
             this->_impl = right._impl->clone_heap(); // heap clone
-        */
     }
 
     template<typename T>
     static auto can_allocate_inplace(T const& right)
         -> typename std::enable_if<Config::is_copyable && deduce_t<T>::value, bool>::type
     {
-        // return right._impl->can_allocate_copyable_inplace(Capacity);
-        return false;
+        return right._impl->can_allocate_copyable_inplace(Config::capacity);
     }
 
     template<typename T>
     static auto can_allocate_inplace(T const& right)
         -> typename std::enable_if<!Config::is_copyable && deduce_t<T>::value, bool>::type
     {
-        // return right._impl->can_allocate_unique_inplace(Capacity);
-        return false;
+        return right._impl->can_allocate_unique_inplace(Config::capacity);
     }
 
     template<typename T>
     auto do_move_allocate_inplace(T&& right)
         -> typename std::enable_if<Config::is_copyable && deduce_t<T>::value>::type
     {
-        /*
         change_to_locale();
         right._impl->move_copyable_inplace(this->_impl);
         right.deallocate();
-        */
     }
 
     template<typename T>
     auto do_move_allocate_inplace(T&& right)
         -> typename std::enable_if<!Config::is_copyable && deduce_t<T>::value>::type
     {
-        /*
         change_to_locale();
         right._impl->move_unique_inplace(this->_impl);
         right.deallocate();
-        */
     }
 
     template<typename T>
     auto do_move_allocate_to_heap(T&& right)
         -> typename std::enable_if<Config::is_copyable && deduce_t<T>::value>::type
     {
-        // this->_impl = right._impl->move_copyable_to_heap();
-        // right.deallocate();
+        this->_impl = right._impl->move_copyable_to_heap();
+        right.deallocate();
     }
 
     template<typename T>
     auto do_move_allocate_to_heap(T&& right)
         -> typename std::enable_if<!Config::is_copyable && deduce_t<T>::value>::type
     {
-        // this->_impl = right._impl->move_unique_to_heap();
-        // right.deallocate();
+        this->_impl = right._impl->move_unique_to_heap();
+        right.deallocate();
     }
 
     template<typename T>
     void move_assign(T&& right)
     {
-        // this->weak_deallocate();
-        // weak_move_assign(std::forward<T>(right));
+        this->weak_deallocate();
+        weak_move_assign(std::forward<T>(right));
     }
 
     template<typename RightConfig,
              typename std::enable_if<(Config::capacity > 0UL) && deduce_t<RightConfig>::value>::type* = nullptr>
     void weak_move_assign(storage_t<signature<ReturnType(Args...)>, Qualifier, RightConfig>&& right)
     {
-        /*
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         else if (can_allocate_inplace(right))
@@ -833,14 +823,12 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
                 right._impl = nullptr;
             }
         }
-        */
     }
 
     template<typename RightConfig,
              typename std::enable_if<(Config::capacity == 0UL) && deduce_t<RightConfig>::value>::type* = nullptr>
     void weak_move_assign(storage_t<signature<ReturnType(Args...)>, Qualifier, RightConfig>&& right)
     {
-        /*
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         else
@@ -853,18 +841,17 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
                 right._impl = nullptr;
             }
         }
-        */
     }
 
     void clean()
     {
-        // this->_impl = nullptr;
+        this->_impl = nullptr;
     }
 
     void deallocate()
     {
-        // this->weak_deallocate();
-        // clean();
+        this->weak_deallocate();
+        clean();
     }
 
 }; // struct storage_t
