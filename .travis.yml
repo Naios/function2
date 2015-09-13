@@ -74,3 +74,6 @@ install:
 script:
   - make -j2
   - ./Test
+
+after_success:
+  - valgrind --leak-check=full --show-reachable=yes ./Test
