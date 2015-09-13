@@ -325,62 +325,23 @@ struct call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, true>
 
 }; // struct call_wrapper_interface
 
-/*
-template <typename Base, typename Fn, bool Copyable, bool Constant, bool Volatile>
+template <typename /*T*/, typename /*Base*/, typename /*Signature*/, typename /*Qualifier*/, bool /*Copyable*/>
 struct call_virtual_operator;
 
-template<typename Base, typename ReturnType, typename... Args, bool Copyable>
-struct call_virtual_operator<Base, ReturnType(Args...), Copyable, false, false>
-     : call_wrapper_interface<ReturnType(Args...), Copyable, false, false>
-{
-    virtual ~call_virtual_operator() { }
+#define FU2_MACRO_DEFINE_CALL_OPERATOR(IS_CONST, IS_VOLATILE, IS_RVALUE) \
+    template<typename T, typename Base, typename ReturnType, typename... Args, bool Copyable> \
+    struct call_virtual_operator<T, Base, signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Copyable> \
+         : call_wrapper_interface<ReturnType(Args...), qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Copyable> \
+    { \
+        ReturnType operator()(Args... args) FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) \
+        { \
+            return FU2_MACRO_MOVE_IF(IS_RVALUE)(*static_cast<Base FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) *>(this)->_impl)(std::forward<Args>(args)...); \
+        } \
+    };
 
-    ReturnType operator()(Args&&... args) final override
-    {
-        return (static_cast<Base*>(this)->_impl)(std::forward<Args>(args)...);
-    }
+FU2_MACRO_EXPAND_3(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
-}; // struct call_virtual_operator
-
-template<typename Base, typename ReturnType, typename... Args, bool Copyable>
-struct call_virtual_operator<Base, ReturnType(Args...), Copyable, true, false>
-     : call_wrapper_interface<ReturnType(Args...), Copyable, true, false>
-{
-    virtual ~call_virtual_operator() { }
-
-    ReturnType operator()(Args&&... args) const final override
-    {
-        return (static_cast<const Base*>(this)->_impl)(std::forward<Args>(args)...);
-    }
-
-}; // struct call_virtual_operator
-
-template<typename Base, typename ReturnType, typename... Args, bool Copyable>
-struct call_virtual_operator<Base, ReturnType(Args...), Copyable, false, true>
-     : call_wrapper_interface<ReturnType(Args...), Copyable, false, true>
-{
-    virtual ~call_virtual_operator() { }
-
-    ReturnType operator()(Args&&... args) volatile final override
-    {
-        return (static_cast<volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
-    }
-
-}; // struct call_virtual_operator
-
-template<typename Base, typename ReturnType, typename... Args, bool Copyable>
-struct call_virtual_operator<Base, ReturnType(Args...), Copyable , true, true>
-     : call_wrapper_interface<ReturnType(Args...), Copyable, true, true>
-{
-    virtual ~call_virtual_operator() { }
-
-    ReturnType operator()(Args&&... args) const volatile final override
-    {
-        return (static_cast<const volatile Base*>(this)->_impl)(std::forward<Args>(args)...);
-    }
-
-}; // struct call_virtual_operator
-*/
+#undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
 template<std::size_t Size, std::size_t Alignment>
 using round_up_to_alignment = typename std::conditional<Size % Alignment == 0,
