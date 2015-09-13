@@ -11,6 +11,10 @@
 #include <cstdint>
 #include <type_traits>
 
+#ifdef _MSC_VER
+    #pragma warning(disable : 4100)
+#endif
+
 namespace fu2
 {
 
@@ -29,6 +33,10 @@ struct deduce_t
 template<std::size_t, typename T = std::true_type>
 struct deduce_sz
     : T { };
+
+/// Tag for tag dispatching
+template<bool>
+struct tag { };
 
 /// Copy enabler helper class
 template<bool Copyable>
@@ -163,6 +171,13 @@ using is_callable_with_qualifiers = decltype(impl_is_callable_with_qualifiers<Fn
                 typename std::decay<T>::type>>>
 >(0));
 
+// Is a true type if the left type is copyable correct to the right type.
+template<bool LeftCopyable, bool RightCopyable>
+using is_copyable_correct = std::integral_constant<bool,
+    // FIXME
+    LeftCopyable == RightCopyable
+>;
+
 /// Function unwrap trait
 template<typename Signature, typename Qualifier>
 struct unwrap_base
@@ -238,56 +253,30 @@ template<typename ReturnType, typename... Args>
 struct is_function_pointer<ReturnType(*)(Args...)>
     : std::true_type { };
 
-template<typename /*Fn*/, bool /*Constant*/, bool /*Volatile*/>
+// Interfaces for non copyable wrapper:
+template<typename /*Signature*/, typename /*Qualifier*/>
 struct call_wrapper_operator_interface;
 
-// Interfaces for non copyable wrapper:
-// No qualifiers
-template<typename ReturnType, typename... Args>
-struct call_wrapper_operator_interface<ReturnType(Args...), false, false>
-{
-    virtual ~call_wrapper_operator_interface() { }
+#define FU2_MACRO_DEFINE_CALL_OPERATOR(IS_CONST, IS_VOLATILE, IS_RVALUE) \
+    template<typename ReturnType, typename... Args> \
+    struct call_wrapper_operator_interface<signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>> \
+    { \
+        virtual ~call_wrapper_operator_interface() { } \
+      \
+        virtual ReturnType operator() (Args&&...) FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) = 0; \
+      \
+    };
 
-    virtual ReturnType operator() (Args&&...) = 0;
+FU2_MACRO_EXPAND_3(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
-}; // struct call_wrapper_operator_interface
+#undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
-// Const qualifier
-template<typename ReturnType, typename... Args>
-struct call_wrapper_operator_interface<ReturnType(Args...), true, false>
-{
-    virtual ~call_wrapper_operator_interface() { }
-
-    virtual ReturnType operator() (Args&&...) const = 0;
-
-}; // struct call_wrapper_operator_interface
-
-// Volatile qualifier
-template<typename ReturnType, typename... Args>
-struct call_wrapper_operator_interface<ReturnType(Args...), false, true>
-{
-    virtual ~call_wrapper_operator_interface() { }
-
-    virtual ReturnType operator() (Args&&...) volatile = 0;
-
-}; // struct call_wrapper_operator_interface
-
-// Const volatile qualifier
-template<typename ReturnType, typename... Args>
-struct call_wrapper_operator_interface<ReturnType(Args...), true, true>
-{
-    virtual ~call_wrapper_operator_interface() { }
-
-    virtual ReturnType operator() (Args&&...) const volatile = 0;
-
-}; // struct call_wrapper_operator_interface
-
-template<typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/>
+template<typename /*Signature*/, typename /*Qualifier*/, bool /*Copyable*/>
 struct call_wrapper_interface;
 
-template<typename ReturnType, typename... Args, bool Constant, bool Volatile>
-struct call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>
-     : call_wrapper_operator_interface<ReturnType(Args...), Constant, Volatile>
+template<typename ReturnType, typename... Args, typename Qualifier>
+struct call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, false>
+     : call_wrapper_operator_interface<signature<ReturnType(Args...)>, Qualifier>
 {
     virtual ~call_wrapper_interface() { }
 
@@ -303,10 +292,10 @@ struct call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>
 }; // struct call_wrapper_interface
 
 /// Interface: copyable wrapper
-template<typename ReturnType, typename... Args, bool Constant, bool Volatile>
-struct call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>
-    // Inherit the non copyable base struct
-     : call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>
+template<typename ReturnType, typename... Args, typename Qualifier>
+struct call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, true>
+     // Inherit the non copyable base struct
+     : call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, false>
 {
     virtual ~call_wrapper_interface() { }
 
@@ -323,14 +312,15 @@ struct call_wrapper_interface<ReturnType(Args...), true, Constant, Volatile>
     virtual void clone_copyable_inplace(call_wrapper_interface* ptr) const = 0;
 
     /// Placed clone to unique
-    virtual void clone_unique_inplace(call_wrapper_interface<ReturnType(Args...), false, Constant, Volatile>* ptr) const = 0;
+    virtual void clone_unique_inplace(call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, false>* ptr) const = 0;
 
     /// Allocate clone
     virtual call_wrapper_interface* clone_heap() const = 0;
 
 }; // struct call_wrapper_interface
 
-template <typename /*Base*/, typename /*Fn*/, bool Copyable, bool /*Constant*/, bool /*Volatile*/>
+/*
+template <typename Base, typename Fn, bool Copyable, bool Constant, bool Volatile>
 struct call_virtual_operator;
 
 template<typename Base, typename ReturnType, typename... Args, bool Copyable>
@@ -384,6 +374,7 @@ struct call_virtual_operator<Base, ReturnType(Args...), Copyable , true, true>
     }
 
 }; // struct call_virtual_operator
+*/
 
 template<std::size_t Size, std::size_t Alignment>
 using round_up_to_alignment = typename std::conditional<Size % Alignment == 0,
@@ -443,12 +434,13 @@ struct can_allocate_inplace_helper<T, 0UL>
 template<typename T, typename Fn, bool Copyable, bool Constant, bool Volatile, std::size_t Chance>
 using generate_next_impl_t = typename generate_next_impl<T, Fn, Copyable, Constant, Volatile, Chance>::type;
 
+/*
 /// Implementation: move only wrapper
 template<typename T, typename ReturnType, typename... Args, bool Constant, bool Volatile, std::size_t Chance>
 struct call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile, Chance>
-     : call_virtual_operator<call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile, Chance>, ReturnType(Args...), false, Constant, Volatile>
+     // : call_virtual_operator<call_wrapper_implementation<T, ReturnType(Args...), false, Constant, Volatile, Chance>, ReturnType(Args...), false, Constant, Volatile>
 {
-    friend struct call_virtual_operator<call_wrapper_implementation, ReturnType(Args...), false, Constant, Volatile>;
+    // friend struct call_virtual_operator<call_wrapper_implementation, ReturnType(Args...), false, Constant, Volatile>;
 
     T _impl;
 
@@ -560,6 +552,7 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
     using call_virtual_operator<call_wrapper_implementation, ReturnType(Args...), true, Constant, Volatile>::operator();
 
 }; // struct call_wrapper_implementation
+*/
 
 template<typename /*Signature*/, typename /*Qualifier*/, typename /*Config*/>
 class function;
@@ -631,45 +624,45 @@ struct storage_base_t<T, 0UL>
 
 }; // struct storage_base_t
 
-template<typename /*Fn*/>
+template<typename /*Signature*/, typename /*Qualifier*/, typename /*Config*/>
 struct storage_t;
-/*
+
 template<typename ReturnType, typename... Args, typename Qualifier, typename Config>
-struct storage_t<function<signature<ReturnType(Args...)>, Qualifier, Config>>
-    : public storage_base_t<call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, Config::is_copyable>, Config::size>
+struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
+    : public storage_base_t<call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, Config::is_copyable>, Config::capacity>
 {
     // Call wrapper interface
     using interface_t = call_wrapper_interface<
         signature<ReturnType(Args...)>, Qualifier, Config::is_copyable
     >;
-
     // Call wrapper implementation
     template<typename T>
-    using implementation_t = call_wrapper_implementation<
-        T, signature<ReturnType(Args...)>, Qualifier, Config::is_copyable
-    >;
+    using implementation_t = deduce_t<T>;
+        /*call_wrapper_implementation<
+        T, signature<ReturnType(Args...)>, Qualifier, Config
+    >;*/
 
     // Storage base type
     using base_t = storage_base_t<
-        interface_t, Capacity
+        interface_t, Config::capacity
     >;
 
     template<typename T>
     using is_local_allocateable =
         std::integral_constant<bool,
-            required_capacity_to_allocate_inplace<T>::value <= Capacity>;
+            required_capacity_to_allocate_inplace<T>::value <= Config::capacity>;
 
     storage_t()
         : base_t(nullptr) { }
 
     explicit storage_t(storage_t const& right) : base_t()
     {
-        weak_copy_assign(right);
+        // weak_copy_assign(right);
     }
 
     explicit storage_t(storage_t&& right) : base_t()
     {
-        weak_move_assign(std::forward<storage_t>(right));
+        // weak_move_assign(std::forward<storage_t>(right));
     }
 
     storage_t& operator= (storage_t const& right)
@@ -696,14 +689,14 @@ struct storage_t<function<signature<ReturnType(Args...)>, Qualifier, Config>>
 
     void change_to_locale()
     {
-        this->_impl = reinterpret_cast<interface_t*>(&this->_locale);
+        // this->_impl = reinterpret_cast<interface_t*>(&this->_locale);
     }
 
     template<typename T>
     void allocate(T&& functor)
     {
-        this->weak_deallocate();
-        weak_allocate(std::forward<T>(functor));
+        // this->weak_deallocate();
+        // weak_allocate(std::forward<T>(functor));
     }
 
     /// Direct allocate (use capacity)
@@ -711,8 +704,8 @@ struct storage_t<function<signature<ReturnType(Args...)>, Qualifier, Config>>
     auto weak_allocate(T&& functor)
         -> typename std::enable_if<is_local_allocateable<implementation_t<typename std::decay<T>::type>>::value>::type
     {
-        new (&this->_locale) implementation_t<typename std::decay<T>::type>(std::forward<T>(functor));
-        change_to_locale();
+        // new (&this->_locale) implementation_t<typename std::decay<T>::type>(std::forward<T>(functor));
+        // change_to_locale();
     }
 
     /// Heap allocate
@@ -720,115 +713,126 @@ struct storage_t<function<signature<ReturnType(Args...)>, Qualifier, Config>>
     auto weak_allocate(T&& functor)
         -> typename std::enable_if<!is_local_allocateable<implementation_t<typename std::decay<T>::type>>::value>::type
     {
-        this->_impl = new implementation_t<typename std::decay<T>::type>(std::forward<T>(functor));
+        // this->_impl = new implementation_t<typename std::decay<T>::type>(std::forward<T>(functor));
     }
 
     template<typename T>
     void copy_assign(T const& right)
     {
-        this->weak_deallocate();
-        weak_copy_assign(right);
+        // this->weak_deallocate();
+        // weak_copy_assign(right);
     }
 
     template<typename T>
     auto do_copy_allocate(T const& right)
-        -> typename std::enable_if<Copyable && deduce_t<T>::value>::type
+        -> typename std::enable_if<Config::is_copyable && deduce_t<T>::value>::type
     {
-        change_to_locale();
-        right._impl->clone_copyable_inplace(this->_impl);
+        // change_to_locale();
+        // right._impl->clone_copyable_inplace(this->_impl);
     }
 
     template<typename T>
     auto do_copy_allocate(T const& right)
-        -> typename std::enable_if<!Copyable && deduce_t<T>::value>::type
+        -> typename std::enable_if<!Config::is_copyable && deduce_t<T>::value>::type
     {
-        change_to_locale();
-        right._impl->clone_unique_inplace(this->_impl);
+        // change_to_locale();
+        // right._impl->clone_unique_inplace(this->_impl);
     }
 
     // Copy assign with in-place capability.
-    template<std::size_t RightCapacity, bool RightConstant,
-             typename std::enable_if<(Capacity > 0UL) && deduce_sz<RightCapacity>::value>::type* = nullptr>
-    void weak_copy_assign(storage_t<function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile>> const& right)
+    template<typename RightConfig,
+             typename std::enable_if<(Config::capacity > 0UL) && RightConfig::is_copyable>::type* = nullptr>
+    void weak_copy_assign(storage_t<signature<ReturnType(Args...)>, Qualifier, RightConfig> const& right)
     {
+        /*
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         else if (right._impl->can_allocate_copyable_inplace(Capacity))
             do_copy_allocate(right);
         else
             this->_impl = right._impl->clone_heap(); // heap clone
+        */
     }
 
     // Copy assign with no in-place capability.
-    template<std::size_t RightCapacity, bool RightConstant,
-             typename std::enable_if<(Capacity == 0UL) && deduce_sz<RightCapacity>::value>::type* = nullptr>
-    void weak_copy_assign(storage_t<function<ReturnType(Args...), RightCapacity, true, RightConstant, Volatile>> const& right)
+    template<typename RightConfig,
+             typename std::enable_if<(Config::capacity == 0UL) && RightConfig::is_copyable>::type* = nullptr>
+    void weak_copy_assign(storage_t<ReturnType(Args...), Qualifier, RightConfig> const& right)
     {
+        /*
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         else
             this->_impl = right._impl->clone_heap(); // heap clone
+        */
     }
 
     template<typename T>
     static auto can_allocate_inplace(T const& right)
-        -> typename std::enable_if<Copyable && deduce_t<T>::value, bool>::type
+        -> typename std::enable_if<Config::is_copyable && deduce_t<T>::value, bool>::type
     {
-        return right._impl->can_allocate_copyable_inplace(Capacity);
+        // return right._impl->can_allocate_copyable_inplace(Capacity);
+        return false;
     }
 
     template<typename T>
     static auto can_allocate_inplace(T const& right)
-        -> typename std::enable_if<!Copyable && deduce_t<T>::value, bool>::type
+        -> typename std::enable_if<!Config::is_copyable && deduce_t<T>::value, bool>::type
     {
-        return right._impl->can_allocate_unique_inplace(Capacity);
+        // return right._impl->can_allocate_unique_inplace(Capacity);
+        return false;
     }
 
     template<typename T>
     auto do_move_allocate_inplace(T&& right)
-        -> typename std::enable_if<Copyable && deduce_t<T>::value>::type
+        -> typename std::enable_if<Config::is_copyable && deduce_t<T>::value>::type
     {
+        /*
         change_to_locale();
         right._impl->move_copyable_inplace(this->_impl);
         right.deallocate();
+        */
     }
 
     template<typename T>
     auto do_move_allocate_inplace(T&& right)
-        -> typename std::enable_if<!Copyable && deduce_t<T>::value>::type
+        -> typename std::enable_if<!Config::is_copyable && deduce_t<T>::value>::type
     {
+        /*
         change_to_locale();
         right._impl->move_unique_inplace(this->_impl);
         right.deallocate();
+        */
     }
 
     template<typename T>
     auto do_move_allocate_to_heap(T&& right)
-        -> typename std::enable_if<Copyable && deduce_t<T>::value>::type
+        -> typename std::enable_if<Config::is_copyable && deduce_t<T>::value>::type
     {
-        this->_impl = right._impl->move_copyable_to_heap();
-        right.deallocate();
+        // this->_impl = right._impl->move_copyable_to_heap();
+        // right.deallocate();
     }
 
     template<typename T>
     auto do_move_allocate_to_heap(T&& right)
-        -> typename std::enable_if<!Copyable && deduce_t<T>::value>::type
+        -> typename std::enable_if<!Config::is_copyable && deduce_t<T>::value>::type
     {
-        this->_impl = right._impl->move_unique_to_heap();
-        right.deallocate();
+        // this->_impl = right._impl->move_unique_to_heap();
+        // right.deallocate();
     }
 
     template<typename T>
     void move_assign(T&& right)
     {
-        this->weak_deallocate();
-        weak_move_assign(std::forward<T>(right));
+        // this->weak_deallocate();
+        // weak_move_assign(std::forward<T>(right));
     }
 
-    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
-             typename std::enable_if<(Capacity > 0UL) && deduce_sz<RightCapacity>::value>::type* = nullptr>
-    void weak_move_assign(storage_t<function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>>&& right)
+    template<typename RightConfig,
+             typename std::enable_if<(Config::capacity > 0UL) && deduce_t<RightConfig>::value>::type* = nullptr>
+    void weak_move_assign(storage_t<signature<ReturnType(Args...)>, Qualifier, RightConfig>&& right)
     {
+        /*
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         else if (can_allocate_inplace(right))
@@ -843,12 +847,14 @@ struct storage_t<function<signature<ReturnType(Args...)>, Qualifier, Config>>
                 right._impl = nullptr;
             }
         }
+        */
     }
 
-    template<std::size_t RightCapacity, bool RightCopyable, bool RightConstant,
-             typename std::enable_if<(Capacity == 0UL) && deduce_sz<RightCapacity>::value>::type* = nullptr>
-    void weak_move_assign(storage_t<function<ReturnType(Args...), RightCapacity, RightCopyable, RightConstant, Volatile>>&& right)
+    template<typename RightConfig,
+             typename std::enable_if<(Config::capacity == 0UL) && deduce_t<RightConfig>::value>::type* = nullptr>
+    void weak_move_assign(storage_t<signature<ReturnType(Args...)>, Qualifier, RightConfig>&& right)
     {
+        /*
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         else
@@ -861,21 +867,21 @@ struct storage_t<function<signature<ReturnType(Args...)>, Qualifier, Config>>
                 right._impl = nullptr;
             }
         }
+        */
     }
 
     void clean()
     {
-        this->_impl = nullptr;
+        // this->_impl = nullptr;
     }
 
     void deallocate()
     {
-        this->weak_deallocate();
-        clean();
+        // this->weak_deallocate();
+        // clean();
     }
 
 }; // struct storage_t
-*/
 
 template<typename ReturnType, typename... Args, typename Qualifier, typename Config>
 class function<signature<ReturnType(Args...)>, Qualifier, Config>
@@ -890,9 +896,8 @@ class function<signature<ReturnType(Args...)>, Qualifier, Config>
 
     // Is a true type if the given function is copyable correct to this.
     template<bool RightCopyable>
-    using is_copyable_correct_to_this = std::integral_constant<bool,
-        // FIXME
-        Config::is_copyable == RightCopyable
+    using is_copyable_correct_to_this = is_copyable_correct<
+        Config::is_copyable, RightCopyable
     >;
 
     // Is a true type if the given function pointer is assignable to this.
@@ -910,7 +915,7 @@ class function<signature<ReturnType(Args...)>, Qualifier, Config>
     >;
 
     // Implementation storage
-    // storage_t<function> _storage;
+    storage_t<signature<ReturnType(Args...)>, Qualifier, Config> _storage;
 
     // Box for small copyable types (function pointers)
     template<typename T>
@@ -937,7 +942,7 @@ public:
 
     /// Copy construct
     template<typename RightConfig, typename std::enable_if<RightConfig::is_copyable>::type* = nullptr>
-    explicit function(function<signature<ReturnType(Args...)>, Qualifier, RightConfig> const& /*right*/)
+    explicit function(function<signature<ReturnType(Args...)>, Qualifier, RightConfig> const& right)
     {
         // _storage.weak_copy_assign(right._storage);
     }
@@ -945,9 +950,9 @@ public:
     /// Move construct
     template<typename RightConfig,
              typename = typename std::enable_if<is_copyable_correct_to_this<RightConfig::is_copyable>::value>::type>
-    explicit function(function<signature<ReturnType(Args...)>, Qualifier, RightConfig>&& /*right*/)
+    explicit function(function<signature<ReturnType(Args...)>, Qualifier, RightConfig>&& right)
     {
-        // _storage.weak_move_assign(std::move(right._storage));
+        _storage.weak_move_assign(std::move(right._storage));
     }
 
     /// Constructor taking a function pointer
@@ -958,50 +963,50 @@ public:
 
     /// Constructor taking a functor
     template<typename T, typename = typename std::enable_if<is_functor_assignable_to_this<T>::value>::type>
-    function(T /*functor*/)
+    function(T functor)
     {
-        // _storage.weak_allocate(std::forward<T>(functor));
+        _storage.weak_allocate(std::forward<T>(functor));
     }
 
     explicit function(std::nullptr_t)
-        /*: _storage()*/ { }
+        : _storage() { }
 
     /// Copy assign
     template<typename RightConfig, typename std::enable_if<RightConfig::is_copyable>::type* = nullptr>
-    function& operator= (function<signature<ReturnType(Args...)>, Qualifier, RightConfig> const& /*right*/)
+    function& operator= (function<signature<ReturnType(Args...)>, Qualifier, RightConfig> const& right)
     {
-        // _storage.copy_assign(right._storage);
+        _storage.copy_assign(right._storage);
         return *this;
     }
 
     /// Move assign
     template<typename RightConfig,
              typename std::enable_if<is_copyable_correct_to_this<RightConfig::is_copyable>::value>::type* = nullptr>
-    function& operator= (function<signature<ReturnType(Args...)>, Qualifier, RightConfig>&& /*right*/)
+    function& operator= (function<signature<ReturnType(Args...)>, Qualifier, RightConfig>&& right)
     {
-        // _storage.move_assign(std::move(right._storage));
+        _storage.move_assign(std::move(right._storage));
         return *this;
     }
 
     /// Copy assign taking a function pointer
     template<typename T, typename std::enable_if<is_function_pointer_assignable_to_this<T>::value>::type* = nullptr>
-    function& operator= (T /*function_pointer*/)
+    function& operator= (T function_pointer)
     {
-        // _storage.allocate(functor_box_of<T>(std::forward<T>(function_pointer)));
+        _storage.allocate(functor_box_of<T>(std::forward<T>(function_pointer)));
         return *this;
     }
 
     /// Copy assign taking a functor
     template<typename T, typename std::enable_if<is_functor_assignable_to_this<T>::value>::type* = nullptr>
-    function& operator= (T /*functor*/)
+    function& operator= (T functor)
     {
-        // _storage.allocate(std::forward<T>(functor));
+        _storage.allocate(std::forward<T>(functor));
         return *this;
     }
 
     function& operator= (std::nullptr_t)
     {
-        // _storage.deallocate();
+        _storage.deallocate();
         return *this;
     }
 
