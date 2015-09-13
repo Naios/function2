@@ -97,11 +97,17 @@ struct config
     static constexpr bool is_copyable = Copyable;
 };
 
-// If macro
+// If macro.
 #define FU2_MACRO_IF(cond) \
     FU2_MACRO_IF_ ## cond
 #define FU2_MACRO_IF_true(EXPRESSION) EXPRESSION
 #define FU2_MACRO_IF_false(EXPRESSION)
+
+// If macro to turn the expression into a r-value expression.
+#define FU2_MACRO_MOVE_IF(cond) \
+    FU2_MACRO_MOVE_IF_ ## cond
+#define FU2_MACRO_MOVE_IF_true(EXPRESSION) std::move( EXPRESSION )
+#define FU2_MACRO_MOVE_IF_false(EXPRESSION) ( EXPRESSION )
 
 // Qualifier without r-value ref.
 #define FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) \
@@ -554,26 +560,6 @@ struct call_wrapper_implementation<T, ReturnType(Args...), true, Constant, Volat
 }; // struct call_wrapper_implementation
 */
 
-template<typename /*Signature*/, typename /*Qualifier*/, typename /*Config*/>
-class function;
-
-template <typename /*Fn*/>
-struct call_operator;
-
-#define FU2_MACRO_DEFINE_CALL_OPERATOR(IS_CONST, IS_VOLATILE, IS_RVALUE) \
-    template<typename ReturnType, typename... Args, typename Config> \
-    struct call_operator<function<signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Config>> \
-    { \
-        ReturnType operator()(Args...) FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) \
-        { \
-            return ReturnType(); /* (*static_cast<function<signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Config>*>(this)->_storage._impl)(std::forward<Args>(args)...); */ \
-        } \
-    };
-
-FU2_MACRO_EXPAND_3(FU2_MACRO_DEFINE_CALL_OPERATOR)
-
-#undef FU2_MACRO_DEFINE_CALL_OPERATOR
-
 template<typename T, std::size_t Capacity>
 struct storage_base_t
 {
@@ -883,6 +869,28 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
 
 }; // struct storage_t
 
+template<typename /*Signature*/, typename /*Qualifier*/, typename /*Config*/>
+class function;
+
+template <typename /*Fn*/>
+struct call_operator;
+
+#define FU2_MACRO_DEFINE_CALL_OPERATOR(IS_CONST, IS_VOLATILE, IS_RVALUE) \
+    template<typename ReturnType, typename... Args, typename Config> \
+    struct call_operator<function<signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Config>> \
+    { \
+        ReturnType operator()(Args... args) FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) \
+        { \
+            using base = function<signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Config>; \
+          \
+            return FU2_MACRO_MOVE_IF(IS_RVALUE)(*static_cast<base FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) *>(this)->_storage._impl)(std::forward<Args>(args)...); \
+        } \
+    };
+
+FU2_MACRO_EXPAND_3(FU2_MACRO_DEFINE_CALL_OPERATOR)
+
+#undef FU2_MACRO_DEFINE_CALL_OPERATOR
+
 template<typename ReturnType, typename... Args, typename Qualifier, typename Config>
 class function<signature<ReturnType(Args...)>, Qualifier, Config>
     : public call_operator<function<signature<ReturnType(Args...)>, Qualifier, Config>>,
@@ -1022,6 +1030,9 @@ using default_capacity = std::integral_constant<std::size_t,
 #undef FU2_MACRO_IF
 #undef FU2_MACRO_IF_true
 #undef FU2_MACRO_IF_false
+#undef FU2_MACRO_MOVE_IF
+#undef FU2_MACRO_MOVE_IF_true
+#undef FU2_MACRO_MOVE_IF_false
 #undef FU2_MACRO_NO_REF_QUALIFIER
 #undef FU2_MACRO_FULL_QUALIFIER
 #undef FU2_MACRO_EXPAND_3
