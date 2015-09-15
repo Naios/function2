@@ -30,6 +30,10 @@ template<std::size_t, typename T = std::true_type>
 struct deduce_sz
     : T { };
 
+/// Tag for tag dispatching
+template<bool>
+struct tag { };
+
 /// Copy enabler helper class
 template<bool Copyable>
 struct copyable { };
@@ -301,7 +305,7 @@ struct call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, false>
     virtual bool can_allocate_inplace(std::size_t size) const = 0;
 
     /// Placed move
-    virtual void move_inplace(call_wrapper_interface* ptr) = 0;
+    virtual void move_unique_inplace(call_wrapper_interface* ptr) = 0;
 
     /// Move the implementation to the heap
     virtual call_wrapper_interface* move_to_heap() = 0;
@@ -407,7 +411,7 @@ public:
     }
 
     /// Placed move
-    void move_inplace(interface* ptr) final override
+    void move_unique_inplace(interface* ptr) final override
     {
         new (ptr) next_implementation(std::move(_impl));
     }
@@ -457,7 +461,7 @@ public:
     }
 
     /// Placed move
-    void move_inplace(noncopyable_interface* ptr) final override
+    void move_unique_inplace(noncopyable_interface* ptr) final override
     {
         new (ptr) next_implementation(std::move(_impl));
     }
@@ -677,10 +681,18 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
     }
 
     template<typename T>
-    void do_move_allocate_inplace(T&& right)
+    void do_move_allocate_inplace(tag<true>, T&& right)
     {
         change_to_locale();
         right._impl->move_inplace(this->_impl);
+        right.deallocate();
+    }
+
+    template<typename T>
+    void do_move_allocate_inplace(tag<false>, T&& right)
+    {
+        change_to_locale();
+        right._impl->move_unique_inplace(this->_impl);
         right.deallocate();
     }
 
@@ -705,7 +717,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
         else if (can_allocate_inplace(right))
-            do_move_allocate_inplace(std::move(right));
+            do_move_allocate_inplace(tag<Config::is_copyable>{}, std::move(right));
         else
         {
             if (right.is_inplace())

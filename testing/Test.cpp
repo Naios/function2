@@ -16,10 +16,10 @@ void runBenchmark();
 
 // Functions without sfo optimization
 template<typename Signature>
-using function = fu2::function_base<Signature, 0UL, true>;
+using no_sfo_function = fu2::function_base<Signature, 0UL, true>;
 
 template<typename Signature>
-using unique_function = fu2::function_base<Signature, 0UL, false>;
+using no_sfo_unique_function = fu2::function_base<Signature, 0UL, false>;
 
 // Functions with sfo optimization
 static constexpr std::size_t testing_sfo_capacity = 256UL;
@@ -29,6 +29,9 @@ using sfo_function = fu2::function_base<Signature, testing_sfo_capacity, true>;
 
 template<typename Signature>
 using sfo_unique_function = fu2::function_base<Signature, testing_sfo_capacity, false>;
+
+using fu2::function;
+using fu2::unique_function;
 
 constexpr std::size_t sz1 = sizeof(std::function<bool(int, float, long)>);
 constexpr std::size_t sz2 = sizeof(std::function<void()>);
@@ -588,6 +591,7 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
     SECTION("Evade copy of implementations when move assigning")
     {
         function<bool()> right;
+
         {
             auto store = std::make_shared<bool>(true);
             right = [=]
@@ -597,6 +601,23 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
         }
 
         function<bool()> left(std::move(right));
+
+        REQUIRE(left());
+    }
+
+    SECTION("Evade copy of implementations when move assigning")
+    {
+        unique_function<bool()> right;
+
+        {
+            auto store = std::make_shared<bool>(true);
+            right = [=]
+            {
+                return store.unique() && *store;
+            };
+        }
+
+        unique_function<bool()> left(std::move(right));
 
         REQUIRE(left());
     }
