@@ -63,7 +63,7 @@ int main(int argc, char** argv)
 
     int const result = Catch::Session().run(argc, argv);
 
-    unique_function<void() &&> fff([]() mutable
+    unique_function<void()&&> fff([]() mutable
     {
 
     });
