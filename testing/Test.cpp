@@ -117,6 +117,22 @@ TEST_CASE("Functions are callable", "[function<>]")
         REQUIRE_FALSE(ufun(false));
         REQUIRE_FALSE(is_set);
     }
+
+    SECTION("Simple call test with function<bool(bool)&&>")
+    {
+        function<bool(bool)&&> fun(lam);
+
+        REQUIRE(std::move(fun)(true));
+        REQUIRE(is_set);
+    }
+
+    SECTION("Simple call test with unique_function<bool(bool)&&>")
+    {
+        unique_function<bool(bool)&&> ufun(std::move(lam));
+
+        REQUIRE(std::move(ufun)(true));
+        REQUIRE(is_set);
+    }
 }
 
 TEST_CASE("Functions are copy and moveable", "[function<>]")
