@@ -296,13 +296,9 @@ struct call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, false>
 /// Interface: copyable wrapper
 template<typename ReturnType, typename... Args, typename Qualifier>
 struct call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, true>
-     // Inherit the non copyable base struct
      : call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, false>
 {
     virtual ~call_wrapper_interface() { }
-
-    /// Placed clone to unique
-    virtual void clone_inplace(call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, false>* ptr) const = 0;
 
     /// Placed move
     virtual void move_inplace(call_wrapper_interface* ptr) = 0;
@@ -310,24 +306,35 @@ struct call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, true>
     /// Move the implementation to the heap
     virtual call_wrapper_interface* move_to_heap() = 0;
 
+    /// Placed clone
+    virtual void clone_inplace(call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, false>* ptr) const = 0;
+
     /// Allocated clone
     virtual call_wrapper_interface* clone_heap() const = 0;
 
 }; // struct call_wrapper_interface
 
-template <typename /*T*/, typename /*Base*/, typename /*Signature*/, typename /*Qualifier*/, bool /*Copyable*/>
+template<typename /*T*/, typename /*Signature*/, typename /*Qualifier*/, bool /*Copyable*/>
+class call_wrapper_implementation;
+
+template <typename /*T*/, typename /*Signature*/, typename /*Qualifier*/>
 struct call_virtual_operator;
 
 #define FU2_MACRO_DEFINE_CALL_OPERATOR(IS_CONST, IS_VOLATILE, IS_RVALUE) \
-    template<typename T, typename Base, typename ReturnType, typename... Args, bool Copyable> \
-    struct call_virtual_operator<T, Base, signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Copyable> \
-         : call_wrapper_interface<ReturnType(Args...), qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Copyable> \
+    template<typename T, typename ReturnType, typename... Args> \
+    struct call_virtual_operator<T, signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>> \
+         : call_wrapper_operator_interface<signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>> \
     { \
-        ReturnType operator()(Args... args) FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) \
+        ReturnType operator() (Args&&...) FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) override \
         { \
-            return FU2_MACRO_MOVE_IF(IS_RVALUE)(*static_cast<Base FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) *>(this)->_impl)(std::forward<Args>(args)...); \
+            return ReturnType(); \
         } \
     };
+
+/*
+\ // using base = call_wrapper_implementation<T, signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, false>;
+            \ // return FU2_MACRO_MOVE_IF(IS_RVALUE)(*static_cast<base FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) *>(this)->_impl)(std::forward<Args>(args)...);
+*/
 
 FU2_MACRO_EXPAND_3(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
@@ -351,11 +358,8 @@ using required_capacity_to_allocate_inplace = round_up_to_alignment<
 using default_chances = std::integral_constant<std::size_t,
     2UL
 >;
+/*
 
-template<typename /*T*/, typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/, std::size_t Chance = default_chances::value>
-struct call_wrapper_implementation;
-
-template<typename /*T*/, typename /*Fn*/, bool /*Copyable*/, bool /*Constant*/, bool /*Volatile*/, std::size_t /*Chance*/>
 struct generate_next_impl;
 
 template<typename T, typename ReturnType, typename... Args, bool Copyable, bool Constant, bool Volatile, std::size_t Chance>
@@ -369,6 +373,7 @@ struct generate_next_impl<T, ReturnType(Args...), Copyable, Constant, Volatile, 
 {
     using type = call_wrapper_implementation<T, ReturnType(Args...), Copyable, Constant, Volatile, 0UL>;
 };
+
 
 template <typename T, std::size_t Chance>
 struct can_allocate_inplace_helper
@@ -387,9 +392,101 @@ struct can_allocate_inplace_helper<T, 0UL>
         return false;
     }
 };
+*/
 
+/*
 template<typename T, typename Fn, bool Copyable, bool Constant, bool Volatile, std::size_t Chance>
 using generate_next_impl_t = typename generate_next_impl<T, Fn, Copyable, Constant, Volatile, Chance>::type;
+*/
+
+template<typename T, typename Signature, typename Qualifier>
+class call_wrapper_implementation<T, Signature, Qualifier, false>
+    : public call_wrapper_interface<Signature, Qualifier, false>,
+      public call_virtual_operator<T, Signature, Qualifier>
+{
+    // friend struct call_virtual_operator<T, Signature, Qualifier>;
+
+    using interface = call_wrapper_interface<Signature, Qualifier, false>;
+
+public:
+    T _impl;
+
+    template<typename I>
+    call_wrapper_implementation(I&& impl)
+        : _impl(std::forward<I>(impl)) { }
+
+    call_wrapper_implementation() = delete;
+    call_wrapper_implementation(call_wrapper_implementation const&) = delete;
+    call_wrapper_implementation(call_wrapper_implementation&&) = delete;
+    call_wrapper_implementation& operator= (call_wrapper_implementation const&) = delete;
+    call_wrapper_implementation& operator= (call_wrapper_implementation&&) = delete;
+
+    virtual ~call_wrapper_implementation() { }
+
+    /// Returns true if the implementation can be allocated in-place in the given region.
+    virtual bool can_allocate_inplace(std::size_t size) const
+    {
+        return true;
+    }
+
+    /// Placed move
+    virtual void move_inplace(interface* ptr)
+    {
+    }
+
+    /// Move the implementation to the heap
+    virtual interface* move_to_heap()
+    {
+        return nullptr;
+    }
+
+    /// Placed clone
+    virtual void clone_inplace(call_wrapper_interface<Signature, Qualifier, false>* ptr) const
+    {
+    }
+
+    /// Allocated clone
+    virtual call_wrapper_interface* clone_heap() const
+    {
+        return nullptr;
+    }
+
+}; // struct call_wrapper_implementation
+
+/// Interface: copyable wrapper
+template<typename T, typename Signature, typename Qualifier>
+class call_wrapper_implementation<T, Signature, Qualifier, true>
+    : public call_wrapper_interface<Signature, Qualifier, true>,
+      public call_wrapper_implementation<T, Signature, Qualifier, false>
+{
+    using interface = call_wrapper_interface<Signature, Qualifier, true>;
+
+public:
+    virtual ~call_wrapper_implementation() { }
+
+    template<typename I>
+    call_wrapper_implementation(I&& impl)
+        : call_wrapper_implementation<T, Signature, Qualifier, false>(std::forward<I>(_impl)) { }
+
+    /// Returns true if the implementation can be allocated in-place in the given region.
+    virtual bool can_allocate_inplace(std::size_t size) const
+    {
+        return true;
+    }
+
+    /// Placed move
+    virtual void move_inplace(interface* ptr)
+    {
+    }
+
+    /// Move the implementation to the heap
+    virtual interface* move_to_heap()
+    {
+        return nullptr;
+    }
+
+}; // struct call_wrapper_interface
+
 
 /*
 /// Implementation: move only wrapper
@@ -575,10 +672,9 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
 
     // Call wrapper implementation
     template<typename T>
-    using implementation_t = deduce_t<T, interface_t>;
-        /*call_wrapper_implementation<
-        T, signature<ReturnType(Args...)>, Qualifier, Config
-    >;*/
+    using implementation_t = call_wrapper_implementation<
+        T, signature<ReturnType(Args...)>, Qualifier, Config::is_copyable
+    >;
 
     // Storage base type
     using base_t = storage_base_t<
@@ -642,7 +738,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
     auto weak_allocate(T&& functor)
         -> typename std::enable_if<is_local_allocateable<implementation_t<typename std::decay<T>::type>>::value>::type
     {
-        // new (&this->_locale) implementation_t<typename std::decay<T>::type>(std::forward<T>(functor));
+        new (&this->_locale) implementation_t<typename std::decay<T>::type>(std::forward<T>(functor));
         change_to_locale();
     }
 
