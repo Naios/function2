@@ -310,16 +310,16 @@ struct call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, true>
 
 }; // struct call_wrapper_interface
 
-template<typename /*T*/, typename /*Signature*/, typename /*Qualifier*/, bool /*Copyable*/>
+template<typename /*T*/, typename /*Signature*/, typename /*Qualifier*/, bool /*Copyable*/, std::size_t /*Chance*/ = default_chance::value>
 class call_wrapper_implementation;
 
-template <typename /*T*/, typename /*Signature*/, typename /*Qualifier*/>
+template <typename /*T*/, typename /*Signature*/, typename /*Qualifier*/, bool /*Copyable*/>
 struct call_wrapper_operator_implementation;
 
 #define FU2_MACRO_DEFINE_CALL_OPERATOR(IS_CONST, IS_VOLATILE, IS_RVALUE) \
-    template<typename T, typename ReturnType, typename... Args> \
-    struct call_wrapper_operator_implementation<T, signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>> \
-         : call_wrapper_operator_interface<signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>> \
+    template<typename T, typename ReturnType, typename... Args, bool Copyable> \
+    struct call_wrapper_operator_implementation<T, signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Copyable> \
+         : call_wrapper_interface<signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Copyable> \
     { \
         virtual ~call_wrapper_operator_implementation() { } \
       \
@@ -350,7 +350,7 @@ using required_capacity_to_allocate_inplace = round_up_to_alignment<
 >;
 
 /// Increases the chances when to fall back from in place to heap allocation for move performance.
-using default_chances = std::integral_constant<std::size_t,
+using default_chance = std::integral_constant<std::size_t,
     2UL
 >;
 /*
@@ -370,6 +370,8 @@ struct generate_next_impl<T, ReturnType(Args...), Copyable, Constant, Volatile, 
 };
 
 
+*/
+
 template <typename T, std::size_t Chance>
 struct can_allocate_inplace_helper
 {
@@ -387,17 +389,13 @@ struct can_allocate_inplace_helper<T, 0UL>
         return false;
     }
 };
-*/
 
-/*
-template<typename T, typename Fn, bool Copyable, bool Constant, bool Volatile, std::size_t Chance>
-using generate_next_impl_t = typename generate_next_impl<T, Fn, Copyable, Constant, Volatile, Chance>::type;
-*/
+template<typename T, typename Signature, typename Qualifier, bool Copyable, std::size_t Chance>
+using generate_next_impl_t = call_wrapper_implementation<T, Signature, Qualifier, Copyable, (Chance > 0) ? Chance - 1 : 0>;
 
-template<typename T, typename Signature, typename Qualifier>
-class call_wrapper_implementation<T, Signature, Qualifier, false>
-    : public call_wrapper_interface<Signature, Qualifier, false>,
-      public call_wrapper_operator_implementation<T, Signature, Qualifier>
+template<typename T, typename Signature, typename Qualifier, std::size_t Chance>
+class call_wrapper_implementation<T, Signature, Qualifier, false, Chance>
+    : public call_wrapper_operator_implementation<T, Signature, Qualifier, false>
 {
     using interface = call_wrapper_interface<Signature, Qualifier, false>;
 
@@ -417,23 +415,25 @@ public:
     virtual ~call_wrapper_implementation() { }
 
     /// Returns true if the implementation can be allocated in-place in the given region.
-    bool can_allocate_inplace(std::size_t /*size*/) const override
+    bool can_allocate_inplace(std::size_t size) const final override
     {
-        return true;
+        return can_allocate_inplace_helper<
+            generate_next_impl_t<T, Signature, Qualifier, false, Chance>, Chance
+        >::can_allocate_inplace(size);
     }
 
     /// Placed move
-    void move_inplace(interface* /*ptr*/) override
+    void move_inplace(interface* /*ptr*/) final override
     {
     }
 
     /// Move the implementation to the heap
-    interface* move_to_heap() override
+    interface* move_to_heap() final override
     {
         return nullptr;
     }
 
-    using call_wrapper_operator_implementation<T, Signature, Qualifier>::operator();
+    using call_wrapper_operator_implementation<T, Signature, Qualifier, false>::operator();
 
 }; // struct call_wrapper_implementation
 
