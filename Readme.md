@@ -10,11 +10,12 @@ Provides two improved implementations of `std::function`:
 
 which are:
 
-- **const** and **volatile** correct (qualifiers are part of the `operator()` signature).
+- **const**, **volatile** and **reference** correct (qualifiers are part of the `operator()` signature).
 - **convertible** to and from `std::function`.
 - **adaptable** through `fu2::function_base` (internal capacity, copyable).
 - **covered** by unit tests and continuous integration.
 - **header only**, just copy and include `function.hpp` in your project.
+
 
 ## Table of Contents
 * **[Documentation](#documentation)**
@@ -69,6 +70,8 @@ There are several qualifiers allowed:
   - Can only be assigned from volatile qualified functors.
 - **const volatile** provides `ReturnType operator() (Args...) const volatile`
   - Same as const and volatile together.
+- Also there is support for **r-value functions** `ReturnType operator() (Args...) &&`
+  - one-shot functions which are invalidated after the first call.
 
 ### Constructing a function
 
@@ -110,10 +113,14 @@ otherfun();
   - `noconst = const`
   - `const = const`
   - `noconst = noconst`
-- The functions are copyable correct
+- The functions are copyable correct when:
+  - `unique = unique`
   - `unique = copyable`
   - `copyable = copyable`
-
+- The functions are reference correct when:
+  - `lvalue = lvalue`
+  - `lvalue = rvalue`
+  - `rvalue = rvalue`
 
 | Cobvertible from \ to | fu2::function | fu2::unique_function | std::function |
 |-----------------------|---------------|----------------------|---------------|
@@ -151,10 +158,15 @@ using my_function = fu2::function_base<Signature, 0UL, true>;
 ```
 
 The following code defines a non copyable function which just takes 1 argument, and has a huge capacity for internal sfo optimization.
+Also it must be called from as r-value.
 
 ```c++
 template<typename Arg>
-using my_consumer = fu2::function_base<void(Arg), 100UL, false>;
+using my_consumer = fu2::function_base<void(Arg)&&, 100UL, false>;
+
+// Example
+my_consumer<int, float> consumer = [](int, float) { }
+std::move(consumer)(44, 1.7363f);
 ```
 
 ## Performance and optimization
