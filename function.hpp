@@ -251,6 +251,25 @@ template<typename ReturnType, typename... Args>
 struct is_function_pointer<ReturnType(*)(Args...)>
     : std::true_type { };
 
+template<std::size_t Size, std::size_t Alignment>
+using round_up_to_alignment = typename std::conditional<Size % Alignment == 0,
+    std::integral_constant<std::size_t, Size>,
+    std::integral_constant<std::size_t,
+    // Rounds the required size up to the alignment
+    Size + (Alignment - (Size % Alignment))
+    >
+>::type;
+
+template<typename T>
+using required_capacity_to_allocate_inplace = round_up_to_alignment<
+    sizeof(T), std::alignment_of<T>::value
+>;
+
+/// Increases the chances when to fall back from in place to heap allocation for move performance.
+using default_chance = std::integral_constant<std::size_t,
+    2UL
+>;
+
 // Interfaces for non copyable wrapper:
 template<typename /*Signature*/, typename /*Qualifier*/>
 struct call_wrapper_operator_interface;
@@ -335,24 +354,6 @@ FU2_MACRO_EXPAND_3(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
 #undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
-template<std::size_t Size, std::size_t Alignment>
-using round_up_to_alignment = typename std::conditional<Size % Alignment == 0,
-    std::integral_constant<std::size_t, Size>,
-    std::integral_constant<std::size_t,
-        // Rounds the required size up to the alignment
-        Size + (Alignment - (Size % Alignment))
-    >
->::type;
-
-template<typename T>
-using required_capacity_to_allocate_inplace = round_up_to_alignment<
-    sizeof(T), std::alignment_of<T>::value
->;
-
-/// Increases the chances when to fall back from in place to heap allocation for move performance.
-using default_chance = std::integral_constant<std::size_t,
-    2UL
->;
 /*
 
 struct generate_next_impl;
@@ -423,14 +424,15 @@ public:
     }
 
     /// Placed move
-    void move_inplace(interface* /*ptr*/) final override
+    void move_inplace(interface* ptr) final override
     {
+        new (ptr) generate_next_impl_t<T, Signature, Qualifier, false, Chance>(std::move(_impl));
     }
 
     /// Move the implementation to the heap
     interface* move_to_heap() final override
     {
-        return nullptr;
+        return new generate_next_impl_t<T, Signature, Qualifier, false, 0UL>(std::move(_impl));
     }
 
     using call_wrapper_operator_implementation<T, Signature, Qualifier, false>::operator();

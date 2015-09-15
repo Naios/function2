@@ -10,11 +10,11 @@
 
 int main()
 {
-    fu2::unique_function<void(int, int, float)> fu = [](int, int, float)
+    fu2::unique_function<void(int, int, float)> fu([](int, int, float)
     {
         int i = 0;
         ++i;
-    };
+    });
 
     fu(1, 1, 1.0);
 
