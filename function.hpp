@@ -481,7 +481,7 @@ public:
     }
 
     /// Allocated clone
-    call_wrapper_interface* clone_heap() const final override
+    interface* clone_heap() const final override
     {
         return new next_implementation(_impl);
     }
