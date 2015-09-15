@@ -8,20 +8,6 @@
 #include <functional>
 #include <memory>
 
-int main()
-{
-    fu2::unique_function<void(int, int, float)> fu([](int, int, float)
-    {
-        int i = 0;
-        ++i;
-    });
-
-    fu(1, 1, 1.0);
-
-    return 0;
-}
-
-/*
 #define CATCH_CONFIG_RUNNER
 
 #include "catch.hpp"
@@ -774,7 +760,7 @@ namespace fn_test_types
         }
     };
 }
-*/
+
 /*
 template<typename T>
 using unwrap = fu2::detail::unwrap_traits::unwrap<T>;
