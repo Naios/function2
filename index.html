@@ -48,7 +48,7 @@
 
 <ul>
 <li>
-<strong>const</strong> and <strong>volatile</strong> correct (qualifiers are part of the <code>operator()</code> signature).</li>
+<strong>const</strong>, <strong>volatile</strong> and <strong>reference</strong> correct (qualifiers are part of the <code>operator()</code> signature).</li>
 <li>
 <strong>convertible</strong> to and from <code>std::function</code>.</li>
 <li>
@@ -86,6 +86,7 @@
 <li><strong><a href="#coverage-and-runtime-checks">Coverage and runtime checks</a></strong></li>
 <li><strong><a href="#compatibility">Compatibility</a></strong></li>
 <li><strong><a href="#licence">License</a></strong></li>
+<li><strong><a href="#similar-implementations">Similar implementations</a></strong></li>
 </ul>
 
 <h2>
@@ -102,7 +103,7 @@ In most cases is <code>std::function</code> and <code>fu2::function</code> compa
 
 <p>A function wrapper is declared as followed:</p>
 
-<div class="highlight highlight-c++"><pre>fu2::function&lt;<span class="pl-k">void</span>(<span class="pl-k">int</span>, <span class="pl-k">float</span>) <span class="pl-k">const</span>&gt;
+<div class="highlight highlight-source-c++"><pre>fu2::function&lt;<span class="pl-k">void</span>(<span class="pl-k">int</span>, <span class="pl-k">float</span>) <span class="pl-k">const</span>&gt;
 <span class="pl-c">// Return type ~^   ^     ^     ^</span>
 <span class="pl-c">// Arguments ~~~~~~~|~~~~~|     ^</span>
 <span class="pl-c">// Qualifier ~~~~~~~~~~~~~~~~~~~|</span></pre></div>
@@ -152,6 +153,12 @@ Any argument types are allowed.</p>
 <li>Same as const and volatile together.</li>
 </ul>
 </li>
+<li>Also there is support for <strong>r-value functions</strong> <code>ReturnType operator() (Args...) &amp;&amp;</code>
+
+<ul>
+<li>one-shot functions which are invalidated after the first call.</li>
+</ul>
+</li>
 </ul>
 
 <h3>
@@ -159,7 +166,7 @@ Any argument types are allowed.</p>
 
 <p><code>fu2::function</code> and <code>fu2::unique_function</code> (non copyable) are easy to use:</p>
 
-<div class="highlight highlight-c++"><pre>fu2::function&lt;<span class="pl-k">void</span>() <span class="pl-k">const</span>&gt; fun = []
+<div class="highlight highlight-source-c++"><pre>fu2::function&lt;<span class="pl-k">void</span>() <span class="pl-k">const</span>&gt; fun = []
 {
     <span class="pl-c">// ...</span>
 };
@@ -172,7 +179,7 @@ Any argument types are allowed.</p>
 
 <p><code>fu2::unique_function</code> also works with non copyable functors/ lambdas.</p>
 
-<div class="highlight highlight-c++"><pre>fu2::unique_function&lt;<span class="pl-k">bool</span>() <span class="pl-k">const</span>&gt; fun = [ptr = std::make_unique&lt;<span class="pl-k">bool</span>&gt;(<span class="pl-c1">true</span>)]
+<div class="highlight highlight-source-c++"><pre>fu2::unique_function&lt;<span class="pl-k">bool</span>() <span class="pl-k">const</span>&gt; fun = [ptr = std::make_unique&lt;<span class="pl-k">bool</span>&gt;(<span class="pl-c1">true</span>)]
 {
     <span class="pl-k">return</span> *ptr;
 };
@@ -198,11 +205,20 @@ fu2::unique_function&lt;<span class="pl-k">bool</span>() <span class="pl-k">cons
 <li><code>noconst = noconst</code></li>
 </ul>
 </li>
-<li>The functions are copyable correct
+<li>The functions are copyable correct when:
 
 <ul>
+<li><code>unique = unique</code></li>
 <li><code>unique = copyable</code></li>
 <li><code>copyable = copyable</code></li>
+</ul>
+</li>
+<li>The functions are reference correct when:
+
+<ul>
+<li><code>lvalue = lvalue</code></li>
+<li><code>lvalue = rvalue</code></li>
+<li><code>rvalue = rvalue</code></li>
 </ul>
 </li>
 </ul>
@@ -238,7 +254,7 @@ fu2::unique_function&lt;<span class="pl-k">bool</span>() <span class="pl-k">cons
 </tbody>
 </table>
 
-<div class="highlight highlight-c++"><pre>fu2::function&lt;<span class="pl-k">void</span>()&gt; fun = []{};
+<div class="highlight highlight-source-c++"><pre>fu2::function&lt;<span class="pl-k">void</span>()&gt; fun = []{};
 <span class="pl-c">// OK</span>
 std::function&lt;<span class="pl-k">void</span>()&gt; std_fun = fun;
 <span class="pl-c">// OK</span>
@@ -266,13 +282,18 @@ fun = un_fun;
 
 <p>The following code defines a function with a variadic signature which is copyable and sfo optimization is disabled:</p>
 
-<div class="highlight highlight-c++"><pre><span class="pl-k">template</span>&lt;<span class="pl-k">typename</span> Signature&gt;
+<div class="highlight highlight-source-c++"><pre><span class="pl-k">template</span>&lt;<span class="pl-k">typename</span> Signature&gt;
 <span class="pl-k">using</span> my_function = fu2::function_base&lt;Signature, <span class="pl-c1">0UL</span>, <span class="pl-c1">true</span>&gt;;</pre></div>
 
-<p>The following code defines a non copyable function which just takes 1 argument, and has a huge capacity for internal sfo optimization.</p>
+<p>The following code defines a non copyable function which just takes 1 argument, and has a huge capacity for internal sfo optimization.
+Also it must be called from as r-value.</p>
 
-<div class="highlight highlight-c++"><pre><span class="pl-k">template</span>&lt;<span class="pl-k">typename</span> Arg&gt;
-<span class="pl-k">using</span> my_consumer = fu2::function_base&lt;<span class="pl-k">void</span>(Arg), <span class="pl-c1">100UL</span>, <span class="pl-c1">false</span>&gt;;</pre></div>
+<div class="highlight highlight-source-c++"><pre><span class="pl-k">template</span>&lt;<span class="pl-k">typename</span> Arg&gt;
+<span class="pl-k">using</span> my_consumer = fu2::function_base&lt;<span class="pl-k">void</span>(Arg)&amp;&amp;, <span class="pl-c1">100UL</span>, <span class="pl-c1">false</span>&gt;;
+
+<span class="pl-c">// Example</span>
+my_consumer&lt;<span class="pl-k">int</span>, <span class="pl-k">float</span>&gt; consumer = [](<span class="pl-k">int</span>, <span class="pl-k">float</span>) { }
+<span class="pl-en">std::move</span>(consumer)(<span class="pl-c1">44</span>, <span class="pl-c1">1</span>.<span class="pl-c1">7363f</span>);</pre></div>
 
 <h2>
 <a id="performance-and-optimization" class="anchor" href="#performance-and-optimization" aria-hidden="true"><span class="octicon octicon-link"></span></a>Performance and optimization</h2>
@@ -289,7 +310,7 @@ fun = un_fun;
 
 <p>Unique functions are heavily optimized by compilers see below:</p>
 
-<div class="highlight highlight-c++"><pre><span class="pl-k">int</span> <span class="pl-en">main</span>(<span class="pl-k">int</span> argc, <span class="pl-k">char</span>**)
+<div class="highlight highlight-source-c++"><pre><span class="pl-k">int</span> <span class="pl-en">main</span>(<span class="pl-k">int</span> argc, <span class="pl-k">char</span>**)
 {
     fu2::unique_function&lt;<span class="pl-c1">int</span>()&gt; <span class="pl-c1">fun</span>([=]
     {
@@ -298,9 +319,9 @@ fun = un_fun;
     <span class="pl-k">return</span> <span class="pl-c1">fun</span>() + <span class="pl-c1">fun</span>();
 }</pre></div>
 
-<p><a href="https://goo.gl/F7saQy">Clang 3.7 with -O3 compiles it into</a>:</p>
+<p><a href="https://goo.gl/F7saQy">Clang 3.4+ with -O3 compiles it into</a>:</p>
 
-<div class="highlight highlight-asm"><pre>main: <span class="pl-c"># @main</span>
+<div class="highlight highlight-source-asm-x86"><pre>main: <span class="pl-c"># @main</span>
     <span class="pl-k">lea</span> <span class="pl-k">eax</span>, [rdi + rdi + <span class="pl-c1">20</span>]
     <span class="pl-k">ret</span></pre></div>
 
@@ -358,6 +379,15 @@ Function2 only depends on the standard library.</p>
 <a id="license" class="anchor" href="#license" aria-hidden="true"><span class="octicon octicon-link"></span></a>License</h2>
 
 <p>Function2 is licensed under the Boost 1.0 License.</p>
+
+<h2>
+<a id="similar-implementations" class="anchor" href="#similar-implementations" aria-hidden="true"><span class="octicon octicon-link"></span></a>Similar implementations</h2>
+
+<ul>
+<li><a href="https://github.com/potswa/cxx_function">potswa/cxx_function</a></li>
+<li><a href="https://github.com/pmed/fixed_size_function">pmed/fixed_size_function</a></li>
+<li><a href="http://probablydance.com/2013/01/13/a-faster-implementation-of-stdfunction">http://probablydance.com/2013/01/13/a-faster-implementation-of-stdfunction/</a></li>
+</ul>
         </section>
 
         <aside id="sidebar">
