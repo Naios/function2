@@ -21,7 +21,7 @@ namespace fu2
 namespace detail
 {
 
-inline namespace v0
+inline namespace v1
 {
 
 /// Type deducer
@@ -33,10 +33,6 @@ struct deduce_t
 template<std::size_t, typename T = std::true_type>
 struct deduce_sz
     : T { };
-
-/// Tag for tag dispatching
-template<bool>
-struct tag { };
 
 /// Copy enabler helper class
 template<bool Copyable>
@@ -286,14 +282,14 @@ struct call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, false>
 {
     virtual ~call_wrapper_interface() { }
 
-    /// Returns true if the unique implementation can be allocated in-place in the given region.
-    virtual bool can_allocate_unique_inplace(std::size_t size) const = 0;
+    /// Returns true if the implementation can be allocated in-place in the given region.
+    virtual bool can_allocate_inplace(std::size_t size) const = 0;
 
-    /// Placed unique move
-    virtual void move_unique_inplace(call_wrapper_interface* ptr) = 0;
+    /// Placed move
+    virtual void move_inplace(call_wrapper_interface* ptr) = 0;
 
-    /// Move the unique implementation to the heap
-    virtual call_wrapper_interface* move_unique_to_heap() = 0;
+    /// Move the implementation to the heap
+    virtual call_wrapper_interface* move_to_heap() = 0;
 
 }; // struct call_wrapper_interface
 
@@ -305,22 +301,16 @@ struct call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, true>
 {
     virtual ~call_wrapper_interface() { }
 
-    /// Returns true if the copyable implementation can be allocated in-place in the given region.
-    virtual bool can_allocate_copyable_inplace(std::size_t size) const = 0;
-
-    /// Placed clone move
-    virtual void move_copyable_inplace(call_wrapper_interface* ptr) = 0;
-
-    /// Move the copyable implementation to the heap
-    virtual call_wrapper_interface* move_copyable_to_heap() = 0;
-
-    /// Placed clone to copyable
-    virtual void clone_copyable_inplace(call_wrapper_interface* ptr) const = 0;
-
     /// Placed clone to unique
-    virtual void clone_unique_inplace(call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, false>* ptr) const = 0;
+    virtual void clone_inplace(call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, false>* ptr) const = 0;
 
-    /// Allocate clone
+    /// Placed move
+    virtual void move_inplace(call_wrapper_interface* ptr) = 0;
+
+    /// Move the implementation to the heap
+    virtual call_wrapper_interface* move_to_heap() = 0;
+
+    /// Allocated clone
     virtual call_wrapper_interface* clone_heap() const = 0;
 
 }; // struct call_wrapper_interface
@@ -630,12 +620,12 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
         this->weak_deallocate();
     }
 
-    bool is_allocated() const
+    inline bool is_allocated() const
     {
         return this->_impl != nullptr;
     }
 
-    void change_to_locale()
+    inline void change_to_locale()
     {
         this->_impl = reinterpret_cast<interface_t*>(&this->_locale);
     }
@@ -665,26 +655,17 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
     }
 
     template<typename T>
-    void copy_assign(T const& right)
+    inline void copy_assign(T const& right)
     {
         this->weak_deallocate();
         weak_copy_assign(right);
     }
 
     template<typename T>
-    auto do_copy_allocate(T const& right)
-        -> typename std::enable_if<Config::is_copyable && deduce_t<T>::value>::type
+    inline void do_copy_allocate(T const& right)
     {
         change_to_locale();
-        right._impl->clone_copyable_inplace(this->_impl);
-    }
-
-    template<typename T>
-    auto do_copy_allocate(T const& right)
-        -> typename std::enable_if<!Config::is_copyable && deduce_t<T>::value>::type
-    {
-        change_to_locale();
-        right._impl->clone_unique_inplace(this->_impl);
+        right._impl->clone_inplace(this->_impl);
     }
 
     // Copy assign with in-place capability.
@@ -694,7 +675,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
     {
         if (!right.is_allocated())
             clean(); // Deallocate if right is unallocated
-        else if (right._impl->can_allocate_copyable_inplace(Config::capacity))
+        else if (right._impl->can_allocate_inplace(Config::capacity))
             do_copy_allocate(right);
         else
             this->_impl = right._impl->clone_heap(); // heap clone
@@ -712,55 +693,28 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
     }
 
     template<typename T>
-    static auto can_allocate_inplace(T const& right)
-        -> typename std::enable_if<Config::is_copyable && deduce_t<T>::value, bool>::type
+    static bool can_allocate_inplace(T const& right)
     {
-        return right._impl->can_allocate_copyable_inplace(Config::capacity);
+        return right._impl->can_allocate_inplace(Config::capacity);
     }
 
     template<typename T>
-    static auto can_allocate_inplace(T const& right)
-        -> typename std::enable_if<!Config::is_copyable && deduce_t<T>::value, bool>::type
-    {
-        return right._impl->can_allocate_unique_inplace(Config::capacity);
-    }
-
-    template<typename T>
-    auto do_move_allocate_inplace(T&& right)
-        -> typename std::enable_if<Config::is_copyable && deduce_t<T>::value>::type
+    void do_move_allocate_inplace(T&& right)
     {
         change_to_locale();
-        right._impl->move_copyable_inplace(this->_impl);
+        right._impl->move_inplace(this->_impl);
         right.deallocate();
     }
 
     template<typename T>
-    auto do_move_allocate_inplace(T&& right)
-        -> typename std::enable_if<!Config::is_copyable && deduce_t<T>::value>::type
+    inline void do_move_allocate_to_heap(T&& right)
     {
-        change_to_locale();
-        right._impl->move_unique_inplace(this->_impl);
+        this->_impl = right._impl->move_to_heap();
         right.deallocate();
     }
 
     template<typename T>
-    auto do_move_allocate_to_heap(T&& right)
-        -> typename std::enable_if<Config::is_copyable && deduce_t<T>::value>::type
-    {
-        this->_impl = right._impl->move_copyable_to_heap();
-        right.deallocate();
-    }
-
-    template<typename T>
-    auto do_move_allocate_to_heap(T&& right)
-        -> typename std::enable_if<!Config::is_copyable && deduce_t<T>::value>::type
-    {
-        this->_impl = right._impl->move_unique_to_heap();
-        right.deallocate();
-    }
-
-    template<typename T>
-    void move_assign(T&& right)
+    inline void move_assign(T&& right)
     {
         this->weak_deallocate();
         weak_move_assign(std::forward<T>(right));
@@ -985,7 +939,7 @@ using default_capacity = std::integral_constant<std::size_t,
 #undef FU2_MACRO_FULL_QUALIFIER
 #undef FU2_MACRO_EXPAND_3
 
-} // inline namespace v0
+} // inline namespace v1
 
 } // namespace detail
 
