@@ -455,7 +455,7 @@ public:
 
     template<typename I>
     call_wrapper_implementation(I&& impl)
-        : call_wrapper_implementation<T, Signature, Qualifier, false>(std::forward<I>(_impl)) { }
+        : call_wrapper_implementation<T, Signature, Qualifier, false>(std::forward<I>(impl)) { }
 
     /// Returns true if the implementation can be allocated in-place in the given region.
     bool can_allocate_inplace(std::size_t size) const final override
@@ -747,7 +747,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
     auto weak_allocate(T&& functor)
         -> typename std::enable_if<!is_local_allocateable<implementation_t<typename std::decay<T>::type>>::value>::type
     {
-        this->_impl = new implementation_t<typename std::decay<T>::type>(std::forward<T>(functor));
+        // this->_impl = new implementation_t<typename std::decay<T>::type>(std::forward<T>(functor));
     }
 
     template<typename T>
@@ -950,7 +950,7 @@ public:
     template<typename RightConfig, typename std::enable_if<RightConfig::is_copyable>::type* = nullptr>
     explicit function(function<signature<ReturnType(Args...)>, Qualifier, RightConfig> const& right)
     {
-        // _storage.weak_copy_assign(right._storage);
+        _storage.weak_copy_assign(right._storage);
     }
 
     /// Move construct
