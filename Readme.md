@@ -1,7 +1,7 @@
 
 # C++11 Function 2 - fu2::
 
-[![Build Status](https://travis-ci.org/Naios/Function2.svg?branch=master)](https://travis-ci.org/Naios/Function2)
+[![Build Status](https://travis-ci.org/Naios/function2.svg?branch=master)](https://travis-ci.org/Naios/function2)
 
 Provides two improved implementations of `std::function`:
 
@@ -158,7 +158,7 @@ using my_function = fu2::function_base<Signature, 0UL, true>;
 ```
 
 The following code defines a non copyable function which just takes 1 argument, and has a huge capacity for internal sfo optimization.
-Also it must be called from as r-value.
+Also it must be called as r-value.
 
 ```c++
 template<typename Arg>
@@ -176,6 +176,8 @@ std::move(consumer)(44, 1.7363f);
 Function 2 uses small functor optimization like the most common std::function implementations which means it allocates a small internal capacity to evade heap allocation for small functors.
 
 Smart heap allocation moves the inplace allocated functor automatically to the heap to speed up moving between objects.
+
+It's possible to disable small functor optimization through setting the capacity to 0.
 
 ### Compiler optimization
 
