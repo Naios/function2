@@ -72,9 +72,6 @@ struct qualifier
     /// Is true if the qualifier has const.
     static constexpr bool is_const = Constant;
 
-    // template<bool NewConst>
-    // using set_const = qualifier<NewConst, Volatile, RValue>;
-
     /// Is true if the qualifier has volatile.
     static constexpr bool is_volatile = Volatile;
 
@@ -259,8 +256,8 @@ template<std::size_t Size, std::size_t Alignment>
 using round_up_to_alignment = typename std::conditional<Size % Alignment == 0,
     std::integral_constant<std::size_t, Size>,
     std::integral_constant<std::size_t,
-    // Rounds the required size up to the alignment
-    Size + (Alignment - (Size % Alignment))
+        // Rounds the required size up to the alignment
+        Size + (Alignment - (Size % Alignment))
     >
 >::type;
 
@@ -506,7 +503,7 @@ struct storage_base_t
 
     std::uint8_t _locale[Capacity];
 
-    bool is_inplace() const
+    inline bool is_inplace() const
     {
         return _impl == static_cast<void const*>(&_locale);
     }
@@ -531,12 +528,12 @@ struct storage_base_t<T, 0UL>
 
     T* _impl;
 
-    bool is_inplace() const
+    inline bool is_inplace() const
     {
         return false;
     }
 
-    void weak_deallocate()
+    inline void weak_deallocate()
     {
         if (_impl)
             delete _impl;
