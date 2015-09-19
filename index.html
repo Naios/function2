@@ -385,11 +385,25 @@ Function2 only depends on the standard library.</p>
 <h2>
 <a id="similar-implementations" class="anchor" href="#similar-implementations" aria-hidden="true"><span class="octicon octicon-link"></span></a>Similar implementations</h2>
 
+<p>There are similar implementations of a function wrapper:</p>
+
 <ul>
-<li><a href="https://github.com/potswa/cxx_function">potswa/cxx_function</a></li>
-<li><a href="https://github.com/pmed/fixed_size_function">pmed/fixed_size_function</a></li>
-<li><a href="http://probablydance.com/2013/01/13/a-faster-implementation-of-stdfunction">http://probablydance.com/2013/01/13/a-faster-implementation-of-stdfunction/</a></li>
+<li><p><a href="https://github.com/pmed/fixed_size_function">pmed/fixed_size_function</a></p></li>
+<li><p><a href="stdex.hpp">stdex::function</a> - A multi-signature function implementation.</p></li>
+<li>multifunction - Example from <a href="http://www.boost.org/doc/html/boost_typeerasure/examples.html#boost_typeerasure.examples.multifunction">Boost.TypeErasure</a>, another multi-signature function.</li>
+<li>std::function - <a href="http://en.cppreference.com/w/cpp/utility/functional/function">Standard</a>.</li>
+<li>boost::function - The one from <a href="http://www.boost.org/doc/libs/1_55_0/doc/html/function.html">Boost</a>.</li>
+<li>
+<a href="function.h">func::function</a> - From this <a href="http://probablydance.com/2013/01/13/a-faster-implementation-of-stdfunction/">blog</a>.</li>
+<li>
+<a href="delegate.hpp">generic::delegate</a> - <a href="http://codereview.stackexchange.com/questions/14730/impossibly-fast-delegate-in-c11">Fast delegate in C++11</a>, also see <a href="https://code.google.com/p/cpppractice/source/browse/trunk/">here</a>.</li>
+<li>
+<a href="FastFunc.hpp"><del>ssvu::FastFunc</del></a> - Another Don Clugston's FastDelegate, as shown <a href="https://groups.google.com/a/isocpp.org/forum/#!topic/std-discussion/QgvHF7YMi3o">here</a>.</li>
+<li>
+<a href="https://github.com/potswa/cxx_function">cxx_function::function</a> - By David Krauss</li>
 </ul>
+
+<p>Also check out the amazing <a href="https://github.com/jamboree/CxxFunctionBenchmark"><strong>CxxFunctionBenchmark</strong></a> which compares several implementations.</p>
         </section>
 
         <aside id="sidebar">
