@@ -254,6 +254,17 @@ Function2 is licensed under the Boost 1.0 License.
 
 ## Similar implementations
 
-- [potswa/cxx_function](https://github.com/potswa/cxx_function)
+There are similar implementations of a function wrapper:
+
 - [pmed/fixed_size_function](https://github.com/pmed/fixed_size_function)
-- [http://probablydance.com/2013/01/13/a-faster-implementation-of-stdfunction/](http://probablydance.com/2013/01/13/a-faster-implementation-of-stdfunction)
+
+- [stdex::function](stdex.hpp) - A multi-signature function implementation.
+- multifunction - Example from [Boost.TypeErasure](http://www.boost.org/doc/html/boost_typeerasure/examples.html#boost_typeerasure.examples.multifunction), another multi-signature function.
+- std::function - [Standard](http://en.cppreference.com/w/cpp/utility/functional/function).
+- boost::function - The one from [Boost](http://www.boost.org/doc/libs/1_55_0/doc/html/function.html).
+- [func::function](function.h) - From this [blog](http://probablydance.com/2013/01/13/a-faster-implementation-of-stdfunction/).
+- [generic::delegate](delegate.hpp) - [Fast delegate in C++11](http://codereview.stackexchange.com/questions/14730/impossibly-fast-delegate-in-c11), also see [here](https://code.google.com/p/cpppractice/source/browse/trunk/).
+- [~~ssvu::FastFunc~~](FastFunc.hpp) - Another Don Clugston's FastDelegate, as shown [here](https://groups.google.com/a/isocpp.org/forum/#!topic/std-discussion/QgvHF7YMi3o).
+- [cxx_function::function](https://github.com/potswa/cxx_function) - By David Krauss
+
+Also check out the amazing [**CxxFunctionBenchmark**](https://github.com/jamboree/CxxFunctionBenchmark) which compares several implementations.
