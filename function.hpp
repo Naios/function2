@@ -173,8 +173,7 @@ using is_callable_with_qualifiers = decltype(impl_is_callable_with_qualifiers<Fn
 // Is a true type if the left type is copyable correct to the right type.
 template<bool LeftCopyable, bool RightCopyable>
 using is_copyable_correct = std::integral_constant<bool,
-    // FIXME
-    LeftCopyable == RightCopyable
+    !(LeftCopyable && !RightCopyable)
 >;
 
 /// Function unwrap trait
