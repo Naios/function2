@@ -257,7 +257,6 @@ Function2 is licensed under the Boost 1.0 License.
 There are similar implementations of a function wrapper:
 
 - [pmed/fixed_size_function](https://github.com/pmed/fixed_size_function)
-
 - [stdex::function](stdex.hpp) - A multi-signature function implementation.
 - multifunction - Example from [Boost.TypeErasure](http://www.boost.org/doc/html/boost_typeerasure/examples.html#boost_typeerasure.examples.multifunction), another multi-signature function.
 - std::function - [Standard](http://en.cppreference.com/w/cpp/utility/functional/function).
