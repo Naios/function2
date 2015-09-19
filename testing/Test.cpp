@@ -791,68 +791,29 @@ namespace fn_test_types
     };
 }
 
-/*
-template<typename T>
-using unwrap = fu2::detail::unwrap_traits::unwrap<T>;
-
-TEST_CASE("Static asserts", "[function<>]")
+TEST_CASE("Type checks", "[function<>]")
 {
-    // Const lambda function
-    auto lam1 = [] {};
-    static_assert(unwrap<decltype(&decltype(lam1)::operator())>::is_member,
-        "check failed!");
-    static_assert(unwrap<decltype(&decltype(lam1)::operator())>::is_const,
-        "check failed!");
-    static_assert(!unwrap<decltype(&decltype(lam1)::operator())>::is_volatile,
-        "check failed!");
+    REQUIRE((
+    std::is_same<
+        fu2::function<void()>::return_type,
+        void
+    >::value));
 
-    // Mutable lambda function
-    auto lam2 = []() mutable -> int { return  0; };
-    static_assert(unwrap<decltype(&decltype(lam2)::operator())>::is_member,
-        "check failed!");
-    static_assert(!unwrap<decltype(&decltype(lam2)::operator())>::is_const,
-        "check failed!");
-    static_assert(!unwrap<decltype(&decltype(lam2)::operator())>::is_volatile,
-        "check failed!");
+    REQUIRE((
+        std::is_same<
+        fu2::function<float()>::return_type,
+        float
+    >::value));
 
-    // Class methods
-    static_assert(unwrap<decltype(&fn_test_types::member::operator())>::is_member,
-        "check failed!");
-    static_assert(!unwrap<decltype(&fn_test_types::member::operator())>::is_const,
-        "check failed!");
-    static_assert(!unwrap<decltype(&fn_test_types::member::operator())>::is_volatile,
-        "check failed!");
+    REQUIRE((
+    std::is_same<
+        fu2::function<void(float, double, int)>::argument_type,
+        std::tuple<float, double, int>
+    >::value));
 
-    // Class const methods
-    static_assert(unwrap<decltype(&fn_test_types::const_member::operator())>::is_member,
-        "check failed!");
-    static_assert(unwrap<decltype(&fn_test_types::const_member::operator())>::is_const,
-        "check failed!");
-    static_assert(!unwrap<decltype(&fn_test_types::const_member::operator())>::is_volatile,
-        "check failed!");
-
-    // Class volatile methods
-    static_assert(unwrap<decltype(&fn_test_types::volatile_member::operator())>::is_member,
-        "check failed!");
-    static_assert(!unwrap<decltype(&fn_test_types::volatile_member::operator())>::is_const,
-        "check failed!");
-    static_assert(unwrap<decltype(&fn_test_types::volatile_member::operator())>::is_volatile,
-        "check failed!");
-
-    // Class const volatile methods
-    static_assert(unwrap<decltype(&fn_test_types::const_volatile_member::operator())>::is_member,
-        "check failed!");
-    static_assert(unwrap<decltype(&fn_test_types::const_volatile_member::operator())>::is_const,
-        "check failed!");
-    static_assert(unwrap<decltype(&fn_test_types::const_volatile_member::operator())>::is_volatile,
-        "check failed!");
-
-    // Static member functions
-    static_assert(!unwrap<decltype(fn_test_types::static_member::my_fn)>::is_member,
-        "check failed!");
-    static_assert(!unwrap<decltype(fn_test_types::static_member::my_fn)>::is_const,
-        "check failed!");
-    static_assert(!unwrap<decltype(fn_test_types::static_member::my_fn)>::is_volatile,
-        "check failed!");
+    REQUIRE((
+        std::is_same<
+        fu2::function<std::tuple<int, float>()>::argument_type,
+        std::tuple<>
+    >::value));
 }
-*/

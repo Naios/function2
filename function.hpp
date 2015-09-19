@@ -782,7 +782,6 @@ FU2_MACRO_EXPAND_3(FU2_MACRO_DEFINE_CALL_OPERATOR)
 template<typename ReturnType, typename... Args, typename Qualifier, typename Config>
 class function<signature<ReturnType(Args...)>, Qualifier, Config>
     : public call_operator<function<signature<ReturnType(Args...)>, Qualifier, Config>>,
-      public signature<ReturnType(Args...)>,
       public copyable<Config::is_copyable>
 {
     template<typename, typename, typename>
@@ -907,6 +906,12 @@ public:
     }
 
     using call_operator<function>::operator();
+
+    /// The return type of the function.
+    using return_type = typename signature<ReturnType(Args...)>::return_type;
+
+    /// The argument types of the function as pack in std::tuple.
+    using argument_type = typename signature<ReturnType(Args...)>::argument_type;
 
 }; // class function
 
