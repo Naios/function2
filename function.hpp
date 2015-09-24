@@ -80,14 +80,17 @@ struct qualifier
 };
 
 /// Helper to store the function configuration.
-template<std::size_t Capacity, bool Copyable>
+template<bool Copyable, std::size_t Capacity, bool Throws>
 struct config
 {
+    /// Is true if the function is copyable.
+    static constexpr bool is_copyable = Copyable;
+
     /// The internal capacity of the function for sfo optimization.
     static constexpr std::size_t capacity = Capacity;
 
-    /// Is true if the function is copyable.
-    static constexpr bool is_copyable = Copyable;
+    /// Is true if the function throws and exception on invalid access.
+    static constexpr bool is_throwing = Throws;
 };
 
 // If macro.
@@ -935,18 +938,22 @@ using default_capacity = std::integral_constant<std::size_t,
 } // namespace detail
 
 /// Function wrapper base
-template<typename Signature, std::size_t Capacity, bool Copyable>
+template<
+    typename Signature,
+    bool Copyable,
+    std::size_t Capacity = detail::default_capacity::value,
+    bool Throws = true
+>
 using function_base = detail::function<
     typename detail::unwrap<Signature>::signature,
     typename detail::unwrap<Signature>::qualifier,
-    detail::config<Capacity, Copyable>
+    detail::config<Copyable, Capacity, Throws>
 >;
 
 /// Copyable function wrapper
 template<typename Signature>
 using function = function_base<
     Signature,
-    detail::default_capacity::value,
     true
 >;
 
@@ -954,7 +961,6 @@ using function = function_base<
 template<typename Signature>
 using unique_function = function_base<
     Signature,
-    detail::default_capacity::value,
     false
 >;
 

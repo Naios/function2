@@ -16,19 +16,19 @@ void runBenchmark();
 
 // Functions without sfo optimization
 template<typename Signature>
-using no_sfo_function = fu2::function_base<Signature, 0UL, true>;
+using no_sfo_function = fu2::function_base<Signature, true, 0UL>;
 
 template<typename Signature>
-using no_sfo_unique_function = fu2::function_base<Signature, 0UL, false>;
+using no_sfo_unique_function = fu2::function_base<Signature, false, 0UL>;
 
 // Functions with sfo optimization
 static constexpr std::size_t testing_sfo_capacity = 256UL;
 
 template<typename Signature>
-using sfo_function = fu2::function_base<Signature, testing_sfo_capacity, true>;
+using sfo_function = fu2::function_base<Signature, true, testing_sfo_capacity>;
 
 template<typename Signature>
-using sfo_unique_function = fu2::function_base<Signature, testing_sfo_capacity, false>;
+using sfo_unique_function = fu2::function_base<Signature, false, testing_sfo_capacity>;
 
 using fu2::function;
 using fu2::unique_function;
@@ -39,8 +39,8 @@ constexpr std::size_t sz2 = sizeof(std::function<void()>);
 constexpr std::size_t sz3 = sizeof(fu2::function<bool(int, float, long)>);
 constexpr std::size_t sz4 = sizeof(fu2::unique_function<void()>);
 
-constexpr std::size_t sz5 = sizeof(fu2::function_base<bool(int, float, long), 0UL, true>);
-constexpr std::size_t sz6 = sizeof(fu2::function_base<void(), 0UL, false>);
+constexpr std::size_t sz5 = sizeof(fu2::function_base<bool(int, float, long), true, 0UL>);
+constexpr std::size_t sz6 = sizeof(fu2::function_base<void(), false, 0UL>);
 
 constexpr std::size_t pd1 = std::alignment_of<std::function<bool(int, float, long)>>::value;
 constexpr std::size_t pd2 = std::alignment_of<std::function<void()>>::value;
@@ -48,8 +48,8 @@ constexpr std::size_t pd2 = std::alignment_of<std::function<void()>>::value;
 constexpr std::size_t pd3 = std::alignment_of<fu2::function<bool(int, float, long)>>::value;
 constexpr std::size_t pd4 = std::alignment_of<fu2::unique_function<void()>>::value;
 
-constexpr std::size_t pd5 = std::alignment_of<fu2::function_base<bool(int, float, long), 0UL, true>>::value;
-constexpr std::size_t pd6 = std::alignment_of<fu2::function_base<void(), 0UL, false>>::value;
+constexpr std::size_t pd5 = std::alignment_of<fu2::function_base<bool(int, float, long), true, 0UL>>::value;
+constexpr std::size_t pd6 = std::alignment_of<fu2::function_base<void(), false, 0UL>>::value;
 
 int main(int argc, char** argv)
 {

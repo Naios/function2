@@ -101,15 +101,15 @@ void take_time(std::string const& name)
 void runBenchmark()
 {
     take_time<
-        CopyFunctions<std::function<void()>>, CopyFunctions<fu2::function_base<void(), 64UL, true>>>
+        CopyFunctions<std::function<void()>>, CopyFunctions<fu2::function_base<void(), true, 64UL>>>
         ("Construct and copy function wrapper");
 
     take_time<
-        MoveFunctions<std::function<void()>>, MoveFunctions<fu2::function_base<void(), 0UL, false>>>
+        MoveFunctions<std::function<void()>>, MoveFunctions<fu2::function_base<void(), false, 0UL>>>
         ("Move function wrapper around");
 
     take_time<
-        InvokeFunctions<std::function<void(std::size_t)>>, InvokeFunctions<fu2::function_base<void(std::size_t), 64UL, true>>>
+        InvokeFunctions<std::function<void(std::size_t)>>, InvokeFunctions<fu2::function_base<void(std::size_t), true, 64UL>>>
         ("Invoke function wrapper");
 
     std::cout << std::endl;
