@@ -8,12 +8,9 @@
 #define fu2_included_function_hpp__
 
 #include <tuple>
-#include <cstdint>
+#include <memory>
+#include <exception>
 #include <type_traits>
-
-#ifdef _MSC_VER
-    #pragma warning(disable : 4100)
-#endif
 
 namespace fu2
 {
@@ -21,25 +18,11 @@ namespace fu2
 namespace detail
 {
 
-inline namespace v1
+inline namespace v2
 {
 
-/// Type deducer
-template<typename, typename T = std::true_type>
-struct deduce_t
-    : T { };
-
-/// Size deducer
-template<std::size_t, typename T = std::true_type>
-struct deduce_sz
-    : T { };
-
-/// Tag for tag dispatching
-template<bool>
-struct tag { };
-
 /// Copy enabler helper class
-template<bool Copyable>
+template<bool /*Copyable*/>
 struct copyable { };
 
 template <>
@@ -53,15 +36,12 @@ struct copyable<false>
 };
 
 /// Helper to store function signature.
-template<typename Signature>
+template<typename /*Signature*/>
 struct signature;
 
 template<typename ReturnType, typename... Args>
 struct signature<ReturnType(Args...)>
 {
-    /// The function type
-    using type = ReturnType(Args...);
-
     /// The return type of the function.
     using return_type = ReturnType;
 
@@ -198,8 +178,7 @@ struct unwrap_base
 template<typename Fn>
 struct unwrap
 {
-    static_assert(!deduce_t<Fn>::value,
-        "Incompatible signature given, signature must be in the form of \"ReturnType(Arg...) Qualifier\".");
+    static_assert(sizeof(Fn) < 0, "Incompatible signature given, signature must be in the form of \"ReturnType(Arg...) Qualifier\".");
 };
 
 template<typename ReturnType, typename... Args>
@@ -250,14 +229,6 @@ template<typename ReturnType, typename... Args>
 struct unwrap<ReturnType(Args...) const volatile&&>
     : unwrap_base<signature<ReturnType(Args...)>, qualifier<true, true, true>> { };
 
-template<typename T>
-struct is_function_pointer
-    : std::false_type { };
-
-template<typename ReturnType, typename... Args>
-struct is_function_pointer<ReturnType(*)(Args...)>
-    : std::true_type { };
-
 template<std::size_t Size, std::size_t Alignment>
 using round_up_to_alignment = typename std::conditional<Size % Alignment == 0,
     std::integral_constant<std::size_t, Size>,
@@ -277,85 +248,144 @@ using default_chance = std::integral_constant<std::size_t,
     2UL
 >;
 
-// Interfaces for non copyable wrapper:
-/*
-template<typename Signature, typename Qualifier>
-struct call_wrapper_operator_interface;
+template<typename Signature, bool Copyable>
+struct function_vtable;
+
+template<typename ReturnType, typename... Args, bool Copyable>
+struct function_vtable<signature<ReturnType(Args...)>, Copyable>
+{
+    typedef void(*destruct_t)(void* /*destination*/);
+    typedef ReturnType(*invoke_t)(void* /*destination*/, Args&&... /*args*/);
+    typedef std::size_t(*required_size_t)();
+    typedef void (*move_t)(void* /*from*/, void* /*to*/);
+
+    constexpr function_vtable(destruct_t destruct_, invoke_t invoke_,
+        required_size_t required_size_, move_t move_)
+        : destruct(destruct_), invoke(invoke_),
+          required_size(required_size_), move(move_) { }
+
+    destruct_t const destruct;
+    invoke_t const invoke;
+    required_size_t const required_size;
+    move_t const move;
+};
+
+template<typename ReturnType, typename... Args>
+struct function_vtable<signature<ReturnType(Args...)>, true>
+     : function_vtable<signature<ReturnType(Args...)>, false>
+{
+    typedef void (*copy_t)(void* /*from*/, void* /*to*/);
+
+    constexpr function_vtable(typename function_vtable::destruct_t destruct_, typename function_vtable::invoke_t invoke_,
+        typename function_vtable::required_size_t required_size_, typename function_vtable::move_t move_, copy_t copy_)
+        : copy(copy_), function_vtable<signature<ReturnType(Args...)>, false>
+          (destruct_, invoke_, required_size_, move_) { }
+
+    copy_t const copy;
+};
+
+/// Performs no operation on the given pointer.
+static inline void function_wrapper_noop(void* /*destination*/)
+{
+}
+
+/// Performs no operation on the given pointer.
+static inline void function_wrapper_noop2(void* /*destination*/, void* /*destination*/)
+{
+}
+
+/// Allocates memory on heap for the given type T.
+template<typename T>
+static inline void* function_wrapper_allocate()
+{
+    return std::malloc(sizeof(T));
+}
+
+/// Constructs a type T at the given destination with the given arguments.
+template<typename T, typename... Args>
+static inline void function_wrapper_construct(void* destination, Args... args)
+{
+    new (destination) typename std::decay<T>::type(std::forward<Args>(args)...);
+}
+
+/// Destructs a type T at the given destination.
+template<typename T>
+static inline void function_wrapper_destruct(void* destination)
+{
+    (void)destination;
+    static_cast<T*>(destination)->~T();
+}
+
+/// Returns the required size of the type to allocate in-place.
+template<typename T>
+static inline std::size_t function_wrapper_required_size()
+{
+    return required_capacity_to_allocate_inplace<T>::value;
+}
+
+/// Returns a zero size.
+static inline std::size_t function_wrapper_zero_size()
+{
+    return 0UL;
+}
+
+/// Moves the given type at the target location to another one.
+template<typename T>
+static inline void function_wrapper_move(void* from, void* to)
+{
+    function_wrapper_construct<T>(to, std::move(*static_cast<T*>(from)));
+}
+
+/// Copies the given type at the target location to another one.
+template<typename T>
+static inline auto function_wrapper_copy(void* from, void* to)
+    -> typename std::enable_if<std::is_copy_constructible<T>::value>::type
+{
+    function_wrapper_construct<T>(to, *static_cast<T*>(from));
+}
+
+/// Copies the given type at the target location to another one.
+template<typename T>
+static inline auto function_wrapper_copy(void* /*from*/, void* /*to*/)
+    -> typename std::enable_if<!std::is_copy_constructible<T>::value>::type
+{
+    // Should never happen
+    std::abort();
+}
+
+template<typename /*Signature*/, bool /*Throws*/>
+struct function_wrapper_empty_invoker;
+
+template<typename ReturnType, typename... Args>
+struct function_wrapper_empty_invoker<signature<ReturnType(Args...)>, true>
+{
+    // Throws an empty function call
+    static ReturnType invoke(void*, Args&&...)
+    {
+        throw bad_function_call{};
+    }
+};
+
+template<typename ReturnType, typename... Args>
+struct function_wrapper_empty_invoker<signature<ReturnType(Args...)>, false>
+{
+    // Non-Throwing empty function call
+    static ReturnType invoke(void*, Args&&...)
+    {
+        std::abort();
+    }
+};
+
+template<typename /*T*/, typename /*Signature*/, typename /*Qualifier*/>
+struct function_wrapper_invoker;
 
 #define FU2_MACRO_DEFINE_CALL_OPERATOR(IS_CONST, IS_VOLATILE, IS_RVALUE) \
-    template<typename ReturnType, typename... Args> \
-    struct call_wrapper_operator_interface<signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>> \
+    template<typename T, typename ReturnType, typename... Args> \
+    struct function_wrapper_invoker<T, signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>> \
     { \
-        virtual ~call_wrapper_operator_interface() { } \
-      \
-        virtual ReturnType operator() (Args&&...) FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) = 0; \
-      \
-    };
-
-FU2_MACRO_EXPAND_3(FU2_MACRO_DEFINE_CALL_OPERATOR)
-
-#undef FU2_MACRO_DEFINE_CALL_OPERATOR
-
-template<typename Signature, typename Qualifier, bool Copyable>
-struct call_wrapper_interface;
-
-template<typename ReturnType, typename... Args, typename Qualifier>
-struct call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, false>
-     : call_wrapper_operator_interface<signature<ReturnType(Args...)>, Qualifier>
-{
-    virtual ~call_wrapper_interface() { }
-
-    /// Returns true if the implementation can be allocated in-place in the given region.
-    virtual bool can_allocate_inplace(std::size_t size) const = 0;
-
-    /// Placed move
-    virtual void move_unique_inplace(call_wrapper_interface* ptr) = 0;
-
-    /// Move the implementation to the heap
-    virtual call_wrapper_interface* move_to_heap() = 0;
-
-}; // struct call_wrapper_interface
-
-/// Interface: copyable wrapper
-template<typename ReturnType, typename... Args, typename Qualifier>
-struct call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, true>
-     : call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, false>
-{
-    virtual ~call_wrapper_interface() { }
-
-    /// Placed move
-    virtual void move_inplace(call_wrapper_interface* ptr) = 0;
-
-    /// Move the implementation to the heap
-    virtual call_wrapper_interface* move_to_heap() = 0;
-
-    /// Placed clone
-    virtual void clone_inplace(call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, false>* ptr) const = 0;
-
-    /// Allocated clone
-    virtual call_wrapper_interface* clone_heap() const = 0;
-
-}; // struct call_wrapper_interface
-
-template<typename T, typename Signature, typename Qualifier, bool Copyable, std::size_t Chance = default_chance::value>
-class call_wrapper_implementation;
-
-
-// template <typename T, typename Signature, typename Qualifier, bool Copyable>
-struct call_wrapper_operator_implementation;
-
-#define FU2_MACRO_DEFINE_CALL_OPERATOR(IS_CONST, IS_VOLATILE, IS_RVALUE) \
-    template<typename T, typename ReturnType, typename... Args, bool Copyable> \
-    struct call_wrapper_operator_implementation<T, signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Copyable> \
-         : call_wrapper_interface<signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Copyable> \
-    { \
-        virtual ~call_wrapper_operator_implementation() { } \
-      \
-        ReturnType operator() (Args&&... args) FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) final override \
+        static inline ReturnType invoke(void* target, Args&&... args) /*FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE)*/ \
         { \
-            using base = call_wrapper_implementation<T, signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Copyable>; \
-          \
-            return FU2_MACRO_MOVE_IF(IS_RVALUE)(static_cast<base FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) *>(this)->_impl)(std::forward<Args>(args)...); \
+            return FU2_MACRO_MOVE_IF(IS_RVALUE)(* static_cast<T FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) *>(target))(std::forward<Args>(args)...); \
         } \
     };
 
@@ -363,401 +393,202 @@ FU2_MACRO_EXPAND_3(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
 #undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
-
-template <typename T, std::size_t Chance>
-struct can_allocate_inplace_helper
+struct bad_function_call
+    : std::exception
 {
-    static bool can_allocate_inplace(std::size_t size)
+    bad_function_call() { }
+
+    virtual char const* what() const throw()
     {
-        return required_capacity_to_allocate_inplace<T>::value <= size;
+        return "bad function call";
     }
 };
-
-template <typename T>
-struct can_allocate_inplace_helper<T, 0UL>
-{
-    static bool can_allocate_inplace(std::size_t)
-    {
-        return false;
-    }
-};
-
-template<typename T, typename Signature, typename Qualifier, bool Copyable, std::size_t Chance>
-using generate_next_impl_t = call_wrapper_implementation<T, Signature, Qualifier, Copyable, (Chance > 0) ? Chance - 1 : 0>;
-
-template<typename T, typename Signature, typename Qualifier, std::size_t Chance>
-class call_wrapper_implementation<T, Signature, Qualifier, false, Chance>
-    : public call_wrapper_operator_implementation<T, Signature, Qualifier, false>
-{
-    using interface = call_wrapper_interface<Signature, Qualifier, false>;
-
-    using next_implementation = generate_next_impl_t<T, Signature, Qualifier, false, Chance>;
-
-public:
-    T _impl;
-
-    template<typename I>
-    call_wrapper_implementation(I&& impl)
-        : _impl(std::forward<I>(impl)) { }
-
-    call_wrapper_implementation() = delete;
-    call_wrapper_implementation(call_wrapper_implementation const&) = delete;
-    call_wrapper_implementation(call_wrapper_implementation&&) = delete;
-    call_wrapper_implementation& operator= (call_wrapper_implementation const&) = delete;
-    call_wrapper_implementation& operator= (call_wrapper_implementation&&) = delete;
-
-    virtual ~call_wrapper_implementation() { }
-
-    /// Returns true if the implementation can be allocated in-place in the given region.
-    bool can_allocate_inplace(std::size_t size) const final override
-    {
-        return can_allocate_inplace_helper<
-            next_implementation, Chance
-        >::can_allocate_inplace(size);
-    }
-
-    /// Placed move
-    void move_unique_inplace(interface* ptr) final override
-    {
-        new (ptr) next_implementation(std::move(_impl));
-    }
-
-    /// Move the implementation to the heap
-    interface* move_to_heap() final override
-    {
-        return new generate_next_impl_t<T, Signature, Qualifier, false, 0UL>(std::move(_impl));
-    }
-
-    using call_wrapper_operator_implementation<T, Signature, Qualifier, false>::operator();
-
-}; // struct call_wrapper_implementation
-
-/// Interface: copyable wrapper
-template<typename T, typename Signature, typename Qualifier, std::size_t Chance>
-class call_wrapper_implementation<T, Signature, Qualifier, true, Chance>
-    : public call_wrapper_operator_implementation<T, Signature, Qualifier, true>
-{
-    using interface = call_wrapper_interface<Signature, Qualifier, true>;
-
-    using noncopyable_interface = call_wrapper_interface<Signature, Qualifier, false>;
-
-    using next_implementation = generate_next_impl_t<T, Signature, Qualifier, true, Chance>;
-
-public:
-    T _impl;
-
-    template<typename I>
-    call_wrapper_implementation(I&& impl)
-        : _impl(std::forward<I>(impl)) { }
-
-    call_wrapper_implementation() = delete;
-    call_wrapper_implementation(call_wrapper_implementation const&) = delete;
-    call_wrapper_implementation(call_wrapper_implementation&&) = delete;
-    call_wrapper_implementation& operator= (call_wrapper_implementation const&) = delete;
-    call_wrapper_implementation& operator= (call_wrapper_implementation&&) = delete;
-
-    virtual ~call_wrapper_implementation() { }
-
-    /// Returns true if the implementation can be allocated in-place in the given region.
-    bool can_allocate_inplace(std::size_t size) const final override
-    {
-        return can_allocate_inplace_helper<
-            next_implementation, Chance
-        >::can_allocate_inplace(size);
-    }
-
-    /// Placed move
-    void move_unique_inplace(noncopyable_interface* ptr) final override
-    {
-        new (ptr) next_implementation(std::move(_impl));
-    }
-
-    /// Placed move
-    void move_inplace(interface* ptr) final override
-    {
-        new (ptr) next_implementation(std::move(_impl));
-    }
-
-    /// Move the implementation to the heap
-    interface* move_to_heap() final override
-    {
-        return new generate_next_impl_t<T, Signature, Qualifier, true, 0UL>(std::move(_impl));
-    }
-
-    /// Placed clone
-    void clone_inplace(noncopyable_interface* ptr) const final override
-    {
-        new (ptr) next_implementation(_impl);
-    }
-
-    /// Allocated clone
-    interface* clone_heap() const final override
-    {
-        return new next_implementation(_impl);
-    }
-
-    using call_wrapper_operator_implementation<T, Signature, Qualifier, true>::operator();
-
-}; // struct call_wrapper_implementation
-
-*/
-
-template<typename T, std::size_t Capacity>
-struct storage_base_t
-{
-    storage_base_t() { }
-
-    storage_base_t(T* impl)
-        : _impl(impl) { }
-
-    T* _impl;
-
-    std::uint8_t _locale[Capacity];
-
-}; // struct storage_base_t
-
-template<typename T>
-struct storage_base_t<T, 0UL>
-{
-    storage_base_t() { }
-
-    storage_base_t(T* impl)
-        : _impl(impl) { }
-
-    T* _impl;
-
-}; // struct storage_base_t
 
 template<typename /*Signature*/, typename /*Qualifier*/, typename /*Config*/>
 struct storage_t;
 
 template<typename ReturnType, typename... Args, typename Qualifier, typename Config>
 struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
-     : public storage_base_t<std::false_type, Config::capacity>
-    // call_wrapper_interface<signature<ReturnType(Args...)>, Qualifier, Config::is_copyable>
 {
-    // Call wrapper interface
-    using interface_t = std::false_type /*call_wrapper_interface<
-        signature<ReturnType(Args...)>, Qualifier, Config::is_copyable
-    >*/;
-
-    // Call wrapper implementation
-    template<typename T>
-    using implementation_t = std::false_type /*call_wrapper_implementation<
-        T, signature<ReturnType(Args...)>, Qualifier, Config::is_copyable
-    >*/;
-
-    // Storage base type
-    using base_t = storage_base_t<
-        interface_t, Config::capacity
+    using has_capacity = std::integral_constant<
+        bool,
+        (Config::capacity > 0UL)
     >;
 
-    template<typename T>
-    using is_local_allocateable = std::integral_constant<bool,
-        required_capacity_to_allocate_inplace<T>::value <= Config::capacity
+    using common_vtable_t = function_vtable<
+        signature<ReturnType(Args...)>,
+        true
     >;
+
+    using vtable_ptr_t = function_vtable<
+        signature<ReturnType(Args...)>,
+        Config::is_copyable
+    > const*;
+
+    vtable_ptr_t _vtable;
+
+    void* _impl;
+
+    typename std::conditional<has_capacity::value,
+        typename std::aligned_storage<Config::capacity>::type,
+        std::true_type
+    >::type _locale;
+
+    static vtable_ptr_t empty_vtable()
+    {
+        static constexpr common_vtable_t const vtable(
+            function_wrapper_noop,
+            function_wrapper_empty_invoker<signature<ReturnType(Args...)>, true>::invoke,
+            function_wrapper_zero_size,
+            function_wrapper_noop2,
+            function_wrapper_noop2
+        );
+
+        return &vtable;
+    }
 
     storage_t()
-        : base_t(nullptr) { }
+        : _vtable(empty_vtable()), _impl(&_locale) { }
 
-    explicit storage_t(storage_t const& right) : base_t()
+    explicit storage_t(storage_t const& right)
     {
         weak_copy_assign(right);
     }
 
-    explicit storage_t(storage_t&& right) : base_t()
+    explicit storage_t(storage_t&& right)
     {
         weak_move_assign(std::forward<storage_t>(right));
     }
 
     storage_t& operator= (storage_t const& right)
     {
-        copy_assign(right);
+        weak_deallocate();
+        weak_copy_assign(right);
         return *this;
     }
 
     storage_t& operator= (storage_t&& right)
     {
-        move_assign(std::forward<storage_t>(right));
+        weak_deallocate();
+        weak_move_assign(std::forward<storage_t>(right));
         return *this;
     }
 
     ~storage_t()
     {
-        this->weak_deallocate();
+        weak_deallocate();
     }
 
+    // Private API
     inline void weak_deallocate()
     {
+        _vtable->destruct(_impl);
+
+        if (_impl != &_locale)
+            std::free(_impl);
     }
 
-    inline bool is_allocated() const
-    {
-        return false; // this->_impl != nullptr;
-    }
-
-    inline void change_to_locale()
-    {
-        // this->_impl = reinterpret_cast<interface_t*>(&this->_locale);
-    }
-
-    template<typename T>
-    void allocate(T&& functor)
-    {
-        // this->weak_deallocate();
-        // weak_allocate(std::forward<T>(functor));
-    }
-
-    /// Direct allocate (use capacity)
-    /*template<typename T>
-    auto weak_allocate(T&& functor)
-        -> typename std::enable_if<is_local_allocateable<implementation_t<typename std::decay<T>::type>>::value>::type
-    {
-        // new (&this->_locale) implementation_t<typename std::decay<T>::type>(std::forward<T>(functor));
-        // change_to_locale();
-    }*/
-
-    /// Heap allocate
-    template<typename T>
-    auto weak_allocate(T&& functor)
-        // -> typename std::enable_if<!is_local_allocateable<implementation_t<typename std::decay<T>::type>>::value>::type
-    {
-        // this->_impl = new implementation_t<typename std::decay<T>::type>(std::forward<T>(functor));
-    }
-
-    template<typename T>
-    inline void copy_assign(T const& right)
-    {
-        // this->weak_deallocate();
-        // weak_copy_assign(right);
-    }
-
-    template<typename T>
-    inline void do_copy_allocate(T const& right)
-    {
-        // change_to_locale();
-        // right._impl->clone_inplace(this->_impl);
-    }
-
-    // Copy assign with in-place capability.
-    template<typename RightConfig,
-             typename std::enable_if<(Config::capacity > 0UL) && RightConfig::is_copyable>::type* = nullptr>
-    void weak_copy_assign(storage_t<signature<ReturnType(Args...)>, Qualifier, RightConfig> const& right)
-    {
-        /*
-        if (!right.is_allocated())
-            clean(); // Deallocate if right is unallocated
-        else if (right._impl->can_allocate_inplace(Config::capacity))
-            do_copy_allocate(right);
-        else
-            this->_impl = right._impl->clone_heap(); // heap clone
-            */
-    }
-
-    // Copy assign with no in-place capability.
-    template<typename RightConfig,
-             typename std::enable_if<(Config::capacity == 0UL) && RightConfig::is_copyable>::type* = nullptr>
-    void weak_copy_assign(storage_t<signature<ReturnType(Args...)>, Qualifier, RightConfig> const& right)
-    {
-        /*
-        if (!right.is_allocated())
-            clean(); // Deallocate if right is unallocated
-        else
-            this->_impl = right._impl->clone_heap(); // heap clone
-            */
-    }
-
-    template<typename T>
-    static bool can_allocate_inplace(T const& right)
-    {
-        return false; // return right._impl->can_allocate_inplace(Config::capacity);
-    }
-
-    template<typename T>
-    void do_move_allocate_inplace(tag<true>, T&& right)
-    {
-        /*
-        change_to_locale();
-        right._impl->move_inplace(this->_impl);
-        right.deallocate();
-        */
-    }
-
-    template<typename T>
-    void do_move_allocate_inplace(tag<false>, T&& right)
-    {
-        /*
-        change_to_locale();
-        right._impl->move_unique_inplace(this->_impl);
-        right.deallocate();
-        */
-    }
-
-    template<typename T>
-    inline void do_move_allocate_to_heap(T&& right)
-    {
-        // this->_impl = right._impl->move_to_heap();
-        // right.deallocate();
-    }
-
-    template<typename T>
-    inline void move_assign(T&& right)
-    {
-        // this->weak_deallocate();
-        // weak_move_assign(std::forward<T>(right));
-    }
-
-    template<typename RightConfig,
-             typename std::enable_if<(Config::capacity > 0UL) && deduce_t<RightConfig>::value>::type* = nullptr>
-    void weak_move_assign(storage_t<signature<ReturnType(Args...)>, Qualifier, RightConfig>&& right)
-    {
-        /*
-        if (!right.is_allocated())
-            clean(); // Deallocate if right is unallocated
-        else if (can_allocate_inplace(right))
-            do_move_allocate_inplace(tag<Config::is_copyable>{}, std::move(right));
-        else
-        {
-            if (right.is_inplace())
-                do_move_allocate_to_heap(std::move(right));
-            else
-            {
-                this->_impl = right._impl;
-                right._impl = nullptr;
-            }
-        }
-        */
-    }
-
-    template<typename RightConfig,
-             typename std::enable_if<(Config::capacity == 0UL) && deduce_t<RightConfig>::value>::type* = nullptr>
-    void weak_move_assign(storage_t<signature<ReturnType(Args...)>, Qualifier, RightConfig>&& right)
-    {
-        /*
-        if (!right.is_allocated())
-            clean(); // Deallocate if right is unallocated
-        else
-        {
-            if (right.is_inplace())
-                do_move_allocate_to_heap(std::move(right));
-            else
-            {
-                this->_impl = right._impl;
-                right._impl = nullptr;
-            }
-        }
-        */
-    }
-
-    void clean()
-    {
-        // this->_impl = nullptr;
-    }
-
+    // Private API
     void deallocate()
     {
-        // this->weak_deallocate();
-        // clean();
+        weak_deallocate();
+        tidy();
+    }
+
+    inline void tidy()
+    {
+        _vtable = empty_vtable();
+        _impl = &_locale;
+    }
+
+    template<typename T>
+    void weak_allocate_object(T functor)
+    {
+        using is_local_allocateable = std::integral_constant<bool,
+            required_capacity_to_allocate_inplace<typename std::decay<T>::type>::value <= Config::capacity
+        >;
+
+        weak_allocate_object(is_local_allocateable{}, std::forward<T>(functor));
+    }
+
+    template<typename T>
+    vtable_ptr_t create_vtable_for_type()
+    {
+        static constexpr common_vtable_t const vtable(
+            function_wrapper_destruct<typename std::decay<T>::type>,
+            function_wrapper_invoker<typename std::decay<T>::type, signature<ReturnType(Args...)>, Qualifier>::invoke,
+            function_wrapper_required_size<typename std::decay<T>::type>,
+            function_wrapper_move<typename std::decay<T>::type>,
+            function_wrapper_copy<typename std::decay<T>::type>
+        );
+
+        return &vtable;
+    }
+
+    // Allocate in locale capacity.
+    template<typename T>
+    void weak_allocate_object(std::true_type, T functor)
+    {
+        _vtable = create_vtable_for_type<typename std::decay<T>::type>();
+        _impl = &_locale;
+        function_wrapper_construct<typename std::decay<T>::type>(_impl, std::forward<T>(functor));
+    }
+
+    // Allocate on the heap.
+    template<typename T>
+    void weak_allocate_object(std::false_type, T functor)
+    {
+        _vtable = create_vtable_for_type<typename std::decay<T>::type>();
+        _impl = function_wrapper_allocate<typename std::decay<T>::type>();
+        function_wrapper_construct<typename std::decay<T>::type>(_impl, std::forward<T>(functor));
+    }
+
+    void weak_allocate_function_pointer(ReturnType(*function_pointer)(Args...))
+    {
+        weak_allocate_object([function_pointer](Args&&... args) -> ReturnType
+        {
+            return function_pointer(std::forward<Args>(args)...);
+        });
+    }
+
+    // Private API
+    template<typename RightConfig, typename std::enable_if<RightConfig::is_copyable>::type* = nullptr>
+    void weak_copy_assign(storage_t<signature<ReturnType(Args...)>, Qualifier, RightConfig> const& right)
+    {
+        _vtable = right._vtable;
+
+        std::size_t const required_size = right._vtable->required_size();
+        if (right._impl == &right._locale && (Config::capacity >= required_size))
+            _impl = &_locale;
+        else
+            _impl = std::malloc(required_size);
+
+        right._vtable->copy(right._impl, _impl);
+    }
+
+    // Private API
+    template<typename RightConfig>
+    void weak_move_assign(storage_t<signature<ReturnType(Args...)>, Qualifier, RightConfig>&& right)
+    {
+        _vtable = right._vtable;
+
+        std::size_t const required_size = right._vtable->required_size();
+        if (right._impl == &right._locale)
+        {
+            if (Config::capacity >= required_size)
+                _impl = &_locale;
+            else
+                _impl = std::malloc(required_size);
+
+            right._vtable->move(right._impl, _impl);
+            right.deallocate();
+        }
+        else
+        {
+            // Steal the ownership
+            _impl = right._impl;
+            right.tidy();
+        }
     }
 
 }; // struct storage_t
@@ -776,7 +607,9 @@ struct call_operator;
         { \
             using base = function<signature<ReturnType(Args...)>, qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, Config>; \
           \
-            return ReturnType() /*FU2_MACRO_MOVE_IF(IS_RVALUE)(*static_cast<base FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) *>(this)->_storage._impl)(std::forward<Args>(args)...)*/; \
+            auto const me = static_cast<base FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) *>(this); \
+          \
+            return me->_storage._vtable->invoke(me->_storage._impl, std::forward<Args>(args)...); \
         } \
     };
 
@@ -787,6 +620,7 @@ FU2_MACRO_EXPAND_3(FU2_MACRO_DEFINE_CALL_OPERATOR)
 template<typename ReturnType, typename... Args, typename Qualifier, typename Config>
 class function<signature<ReturnType(Args...)>, Qualifier, Config>
     : public call_operator<function<signature<ReturnType(Args...)>, Qualifier, Config>>,
+      public signature<ReturnType(Args...)>,
       public copyable<Config::is_copyable>
 {
     template<typename, typename, typename>
@@ -803,7 +637,7 @@ class function<signature<ReturnType(Args...)>, Qualifier, Config>
     // Is a true type if the given function pointer is assignable to this.
     template<typename T>
     using is_function_pointer_assignable_to_this = std::integral_constant<bool,
-        is_function_pointer<T>::value &&
+        std::is_convertible<T, ReturnType(*)(Args...)>::value &&
         !Qualifier::is_volatile
     >;
 
@@ -816,26 +650,6 @@ class function<signature<ReturnType(Args...)>, Qualifier, Config>
 
     // Implementation storage
     storage_t<signature<ReturnType(Args...)>, Qualifier, Config> _storage;
-
-    // Box for small copyable types (function pointers)
-    template<typename T>
-    class functor_box
-    {
-        T _boxed;
-
-    public:
-        template<typename B>
-        functor_box(B&& box)
-            : _boxed(std::forward<B>(box)) { }
-
-        ReturnType operator() (Args&&... args) const
-        {
-            return _boxed(std::forward<Args>(args)...);
-        }
-    };
-
-    template<typename T>
-    using functor_box_of = functor_box<typename std::decay<T>::type>;
 
 public:
     function() = default;
@@ -859,13 +673,15 @@ public:
     template<typename T,
              typename = typename std::enable_if<is_function_pointer_assignable_to_this<T>::value>::type, typename = void>
     function(T function_pointer)
-        : function(functor_box_of<T>(std::forward<T>(function_pointer))) { }
+    {
+        _storage.weak_allocate_function_pointer(std::forward<T>(function_pointer));
+    }
 
     /// Constructor taking a functor
     template<typename T, typename = typename std::enable_if<is_functor_assignable_to_this<T>::value>::type>
     function(T functor)
     {
-        _storage.weak_allocate(std::forward<T>(functor));
+        _storage.weak_allocate_object(std::forward<T>(functor));
     }
 
     explicit function(std::nullptr_t)
@@ -875,7 +691,8 @@ public:
     template<typename RightConfig, typename std::enable_if<RightConfig::is_copyable>::type* = nullptr>
     function& operator= (function<signature<ReturnType(Args...)>, Qualifier, RightConfig> const& right)
     {
-        _storage.copy_assign(right._storage);
+        _storage.weak_deallocate();
+        _storage.weak_copy_assign(right._storage);
         return *this;
     }
 
@@ -884,7 +701,8 @@ public:
              typename std::enable_if<is_copyable_correct_to_this<RightConfig::is_copyable>::value>::type* = nullptr>
     function& operator= (function<signature<ReturnType(Args...)>, Qualifier, RightConfig>&& right)
     {
-        _storage.move_assign(std::move(right._storage));
+        _storage.weak_deallocate();
+        _storage.weak_move_assign(std::move(right._storage));
         return *this;
     }
 
@@ -892,7 +710,8 @@ public:
     template<typename T, typename std::enable_if<is_function_pointer_assignable_to_this<T>::value>::type* = nullptr>
     function& operator= (T function_pointer)
     {
-        _storage.allocate(functor_box_of<T>(std::forward<T>(function_pointer)));
+        _storage.weak_deallocate();
+        _storage.weak_allocate_function_pointer(std::forward<T>(function_pointer));
         return *this;
     }
 
@@ -900,7 +719,8 @@ public:
     template<typename T, typename std::enable_if<is_functor_assignable_to_this<T>::value>::type* = nullptr>
     function& operator= (T functor)
     {
-        _storage.allocate(std::forward<T>(functor));
+        _storage.weak_deallocate();
+        _storage.weak_allocate_object(std::forward<T>(functor));
         return *this;
     }
 
@@ -911,12 +731,6 @@ public:
     }
 
     using call_operator<function>::operator();
-
-    /// The return type of the function.
-    using return_type = typename signature<ReturnType(Args...)>::return_type;
-
-    /// The argument types of the function as pack in std::tuple.
-    using argument_type = typename signature<ReturnType(Args...)>::argument_type;
 
 }; // class function
 
@@ -935,7 +749,7 @@ using default_capacity = std::integral_constant<std::size_t,
 #undef FU2_MACRO_FULL_QUALIFIER
 #undef FU2_MACRO_EXPAND_3
 
-} // inline namespace v1
+} // inline namespace v2
 
 } // namespace detail
 
@@ -965,6 +779,10 @@ using unique_function = function_base<
     Signature,
     false
 >;
+
+/// The exception type thrown through empty function calls
+/// when 'Throwing' is set to true
+using detail::bad_function_call;
 
 } // namespace fu2
 

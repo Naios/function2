@@ -295,6 +295,34 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
     }
 }
 
+TEST_CASE("Functions throw when invoked empty", "[function<>]")
+{
+    SECTION("Throws when invoking after empty constructed")
+    {
+        function<bool()> left;
+
+        REQUIRE_THROWS_AS(left(), fu2::bad_function_call);
+    }
+
+    SECTION("Throws when invoking after assigned std::nullptr")
+    {
+        function<bool()> left = false_function;
+
+        left = nullptr;
+
+        REQUIRE_THROWS_AS(left(), fu2::bad_function_call);
+    }
+
+    SECTION("Throws when invoking after moving the content out")
+    {
+        function<bool()> left = false_function;
+
+        function<bool()> right = std::move(left);
+
+        REQUIRE_THROWS_AS(left(), fu2::bad_function_call);
+    }
+}
+
 TEST_CASE("Functions are convertible to and from functors", "[function<>]")
 {
     SECTION("Copy construct fu2::function from std::function")
