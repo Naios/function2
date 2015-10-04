@@ -16,10 +16,10 @@ void runBenchmark();
 
 // Functions without sfo optimization
 template<typename Signature>
-using no_sfo_function = fu2::function_base<Signature, true, 0UL>;
+using function = fu2::function_base<Signature, true, 0UL>;
 
 template<typename Signature>
-using no_sfo_unique_function = fu2::function_base<Signature, false, 0UL>;
+using unique_function = fu2::function_base<Signature, false, 0UL>;
 
 // Functions with sfo optimization
 static constexpr std::size_t testing_sfo_capacity = 256UL;
@@ -29,9 +29,6 @@ using sfo_function = fu2::function_base<Signature, true, testing_sfo_capacity>;
 
 template<typename Signature>
 using sfo_unique_function = fu2::function_base<Signature, false, testing_sfo_capacity>;
-
-using fu2::function;
-using fu2::unique_function;
 
 constexpr std::size_t sz1 = sizeof(std::function<bool(int, float, long)>);
 constexpr std::size_t sz2 = sizeof(std::function<void()>);

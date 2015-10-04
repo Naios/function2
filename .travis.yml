@@ -69,9 +69,8 @@ install:
 
   - mkdir bin
   - cd bin
-  - cmake ../ -DCMAKE_BUILD_TYPE=Release
+  - cmake .. -DCMAKE_C_FLAGS="-Werror" -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_BUILD_TYPE=Release
 
 script:
   - make -j2
-  - ./Test
-  - valgrind --leak-check=full --show-reachable=yes ./Test
+  - valgrind --error-exitcode=1 --leak-check=full --show-reachable=yes ./Test

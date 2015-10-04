@@ -147,8 +147,9 @@ fun = un_fun;
 function2 is adaptable through `fu2::function_base` which allows you to set:
 
 - **Signature:** defines the signature of the function.
-- **Capacity:** defines the internal capacity used for [sfo optimization](#small-functor-optimization).
 - **Copyable:** defines if the function is copyable or not.
+- **Capacity:** defines the internal capacity used for [sfo optimization](#small-functor-optimization).
+- **Throwing** defines if empty function calls throw an `fu2::bad_function_call` exception, otherwise `std::abort` is called.
 
 The following code defines a function with a variadic signature which is copyable and sfo optimization is disabled:
 
@@ -181,25 +182,25 @@ It's possible to disable small functor optimization through setting the capacity
 
 ### Compiler optimization
 
-Unique functions are heavily optimized by compilers see below:
+Functions are heavily optimized by compilers see below:
 
 ```c++
 int main(int argc, char**)
 {
-    fu2::unique_function<int()> fun([=]
+    fu2::function<int()> fun([=]
     {
-        return argc + 10;
-    );
-    return fun() + fun();
+        return argc + 20;
+    });
+    return fun();
 }
 ```
 
-[Clang 3.4+ with -O3 compiles it into](https://goo.gl/F7saQy):
+[Clang 3.4+ and GCC 4.8+ with -O3 compile the following short x86 asm code](https://goo.gl/S3YC98):
 
 ```asm
 main: # @main
-    lea	eax, [rdi + rdi + 20]
-    ret
+	lea	eax, [rdi + 20]
+	ret
 ```
 
 (`std::function` [compiles into ~70 instructions](https://goo.gl/GO4G4b)).
