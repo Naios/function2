@@ -437,7 +437,7 @@ struct vtable_creator_of_type<T, signature<ReturnType(Args...)>, Qualifier, true
 
     static common_vtable_t const* create_vtable()
     {
-        static constexpr common_vtable_t const vtable(
+        static common_vtable_t const vtable(
             function_wrapper_destruct<T>,
             function_wrapper_invoker<T, signature<ReturnType(Args...)>, Qualifier>::invoke,
             function_wrapper_required_size<T>,
@@ -459,7 +459,7 @@ struct vtable_creator_of_type<T, signature<ReturnType(Args...)>, Qualifier, fals
 
     static common_vtable_t const* create_vtable()
     {
-        static constexpr common_vtable_t const vtable(
+        static common_vtable_t const vtable(
             function_wrapper_destruct<T>,
             function_wrapper_invoker<T, signature<ReturnType(Args...)>, Qualifier>::invoke,
             function_wrapper_required_size<T>,
