@@ -786,44 +786,35 @@ using default_capacity = std::integral_constant<std::size_t,
 
 } /// namespace detail
 
-/*!
- * Adaptable function wrapper base for arbitrary functional types.
- */
-template<
-    typename Signature,
-    bool Copyable,
-    std::size_t Capacity = detail::default_capacity::value,
-    bool Throwing = true
->
+/// \brief Adaptable function wrapper base for arbitrary functional types.
+template<typename Signature,
+         bool Copyable,
+         std::size_t Capacity = detail::default_capacity::value,
+         bool Throwing = true>
 using function_base = detail::function<
     typename detail::unwrap<Signature>::signature,
     typename detail::unwrap<Signature>::qualifier,
     detail::config<Copyable, Capacity, Throwing>
 >;
 
-/*!
- * Copyable function wrapper for arbitrary functional types.
- */
+/// \brief Copyable function wrapper for arbitrary functional types.
 template<typename Signature>
 using function = function_base<
     Signature,
     true
 >;
 
-/*!
- * Non copyable function wrapper for arbitrary functional types.
- */
+/// \brief Non copyable function wrapper for arbitrary functional types.
 template<typename Signature>
 using unique_function = function_base<
     Signature,
     false
 >;
 
-/*! \brief Exception type when invoking empty functional wrappers.
- *
- * The exception type thrown through empty function calls
- * when the template parameter 'Throwing' is set to true (default).
- */
+/// \brief Exception type when invoking empty functional wrappers.
+///
+/// The exception type thrown through empty function calls
+/// when the template parameter 'Throwing' is set to true (default).
 using detail::bad_function_call;
 
 } /// namespace fu2
