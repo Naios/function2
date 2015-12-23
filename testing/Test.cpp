@@ -696,6 +696,32 @@ TEST_CASE("Functions with SFO optimization", "[function<>]")
 
         REQUIRE(left());
     }
+
+    SECTION("Function SFO copying from wrapper functors")
+    {
+        class call_decorator
+        {
+            sfo_unique_function<bool() const> function_;
+
+        public:
+            call_decorator(sfo_unique_function<bool() const>&& function)
+                : function_(std::move(function)) { }
+
+            bool operator() () const
+            {
+                return function_();
+            }
+        };
+
+        sfo_unique_function<bool() const> right([]
+        {
+            return true;
+        });
+
+        sfo_unique_function<bool() const> left(call_decorator{ std::move(right) });
+
+        REQUIRE(left());
+    }
 }
 
 struct volatile_functor
