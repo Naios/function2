@@ -484,7 +484,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
 
     vtable_ptr_t _vtable;
 
-    void* _impl;
+    void* _impl = nullptr;
 
     typename std::conditional<(Config::capacity > 0UL),
         typename std::aligned_storage<Config::capacity>::type,
