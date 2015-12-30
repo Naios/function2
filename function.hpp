@@ -484,7 +484,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
 
     vtable_ptr_t _vtable;
 
-    void* _impl;
+    void* _impl = nullptr;
 
     typename std::conditional<(Config::capacity > 0UL),
         typename std::aligned_storage<Config::capacity>::type,
@@ -544,7 +544,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
     inline void tidy()
     {
         _vtable = vtable_creator_of_empty_function<signature<ReturnType(Args...)>, Config::is_throwing>::create_vtable();
-        _impl = &_locale;
+        _impl = nullptr;
     }
 
     // Allocate in locale capacity.
@@ -623,6 +623,8 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
             right.tidy();
         }
     }
+
+    inline bool empty() const { return _impl ? false : true; }
 
 }; // struct storage_t
 
@@ -762,6 +764,9 @@ public:
         _storage.deallocate();
         return *this;
     }
+
+    bool empty() const { return _storage.empty(); }
+    explicit operator bool() const { return !empty(); }
 
     using call_operator<function>::operator();
 

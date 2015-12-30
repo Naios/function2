@@ -93,6 +93,8 @@ TEST_CASE("Functions are callable", "[function<>]")
     {
         function<bool(bool) const> fun(lam);
 
+        REQUIRE_FALSE(fun.empty());
+        REQUIRE(fun);
         REQUIRE(fun(true));
         REQUIRE(is_set);
 
@@ -104,6 +106,8 @@ TEST_CASE("Functions are callable", "[function<>]")
     {
         unique_function<bool(bool) const> ufun(std::move(lam));
 
+        REQUIRE_FALSE(ufun.empty());
+        REQUIRE(ufun);
         REQUIRE(ufun(true));
         REQUIRE(is_set);
 
@@ -115,6 +119,8 @@ TEST_CASE("Functions are callable", "[function<>]")
     {
         function<bool(bool)&&> fun(lam);
 
+        REQUIRE_FALSE(fun.empty());
+        REQUIRE(fun);
         REQUIRE(std::move(fun)(true));
         REQUIRE(is_set);
     }
@@ -123,6 +129,8 @@ TEST_CASE("Functions are callable", "[function<>]")
     {
         unique_function<bool(bool)&&> ufun(std::move(lam));
 
+        REQUIRE_FALSE(ufun.empty());
+        REQUIRE(ufun);
         REQUIRE(std::move(ufun)(true));
         REQUIRE(is_set);
     }
@@ -139,7 +147,11 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
 
         unique_function<bool() const> left(std::move(right));
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
+        REQUIRE(right.empty());
+        REQUIRE_FALSE(right);
     }
 
     SECTION("Move assign between unique_function<bool() const>")
@@ -153,7 +165,11 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
 
         left = std::move(right);
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
+        REQUIRE(right.empty());
+        REQUIRE_FALSE(right);
     }
 
 #ifdef HAS_CXX14_LAMBDA_CAPTURE
@@ -167,6 +183,8 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
             return *up;
         };
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -181,6 +199,8 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
 
         function<bool() const> left(std::move(right));
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -195,7 +215,11 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
 
         left = std::move(right);
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
+        REQUIRE(right.empty());
+        REQUIRE_FALSE(right);
     }
 
     SECTION("Copy construct between function<int()>")
@@ -206,14 +230,19 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
             return counter++;
         });
 
+        REQUIRE_FALSE(right.empty());
+        REQUIRE(right);
         REQUIRE(right() == 0);
         REQUIRE(right() == 1);
         REQUIRE(right() == 2);
 
         function<int()> left(right);
+
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left() == 3);
         REQUIRE(left() == 4);
-        
+
         REQUIRE(right() == 3);
         REQUIRE(right() == 4);
 
@@ -229,11 +258,15 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
             return counter++;
         });
 
+        REQUIRE_FALSE(right.empty());
+        REQUIRE(right);
         REQUIRE(right() == 0);
         REQUIRE(right() == 1);
         REQUIRE(right() == 2);
 
         left = right;
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left() == 3);
         REQUIRE(left() == 4);
 
@@ -252,12 +285,16 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
             return counter++;
         });
 
+        REQUIRE_FALSE(right.empty());
+        REQUIRE(right);
         REQUIRE(right() == 0);
         REQUIRE(right() == 1);
         REQUIRE(right() == 2);
 
         left = right;
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left() == 3);
         REQUIRE(left() == 4);
 
@@ -276,12 +313,16 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
             return counter++;
         });
 
+        REQUIRE_FALSE(right.empty());
+        REQUIRE(right);
         REQUIRE(right() == 0);
         REQUIRE(right() == 1);
         REQUIRE(right() == 2);
 
         unique_function<int()> left(right);
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left() == 3);
         REQUIRE(left() == 4);
 
@@ -289,6 +330,45 @@ TEST_CASE("Functions are copy and moveable", "[function<>]")
         REQUIRE(right() == 4);
 
         REQUIRE(left() == 5);
+    }
+}
+
+TEST_CASE("Functions can be empty", "[function<>]")
+{
+    SECTION("Default construction is empty function")
+    {
+        function<void()> fun;
+        REQUIRE(fun.empty());
+        REQUIRE_FALSE(fun);
+    }
+
+    SECTION("Default construction is empty unique_function")
+    {
+        unique_function<void()> ufun;
+        REQUIRE(ufun.empty());
+        REQUIRE_FALSE(ufun);
+    }
+
+    SECTION("Moved-from function is empty")
+    {
+        function<void()> left = []{};
+        function<void()> right;
+
+        left = std::move(right);
+
+        REQUIRE(left.empty());
+        REQUIRE_FALSE(left);
+    }
+
+    SECTION("Moved-from unique_function is empty")
+    {
+        unique_function<void()> left = [] {};
+        unique_function<void()> right;
+
+        left = std::move(right);
+
+        REQUIRE(left.empty());
+        REQUIRE_FALSE(left);
     }
 }
 
@@ -331,6 +411,8 @@ TEST_CASE("Functions are convertible to and from functors", "[function<>]")
 
         function<bool()> left = right;
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -345,6 +427,8 @@ TEST_CASE("Functions are convertible to and from functors", "[function<>]")
 
         left = right;
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -356,7 +440,7 @@ TEST_CASE("Functions are convertible to and from functors", "[function<>]")
         });
 
         std::function<bool()> left(right);
-    
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -370,7 +454,7 @@ TEST_CASE("Functions are convertible to and from functors", "[function<>]")
         std::function<bool()> left;
 
         left = right;
-
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -383,6 +467,7 @@ TEST_CASE("Functions are convertible to and from functors", "[function<>]")
 
         std::function<bool()> left(right);
 
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -397,6 +482,7 @@ TEST_CASE("Functions are convertible to and from functors", "[function<>]")
 
         left = right;
 
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -409,6 +495,8 @@ TEST_CASE("Functions are convertible to and from functors", "[function<>]")
 
         function<bool()> left = std::move(right);
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -423,6 +511,8 @@ TEST_CASE("Functions are convertible to and from functors", "[function<>]")
 
         left = std::move(right);
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -435,6 +525,7 @@ TEST_CASE("Functions are convertible to and from functors", "[function<>]")
 
         std::function<bool()> left(std::move(right));
 
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -449,6 +540,7 @@ TEST_CASE("Functions are convertible to and from functors", "[function<>]")
 
         left = std::move(right);
 
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -461,6 +553,7 @@ TEST_CASE("Functions are convertible to and from functors", "[function<>]")
 
         std::function<bool()> left(std::move(right));
 
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -475,6 +568,7 @@ TEST_CASE("Functions are convertible to and from functors", "[function<>]")
 
         left = std::move(right);
 
+        REQUIRE(left);
         REQUIRE(left());
     }
 }
@@ -485,10 +579,14 @@ TEST_CASE("Functions are convertible from function pointers", "[function<>]")
     {
         function<bool()> left = true_function;
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
 
         left = false_function;
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE_FALSE(left());
     }
 }
@@ -509,10 +607,14 @@ TEST_CASE("Functions are convertible from templated functors", "[function<>]")
 
         function<bool()> left = std::bind(&bind_class::through, bc, true);
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
 
         left = std::bind(&bind_class::through, bc, false);
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE_FALSE(left());
     }
 
@@ -525,6 +627,8 @@ TEST_CASE("Functions are convertible from templated functors", "[function<>]")
             return ret;
         };
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left(true));
         REQUIRE_FALSE(left(false));
     }
@@ -545,6 +649,8 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
 
         unique_function<bool() const> left = std::move(right);
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -559,6 +665,8 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
 
         left = std::move(right);
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -573,6 +681,8 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
 
         unique_function<bool()> left = std::move(right);
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -587,6 +697,8 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
 
         left = std::move(right);
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -601,6 +713,8 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
 
         function<bool()> left(std::move(right));
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -620,6 +734,8 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
 
         function<bool()> left(std::move(right));
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -637,6 +753,8 @@ TEST_CASE("unique_function's are convertible to non copyable functors and from c
 
         unique_function<bool()> left(std::move(right));
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 }
@@ -663,6 +781,8 @@ TEST_CASE("Functions with SFO optimization", "[function<>]")
                 };
             }
 
+            REQUIRE_FALSE(left.empty());
+            REQUIRE(left);
             REQUIRE(left());
         }
 
@@ -680,6 +800,8 @@ TEST_CASE("Functions with SFO optimization", "[function<>]")
 
         left = right;
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -694,6 +816,8 @@ TEST_CASE("Functions with SFO optimization", "[function<>]")
 
         left = right;
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -720,6 +844,8 @@ TEST_CASE("Functions with SFO optimization", "[function<>]")
 
         sfo_unique_function<bool() const> left(call_decorator{ std::move(right) });
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 }
@@ -746,6 +872,8 @@ TEST_CASE("Functions with volatile qualifier", "[function<>]")
     {
         function<bool() volatile> left = volatile_functor{};
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 
@@ -753,6 +881,8 @@ TEST_CASE("Functions with volatile qualifier", "[function<>]")
     {
         function<bool() const volatile> left = const_volatile_functor{};
 
+        REQUIRE_FALSE(left.empty());
+        REQUIRE(left);
         REQUIRE(left());
     }
 }
