@@ -1,8 +1,8 @@
 
 //  Copyright 2015 Denis Blank <denis.blank at outlook dot com>
 //   Distributed under the Boost Software License, Version 1.0
-//      (See accompanying file LICENSE_1_0.txt or copy at
-//           http://www.boost.org/LICENSE_1_0.txt)
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//       http://www.boost.org/LICENSE_1_0.txt)
 
 #include <chrono>
 #include <string>
@@ -20,106 +20,106 @@ static constexpr std::size_t runs = 1000000;
 template<typename F>
 struct CopyFunctions
 {
-    static void invoke()
+  static void invoke()
+  {
+    int c = 0;
+
+    for (std::size_t i = 0; i < runs; ++i)
     {
-        int c = 0;
+      F fun = [&c]
+      {
+        ++c;
+      };
 
-        for (std::size_t i = 0; i < runs; ++i)
-        {
-            F fun = [&c]
-            {
-                ++c;
-            };
-
-            fun();
-        }
+      fun();
     }
+  }
 };
 
 template<typename F>
 struct MoveFunctions
 {
-    static void invoke()
+  static void invoke()
+  {
+    std::size_t c = 0;
+
+    std::vector<int> vec = { 1 };
+
+    F right = [&c, vec = std::move(vec)]
     {
-        std::size_t c = 0;
+      c += vec.size();
+    };
 
-        std::vector<int> vec = { 1 };
-
-        F right = [&c, vec = std::move(vec)]
-        {
-            c += vec.size();
-        };
-
-        for (std::size_t i = 0; i < runs; ++i)
-        {
-            F fun = std::move(right);
-            fun();
-            right = std::move(fun);
-        }
+    for (std::size_t i = 0; i < runs; ++i)
+    {
+      F fun = std::move(right);
+      fun();
+      right = std::move(fun);
     }
+  }
 };
 
 template<typename F>
 struct InvokeFunctions
 {
-    static void invoke()
+  static void invoke()
+  {
+    std::size_t c = 0;
+
+    F right = [&c](std::size_t i)
     {
-        std::size_t c = 0;
+      c += i;
+    };
 
-        F right = [&c](std::size_t i)
-        {
-            c += i;
-        };
-
-        for (std::size_t i = 0; i < runs; ++i)
-            right(i);
-    }
+    for (std::size_t i = 0; i < runs; ++i)
+      right(i);
+  }
 };
 
 template<typename T>
 auto measure()
 {
-    auto const start = std::chrono::high_resolution_clock::now();
-    T::invoke();
-    auto const end = std::chrono::high_resolution_clock::now();
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+  auto const start = std::chrono::high_resolution_clock::now();
+  T::invoke();
+  auto const end = std::chrono::high_resolution_clock::now();
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 }
 
 template<typename StdImpl, typename OwnImpl>
 void take_time(std::string const& name)
 {
-    auto const left = measure<StdImpl>();
-    auto const right = measure<OwnImpl>();
+  auto const left = measure<StdImpl>();
+  auto const right = measure<OwnImpl>();
 
-    auto pct = static_cast<int>((static_cast<double>(left) / static_cast<double>(right)) * 100) - 100;
+  auto pct = static_cast<int>((static_cast<double>(left) / static_cast<double>(right)) * 100) - 100;
 
-    std::cout << "\nBenchmark: " << name << std::endl;
-    std::cout << "    std::function:         " << left << "ns" << std::endl;
-    std::cout << "    fu2::(unique)function: " << right << "ns\t " << (pct > 0 ? "+" : "") << pct << "%\n";
+  std::cout << "\nBenchmark: " << name << std::endl;
+  std::cout << "  std::function:     " << left << "ns" << std::endl;
+  std::cout << "  fu2::(unique)function: " << right << "ns\t " << (pct > 0 ? "+" : "") << pct << "%\n";
 }
 
 void runBenchmark()
 {
-    take_time<
-        CopyFunctions<std::function<void()>>, CopyFunctions<fu2::function_base<void(), true, 64UL>>>
-        ("Construct and copy function wrapper");
+  take_time<
+    CopyFunctions<std::function<void()>>, CopyFunctions<fu2::function_base<void(), true, 64UL>>>
+    ("Construct and copy function wrapper");
 
-    take_time<
-        MoveFunctions<std::function<void()>>, MoveFunctions<fu2::function_base<void(), false, 0UL>>>
-        ("Move function wrapper around");
+  take_time<
+    MoveFunctions<std::function<void()>>, MoveFunctions<fu2::function_base<void(), false, 0UL>>>
+    ("Move function wrapper around");
 
-    take_time<
-        InvokeFunctions<std::function<void(std::size_t)>>, InvokeFunctions<fu2::function_base<void(std::size_t), true, 64UL>>>
-        ("Invoke function wrapper");
+  take_time<
+    InvokeFunctions<std::function<void(std::size_t)>>, InvokeFunctions<fu2::function_base<void(std::size_t), true, 64UL>>>
+    ("Invoke function wrapper");
 
-    std::cout << std::endl;
+  std::cout << std::endl;
 }
 
 #else
 
 void runBenchmark()
 {
-    std::cout << "Skipped benchmark due to no C++14 support" << std::endl;
+  std::cout << "Skipped benchmark due to missing C++14 support" << std::endl;
 }
 
 #endif // #ifdef HAS_CXX14_LAMBDA_CAPTURE
