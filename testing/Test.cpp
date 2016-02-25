@@ -77,6 +77,13 @@ bool false_function()
   return false;
 }
 
+bool testSelfContaining();
+
+TEST_CASE("Functions are self containing", "[function<>]")
+{
+  REQUIRE(testSelfContaining());
+}
+
 TEST_CASE("Functions are callable", "[function<>]")
 {
   bool is_set = false;
