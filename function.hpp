@@ -9,6 +9,7 @@
 
 #include <tuple>
 #include <memory>
+#include <cstdlib>
 #include <exception>
 #include <type_traits>
 
