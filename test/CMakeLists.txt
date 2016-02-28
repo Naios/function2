@@ -14,7 +14,11 @@ add_library(gtest
   ${CMAKE_CURRENT_SOURCE_DIR}/googletest/googletest/src/gtest_main.cc
 )
 
-file(GLOB TEST_SOURCES *.cpp *.hpp)
+file(GLOB TEST_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../include/function2/*.hpp
+)
 add_executable(function2_tests ${TEST_SOURCES})
 
 target_link_libraries(function2_tests gtest)
