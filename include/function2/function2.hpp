@@ -13,14 +13,57 @@
 #include <exception>
 #include <type_traits>
 
-namespace fu2
-{
+// Detect disabled exceptions
+#if defined(_MSC_VER)
+#  if !defined(_HAS_EXCEPTIONS) || (_HAS_EXCEPTIONS == 0)
+#    define FU2_MACRO_DISABLE_EXCEPTIONS
+#  endif
+#elif defined(__clang__)
+#  if !(__EXCEPTIONS && __has_feature(cxx_exceptions))
+#    define FU2_MACRO_DISABLE_EXCEPTIONS
+#  endif
+#elif defined(__GNUC__)
+#  if !__EXCEPTIONS
+#    define FU2_MACRO_DISABLE_EXCEPTIONS
+#  endif
+#endif
 
-namespace detail
-{
+// If macro.
+#define FU2_MACRO_IF(cond) \
+  FU2_MACRO_IF_ ## cond
+#define FU2_MACRO_IF_true(EXPRESSION) EXPRESSION
+#define FU2_MACRO_IF_false(EXPRESSION)
 
-inline namespace v2
-{
+// If macro to turn the expression into a r-value expression.
+#define FU2_MACRO_MOVE_IF(cond) \
+  FU2_MACRO_MOVE_IF_ ## cond
+#define FU2_MACRO_MOVE_IF_true(EXPRESSION) std::move( EXPRESSION )
+#define FU2_MACRO_MOVE_IF_false(EXPRESSION) ( EXPRESSION )
+
+// Qualifier without r-value ref.
+#define FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) \
+  FU2_MACRO_IF(IS_CONST)(const) \
+  FU2_MACRO_IF(IS_VOLATILE)(volatile)
+
+// Full qualifier
+#define FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) \
+  FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) \
+  FU2_MACRO_IF(IS_RVALUE)(&&)
+
+// Expand the given macro with all possible combinations.
+#define FU2_MACRO_EXPAND_3(EXPRESSION) \
+  EXPRESSION(false, false, false) \
+  EXPRESSION(false, false, true) \
+  EXPRESSION(false, true, false) \
+  EXPRESSION(false, true, true) \
+  EXPRESSION(true, false, false) \
+  EXPRESSION(true, false, true) \
+  EXPRESSION(true, true, false) \
+  EXPRESSION(true, true, true)
+
+namespace fu2 {
+namespace detail {
+inline namespace v2 {
 
 // Copy enabler helper class
 template<bool /*Copyable*/>
@@ -78,39 +121,6 @@ struct config
   // Is true if the function throws an exception on empty invocation.
   static constexpr bool is_throwing = Throws;
 };
-
-// If macro.
-#define FU2_MACRO_IF(cond) \
-  FU2_MACRO_IF_ ## cond
-#define FU2_MACRO_IF_true(EXPRESSION) EXPRESSION
-#define FU2_MACRO_IF_false(EXPRESSION)
-
-// If macro to turn the expression into a r-value expression.
-#define FU2_MACRO_MOVE_IF(cond) \
-  FU2_MACRO_MOVE_IF_ ## cond
-#define FU2_MACRO_MOVE_IF_true(EXPRESSION) std::move( EXPRESSION )
-#define FU2_MACRO_MOVE_IF_false(EXPRESSION) ( EXPRESSION )
-
-// Qualifier without r-value ref.
-#define FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) \
-  FU2_MACRO_IF(IS_CONST)(const) \
-  FU2_MACRO_IF(IS_VOLATILE)(volatile)
-
-// Full qualifier
-#define FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) \
-  FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) \
-  FU2_MACRO_IF(IS_RVALUE)(&&)
-
-// Expand the given macro with all possible combinations.
-#define FU2_MACRO_EXPAND_3(EXPRESSION) \
-  EXPRESSION(false, false, false) \
-  EXPRESSION(false, false, true) \
-  EXPRESSION(false, true, false) \
-  EXPRESSION(false, true, true) \
-  EXPRESSION(true, false, false) \
-  EXPRESSION(true, false, true) \
-  EXPRESSION(true, true, false) \
-  EXPRESSION(true, true, true)
 
 template<typename Fn>
 struct impl_is_callable_with_qualifiers;
@@ -425,7 +435,11 @@ struct vtable_creator_of_empty_function<signature<ReturnType(Args...)>, true>
   // Throws an empty function call
   static ReturnType invoke(void*, Args&&...)
   {
+#ifdef FU2_MACRO_DISABLE_EXCEPTIONS
+    std::abort();
+#else
     throw bad_function_call{};
+#endif
   }
 
   static common_vtable_t const* create_vtable()
@@ -875,6 +889,7 @@ using default_capacity = std::integral_constant<std::size_t,
   32UL
 >;
 
+#undef FU2_MACRO_DISABLE_EXCEPTIONS
 #undef FU2_MACRO_IF
 #undef FU2_MACRO_IF_true
 #undef FU2_MACRO_IF_false
