@@ -765,7 +765,10 @@ public:
 
   // Copy construct
   template<typename RightConfig,
-           typename std::enable_if<RightConfig::is_copyable>::type* = nullptr>
+           typename std::enable_if<
+            is_copyable_correct_to_this<RightConfig::is_copyable>::value &&
+            RightConfig::is_copyable
+           >::type* = nullptr>
   explicit function(function<signature<ReturnType(Args...)>,
                                        Qualifier, RightConfig> const& right)
   {
@@ -774,9 +777,9 @@ public:
 
   // Move construct
   template<typename RightConfig,
-           typename = typename std::enable_if<
+           typename std::enable_if<
             is_copyable_correct_to_this<RightConfig::is_copyable>::value
-           >::type>
+           >::type* = nullptr>
   explicit function(function<signature<ReturnType(Args...)>,
                              Qualifier, RightConfig>&& right)
   {
@@ -785,10 +788,9 @@ public:
 
   // Constructor taking a function pointer
   template<typename T,
-           typename = typename std::enable_if<
+           typename std::enable_if<
             is_function_pointer_assignable_to_this<T>::value
-          >::type,
-          typename = void>
+           >::type* = nullptr>
   function(T function_pointer)
   {
     _storage.weak_allocate_function_pointer(std::forward<T>(function_pointer));
