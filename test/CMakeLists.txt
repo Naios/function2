@@ -19,7 +19,6 @@ target_compile_features(gtest
     cxx_auto_type
     cxx_constexpr
     cxx_decltype
-    cxx_decltype_auto
     cxx_final
     cxx_lambdas
     cxx_nullptr
