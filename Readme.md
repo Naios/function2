@@ -37,8 +37,22 @@ which are:
 
 ### How to use
 
-Function2 is implemented in one header only file `function.hpp`, no compilation is required.
-Just drop and include `function.hpp` to start!
+**function2** is implemented in one header `function.hpp`, no compilation is required.
+Just copy the header in your project and include `function2/function.hpp` to start.
+It's recommended to import the library as git submodule using CMake:
+
+```bash
+# Shell:
+git submodule add https://github.com/Naios/function2.git
+```
+
+```cmake
+# CMake file:
+add_subdirectory(function2)
+# function2 provides an interface target which makes it's
+# headers available to all projects using function2
+target_link_libraries(my_project function2)
+```
 
 Use `fu2::function` as a wrapper for copyable function wrappers and `fu2::unique_function` for move only types.
 In most cases is `std::function` and `fu2::function` compatible, see [the chapter converbility of functions](#converbility-of-functions) for details.
@@ -51,27 +65,20 @@ fu2::function<void(int, float) const>
 // Qualifier ~~~~~~~~~~~~~~~~~~~|
 ```
 
-#### Return type
-The return type of the function to wrap.
-
-#### Arguments
-The argument types of the function to wrap.
-Any argument types are allowed.
-
-#### Qualifiers
-
-There are several qualifiers allowed:
-
-- **no qualifier** provides `ReturnType operator() (Args...)`
-  - Can be assigned from const and no const objects (*mutable lambdas* for example).
-- **const** provides `ReturnType operator() (Args...) const`
-  - Requires that the assigned functor is const callable (won't work with *mutable lambdas*),
-- **volatile** provides `ReturnType operator() (Args...) volatile`
-  - Can only be assigned from volatile qualified functors.
-- **const volatile** provides `ReturnType operator() (Args...) const volatile`
-  - Same as const and volatile together.
-- Also there is support for **r-value functions** `ReturnType operator() (Args...) &&`
-  - one-shot functions which are invalidated after the first call.
+* **Return type**: The return type of the function to wrap.
+* **Arguments**: The argument types of the function to wrap.
+  Any argument types are allowed.
+* **Qualifiers**: There are several qualifiers allowed:
+  - **no qualifier** provides `ReturnType operator() (Args...)`
+    - Can be assigned from const and no const objects (*mutable lambdas* for example).
+  - **const** provides `ReturnType operator() (Args...) const`
+    - Requires that the assigned functor is const callable (won't work with *mutable lambdas*),
+  - **volatile** provides `ReturnType operator() (Args...) volatile`
+    - Can only be assigned from volatile qualified functors.
+  - **const volatile** provides `ReturnType operator() (Args...) const volatile`
+    - Same as const and volatile together.
+  - Also there is support for **r-value functions** `ReturnType operator() (Args...) &&`
+    - one-shot functions which are invalidated after the first call.
 
 ### Constructing a function
 
@@ -174,11 +181,11 @@ std::move(consumer)(44, 1.7363f);
 
 ### Small functor optimization
 
-Function 2 uses small functor optimization like the most common std::function implementations which means it allocates a small internal capacity to evade heap allocation for small functors.
+function2 uses small functor optimization like the most common `std::function` implementations which means it allocates a small internal capacity to evade heap allocation for small functors.
 
 Smart heap allocation moves the inplace allocated functor automatically to the heap to speed up moving between objects.
 
-It's possible to disable small functor optimization through setting the capacity to 0.
+It's possible to disable small functor optimization through setting the internal capacity to 0.
 
 ### Compiler optimization
 
@@ -258,13 +265,13 @@ Function2 is licensed under the Boost 1.0 License.
 There are similar implementations of a function wrapper:
 
 - [pmed/fixed_size_function](https://github.com/pmed/fixed_size_function)
-- [stdex::function](stdex.hpp) - A multi-signature function implementation.
+- stdex::function - A multi-signature function implementation.
 - multifunction - Example from [Boost.TypeErasure](http://www.boost.org/doc/html/boost_typeerasure/examples.html#boost_typeerasure.examples.multifunction), another multi-signature function.
 - std::function - [Standard](http://en.cppreference.com/w/cpp/utility/functional/function).
 - boost::function - The one from [Boost](http://www.boost.org/doc/libs/1_55_0/doc/html/function.html).
-- [func::function](function.h) - From this [blog](http://probablydance.com/2013/01/13/a-faster-implementation-of-stdfunction/).
-- [generic::delegate](delegate.hpp) - [Fast delegate in C++11](http://codereview.stackexchange.com/questions/14730/impossibly-fast-delegate-in-c11), also see [here](https://code.google.com/p/cpppractice/source/browse/trunk/).
-- [~~ssvu::FastFunc~~](FastFunc.hpp) - Another Don Clugston's FastDelegate, as shown [here](https://groups.google.com/a/isocpp.org/forum/#!topic/std-discussion/QgvHF7YMi3o).
+- func::function - From this [blog](http://probablydance.com/2013/01/13/a-faster-implementation-of-stdfunction/).
+- generic::delegate - [Fast delegate in C++11](http://codereview.stackexchange.com/questions/14730/impossibly-fast-delegate-in-c11), also see [here](https://code.google.com/p/cpppractice/source/browse/trunk/).
+- ssvu::FastFunc - Another Don Clugston's FastDelegate, as shown [here](https://groups.google.com/a/isocpp.org/forum/#!topic/std-discussion/QgvHF7YMi3o).
 - [cxx_function::function](https://github.com/potswa/cxx_function) - By David Krauss
 
 Also check out the amazing [**CxxFunctionBenchmark**](https://github.com/jamboree/CxxFunctionBenchmark) which compares several implementations.
