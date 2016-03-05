@@ -1,25 +1,48 @@
-project(function2 CXX)
 cmake_minimum_required(VERSION 2.8)
+project(function2 CXX)
 
-enable_testing()
+set(function2_VERSION_MAJOR 2)
 
-option(TESTS_NO_EXCEPTIONS "Test without exceptions" OFF)
-option(TESTS_NO_DEATH_TESTS "Test without death tests" OFF)
+add_library(function2 INTERFACE)
 
-if (TESTS_NO_EXCEPTIONS)
-  message(STATUS "Testing with exceptions disabled")
-  add_definitions(-DTESTS_NO_EXCEPTIONS)
-endif()
+target_include_directories(function2
+  INTERFACE
+    "${CMAKE_CURRENT_LIST_DIR}/include")
 
-if (TESTS_NO_DEATH_TESTS)
-  message(STATUS "Disabled death tests")
-  add_definitions(-DTESTS_NO_DEATH_TESTS)
-endif()
+target_compile_features(function2
+  INTERFACE
+    cxx_alias_templates
+    cxx_auto_type
+    cxx_constexpr
+    cxx_decltype
+    cxx_decltype_auto
+    cxx_final
+    cxx_lambdas
+    cxx_generic_lambdas
+    cxx_inline_namespaces
+    cxx_noexcept
+    cxx_variadic_templates
+    cxx_defaulted_functions
+    cxx_defaulted_move_initializers
+    cxx_nullptr)
 
-include(cmake/CMakeLists.txt)
+if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+  enable_testing()
 
-include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+  option(TESTS_NO_EXCEPTIONS  "Test without exceptions"  OFF)
+  option(TESTS_NO_DEATH_TESTS "Test without death tests" OFF)
 
-add_subdirectory(test)
+  if (TESTS_NO_EXCEPTIONS)
+    message(STATUS "Testing with exceptions disabled")
+    add_definitions(-DTESTS_NO_EXCEPTIONS)
+  endif()
+
+  if (TESTS_NO_DEATH_TESTS)
+    message(STATUS "Testing without death tests")
+    add_definitions(-DTESTS_NO_DEATH_TESTS)
+  endif()
+
+  include(cmake/CMakeLists.txt)
+
+  add_subdirectory(test)
+endif ()
