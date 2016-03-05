@@ -15,7 +15,6 @@ target_compile_features(function2
     cxx_auto_type
     cxx_constexpr
     cxx_decltype
-    cxx_decltype_auto
     cxx_final
     cxx_lambdas
     cxx_generic_lambdas
