@@ -41,7 +41,7 @@ which are:
 Just copy the header in your project and include `function2/function.hpp` to start.
 It's recommended to import the library as git submodule using CMake:
 
-```bash
+```sh
 # Shell:
 git submodule add https://github.com/Naios/function2.git
 ```
@@ -79,6 +79,17 @@ fu2::function<void(int, float) const>
     - Same as const and volatile together.
   - Also there is support for **r-value functions** `ReturnType operator() (Args...) &&`
     - one-shot functions which are invalidated after the first call.
+
+To build the function2 unit tests you need to pull the submodules (gtest) and build function2 as CMake standalone project:
+
+```sh
+git submodule init
+git submodule update
+mkdir build
+cd build
+cmake ..
+make test
+```
 
 ### Constructing a function
 
