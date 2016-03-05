@@ -11,8 +11,8 @@ matrix:
       compiler: gcc
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-4.8', 'valgrind']
+          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports']
+          packages: ['g++-4.8', 'valgrind', 'cmake', 'cmake-data']
       env:
         - COMPILER=g++-4.8
         - NO_EXCEPTIONS=OFF
@@ -21,8 +21,8 @@ matrix:
       compiler: gcc
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-5', 'valgrind']
+          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports']
+          packages: ['g++-5', 'valgrind', 'cmake', 'cmake-data']
       env:
         - COMPILER=g++-5
         - NO_EXCEPTIONS=OFF
@@ -31,8 +31,8 @@ matrix:
       compiler: gcc
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-5', 'valgrind']
+          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports']
+          packages: ['g++-5', 'valgrind', 'cmake', 'cmake-data']
       env:
         - COMPILER=g++-5
         - NO_EXCEPTIONS=ON
@@ -40,8 +40,8 @@ matrix:
     - os: linux
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-4.8', 'valgrind']
+          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports']
+          packages: ['g++-4.8', 'valgrind', 'cmake', 'cmake-data']
       compiler: clang
       env:
         - COMPILER=clang++
@@ -51,8 +51,8 @@ matrix:
       compiler: clang
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.7']
-          packages: ['clang-3.7', 'valgrind']
+          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports', 'llvm-toolchain-precise-3.7']
+          packages: ['clang-3.7', 'valgrind', 'cmake', 'cmake-data']
       env:
         - COMPILER=clang++-3.7
         - NO_EXCEPTIONS=OFF
@@ -61,8 +61,8 @@ matrix:
       compiler: clang
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.7']
-          packages: ['clang-3.7', 'valgrind']
+          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports', 'llvm-toolchain-precise-3.7']
+          packages: ['clang-3.7', 'valgrind', 'cmake', 'cmake-data']
       env:
         - COMPILER=clang++-3.7
         - NO_EXCEPTIONS=ON
