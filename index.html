@@ -29,7 +29,7 @@
       <div class="inner clearfix">
         <section id="main-content">
           <h1>
-<a id="c11-function-2---fu2" class="anchor" href="#c11-function-2---fu2" aria-hidden="true"><span class="octicon octicon-link"></span></a>C++11 Function 2 - fu2::</h1>
+<a id="c11-function-2---fu2" class="anchor" href="#c11-function-2---fu2" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>C++11 Function 2 - fu2::</h1>
 
 <p><a href="https://travis-ci.org/Naios/function2"><img src="https://travis-ci.org/Naios/function2.svg?branch=master" alt="Build Status"></a></p>
 
@@ -60,7 +60,7 @@
 </ul>
 
 <h2>
-<a id="table-of-contents" class="anchor" href="#table-of-contents" aria-hidden="true"><span class="octicon octicon-link"></span></a>Table of Contents</h2>
+<a id="table-of-contents" class="anchor" href="#table-of-contents" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Table of Contents</h2>
 
 <ul>
 <li>
@@ -90,13 +90,23 @@
 </ul>
 
 <h2>
-<a id="documentation" class="anchor" href="#documentation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Documentation</h2>
+<a id="documentation" class="anchor" href="#documentation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Documentation</h2>
 
 <h3>
-<a id="how-to-use" class="anchor" href="#how-to-use" aria-hidden="true"><span class="octicon octicon-link"></span></a>How to use</h3>
+<a id="how-to-use" class="anchor" href="#how-to-use" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>How to use</h3>
 
-<p>Function2 is implemented in one header only file <code>function.hpp</code>, no compilation is required.
-Just drop and include <code>function.hpp</code> to start!</p>
+<p><strong>function2</strong> is implemented in one header <code>function.hpp</code>, no compilation is required.
+Just copy the header in your project and include <code>function2/function.hpp</code> to start.
+It's recommended to import the library as git submodule using CMake:</p>
+
+<div class="highlight highlight-source-shell"><pre><span class="pl-c"># Shell:</span>
+git submodule add https://github.com/Naios/function2.git</pre></div>
+
+<div class="highlight highlight-source-cmake"><pre><span class="pl-c"># CMake file:</span>
+<span class="pl-c1">add_subdirectory</span>(function2)
+<span class="pl-c"># function2 provides an interface target which makes it's</span>
+<span class="pl-c"># headers available to all projects using function2</span>
+<span class="pl-c1">target_link_libraries</span>(my_project function2)</pre></div>
 
 <p>Use <code>fu2::function</code> as a wrapper for copyable function wrappers and <code>fu2::unique_function</code> for move only types.
 In most cases is <code>std::function</code> and <code>fu2::function</code> compatible, see <a href="#converbility-of-functions">the chapter converbility of functions</a> for details.</p>
@@ -108,21 +118,14 @@ In most cases is <code>std::function</code> and <code>fu2::function</code> compa
 <span class="pl-c">// Arguments ~~~~~~~|~~~~~|     ^</span>
 <span class="pl-c">// Qualifier ~~~~~~~~~~~~~~~~~~~|</span></pre></div>
 
-<h4>
-<a id="return-type" class="anchor" href="#return-type" aria-hidden="true"><span class="octicon octicon-link"></span></a>Return type</h4>
-
-<p>The return type of the function to wrap.</p>
-
-<h4>
-<a id="arguments" class="anchor" href="#arguments" aria-hidden="true"><span class="octicon octicon-link"></span></a>Arguments</h4>
-
-<p>The argument types of the function to wrap.
-Any argument types are allowed.</p>
-
-<h4>
-<a id="qualifiers" class="anchor" href="#qualifiers" aria-hidden="true"><span class="octicon octicon-link"></span></a>Qualifiers</h4>
-
-<p>There are several qualifiers allowed:</p>
+<ul>
+<li>
+<strong>Return type</strong>: The return type of the function to wrap.</li>
+<li>
+<strong>Arguments</strong>: The argument types of the function to wrap.
+Any argument types are allowed.</li>
+<li>
+<strong>Qualifiers</strong>: There are several qualifiers allowed:
 
 <ul>
 <li>
@@ -160,9 +163,20 @@ Any argument types are allowed.</p>
 </ul>
 </li>
 </ul>
+</li>
+</ul>
+
+<p>To build the function2 unit tests you need to pull the submodules (gtest) and build function2 as CMake standalone project:</p>
+
+<div class="highlight highlight-source-shell"><pre>git submodule init
+git submodule update
+mkdir build
+<span class="pl-c1">cd</span> build
+cmake ..
+make <span class="pl-c1">test</span></pre></div>
 
 <h3>
-<a id="constructing-a-function" class="anchor" href="#constructing-a-function" aria-hidden="true"><span class="octicon octicon-link"></span></a>Constructing a function</h3>
+<a id="constructing-a-function" class="anchor" href="#constructing-a-function" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Constructing a function</h3>
 
 <p><code>fu2::function</code> and <code>fu2::unique_function</code> (non copyable) are easy to use:</p>
 
@@ -175,7 +189,7 @@ Any argument types are allowed.</p>
 <span class="pl-en">fun</span>();</pre></div>
 
 <h3>
-<a id="non-copyable-unique-functions" class="anchor" href="#non-copyable-unique-functions" aria-hidden="true"><span class="octicon octicon-link"></span></a>Non copyable unique functions</h3>
+<a id="non-copyable-unique-functions" class="anchor" href="#non-copyable-unique-functions" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Non copyable unique functions</h3>
 
 <p><code>fu2::unique_function</code> also works with non copyable functors/ lambdas.</p>
 
@@ -190,7 +204,7 @@ fu2::unique_function&lt;<span class="pl-k">bool</span>() <span class="pl-k">cons
 <span class="pl-en">otherfun</span>();</pre></div>
 
 <h3>
-<a id="converbility-of-functions" class="anchor" href="#converbility-of-functions" aria-hidden="true"><span class="octicon octicon-link"></span></a>Converbility of functions</h3>
+<a id="converbility-of-functions" class="anchor" href="#converbility-of-functions" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Converbility of functions</h3>
 
 <p><code>fu2::function</code>, <code>fu2::unique_function</code> and <code>std::function</code> are convertible to each other when:</p>
 
@@ -267,7 +281,7 @@ fun = un_fun;
 </pre></div>
 
 <h3>
-<a id="adapt-function2" class="anchor" href="#adapt-function2" aria-hidden="true"><span class="octicon octicon-link"></span></a>Adapt function2</h3>
+<a id="adapt-function2" class="anchor" href="#adapt-function2" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Adapt function2</h3>
 
 <p>function2 is adaptable through <code>fu2::function_base</code> which allows you to set:</p>
 
@@ -275,9 +289,11 @@ fun = un_fun;
 <li>
 <strong>Signature:</strong> defines the signature of the function.</li>
 <li>
+<strong>Copyable:</strong> defines if the function is copyable or not.</li>
+<li>
 <strong>Capacity:</strong> defines the internal capacity used for <a href="#small-functor-optimization">sfo optimization</a>.</li>
 <li>
-<strong>Copyable:</strong> defines if the function is copyable or not.</li>
+<strong>Throwing</strong> defines if empty function calls throw an <code>fu2::bad_function_call</code> exception, otherwise <code>std::abort</code> is called.</li>
 </ul>
 
 <p>The following code defines a function with a variadic signature which is copyable and sfo optimization is disabled:</p>
@@ -296,41 +312,41 @@ my_consumer&lt;<span class="pl-k">int</span>, <span class="pl-k">float</span>&gt
 <span class="pl-en">std::move</span>(consumer)(<span class="pl-c1">44</span>, <span class="pl-c1">1</span>.<span class="pl-c1">7363f</span>);</pre></div>
 
 <h2>
-<a id="performance-and-optimization" class="anchor" href="#performance-and-optimization" aria-hidden="true"><span class="octicon octicon-link"></span></a>Performance and optimization</h2>
+<a id="performance-and-optimization" class="anchor" href="#performance-and-optimization" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Performance and optimization</h2>
 
 <h3>
-<a id="small-functor-optimization" class="anchor" href="#small-functor-optimization" aria-hidden="true"><span class="octicon octicon-link"></span></a>Small functor optimization</h3>
+<a id="small-functor-optimization" class="anchor" href="#small-functor-optimization" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Small functor optimization</h3>
 
-<p>Function 2 uses small functor optimization like the most common std::function implementations which means it allocates a small internal capacity to evade heap allocation for small functors.</p>
+<p>function2 uses small functor optimization like the most common <code>std::function</code> implementations which means it allocates a small internal capacity to evade heap allocation for small functors.</p>
 
 <p>Smart heap allocation moves the inplace allocated functor automatically to the heap to speed up moving between objects.</p>
 
-<p>It's possible to disable small functor optimization through setting the capacity to 0.</p>
+<p>It's possible to disable small functor optimization through setting the internal capacity to 0.</p>
 
 <h3>
-<a id="compiler-optimization" class="anchor" href="#compiler-optimization" aria-hidden="true"><span class="octicon octicon-link"></span></a>Compiler optimization</h3>
+<a id="compiler-optimization" class="anchor" href="#compiler-optimization" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Compiler optimization</h3>
 
-<p>Unique functions are heavily optimized by compilers see below:</p>
+<p>Functions are heavily optimized by compilers see below:</p>
 
 <div class="highlight highlight-source-c++"><pre><span class="pl-k">int</span> <span class="pl-en">main</span>(<span class="pl-k">int</span> argc, <span class="pl-k">char</span>**)
 {
-    fu2::unique_function&lt;<span class="pl-c1">int</span>()&gt; <span class="pl-c1">fun</span>([=]
+    fu2::function&lt;<span class="pl-c1">int</span>()&gt; <span class="pl-c1">fun</span>([=]
     {
-        <span class="pl-k">return</span> argc + <span class="pl-c1">10</span>;
-    );
-    <span class="pl-k">return</span> <span class="pl-c1">fun</span>() + <span class="pl-c1">fun</span>();
+        <span class="pl-k">return</span> argc + <span class="pl-c1">20</span>;
+    });
+    <span class="pl-k">return</span> <span class="pl-c1">fun</span>();
 }</pre></div>
 
-<p><a href="https://goo.gl/F7saQy">Clang 3.4+ with -O3 compiles it into</a>:</p>
+<p><a href="https://goo.gl/S3YC98">Clang 3.4+ and GCC 4.8+ with -O3 compile the following short x86 asm code</a>:</p>
 
 <div class="highlight highlight-source-asm-x86"><pre>main: <span class="pl-c"># @main</span>
-    <span class="pl-k">lea</span> <span class="pl-k">eax</span>, [rdi + rdi + <span class="pl-c1">20</span>]
+    <span class="pl-k">lea</span> <span class="pl-k">eax</span>, [rdi + <span class="pl-c1">20</span>]
     <span class="pl-k">ret</span></pre></div>
 
 <p>(<code>std::function</code> <a href="https://goo.gl/GO4G4b">compiles into ~70 instructions</a>).</p>
 
 <h3>
-<a id="stdfunction-vs-fu2function" class="anchor" href="#stdfunction-vs-fu2function" aria-hidden="true"><span class="octicon octicon-link"></span></a>std::function vs fu2::function</h3>
+<a id="stdfunction-vs-fu2function" class="anchor" href="#stdfunction-vs-fu2function" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>std::function vs fu2::function</h3>
 
 <pre><code>Benchmark: Construct and copy function wrapper
     std::function:         172535130ns
@@ -346,7 +362,7 @@ Benchmark: Invoke function wrapper
 </code></pre>
 
 <h2>
-<a id="coverage-and-runtime-checks" class="anchor" href="#coverage-and-runtime-checks" aria-hidden="true"><span class="octicon octicon-link"></span></a>Coverage and runtime checks</h2>
+<a id="coverage-and-runtime-checks" class="anchor" href="#coverage-and-runtime-checks" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Coverage and runtime checks</h2>
 
 <p>Function2 is checked with unit tests and was tested with valgrind for memory leaks:</p>
 
@@ -364,7 +380,7 @@ All tests passed (73 assertions in 7 test cases)
 </code></pre>
 
 <h2>
-<a id="compatibility" class="anchor" href="#compatibility" aria-hidden="true"><span class="octicon octicon-link"></span></a>Compatibility</h2>
+<a id="compatibility" class="anchor" href="#compatibility" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Compatibility</h2>
 
 <p>Tested with:</p>
 
@@ -378,28 +394,24 @@ All tests passed (73 assertions in 7 test cases)
 Function2 only depends on the standard library.</p>
 
 <h2>
-<a id="license" class="anchor" href="#license" aria-hidden="true"><span class="octicon octicon-link"></span></a>License</h2>
+<a id="license" class="anchor" href="#license" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>License</h2>
 
 <p>Function2 is licensed under the Boost 1.0 License.</p>
 
 <h2>
-<a id="similar-implementations" class="anchor" href="#similar-implementations" aria-hidden="true"><span class="octicon octicon-link"></span></a>Similar implementations</h2>
+<a id="similar-implementations" class="anchor" href="#similar-implementations" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Similar implementations</h2>
 
 <p>There are similar implementations of a function wrapper:</p>
 
 <ul>
 <li><a href="https://github.com/pmed/fixed_size_function">pmed/fixed_size_function</a></li>
-<li>
-<a href="stdex.hpp">stdex::function</a> - A multi-signature function implementation.</li>
+<li>stdex::function - A multi-signature function implementation.</li>
 <li>multifunction - Example from <a href="http://www.boost.org/doc/html/boost_typeerasure/examples.html#boost_typeerasure.examples.multifunction">Boost.TypeErasure</a>, another multi-signature function.</li>
 <li>std::function - <a href="http://en.cppreference.com/w/cpp/utility/functional/function">Standard</a>.</li>
 <li>boost::function - The one from <a href="http://www.boost.org/doc/libs/1_55_0/doc/html/function.html">Boost</a>.</li>
-<li>
-<a href="function.h">func::function</a> - From this <a href="http://probablydance.com/2013/01/13/a-faster-implementation-of-stdfunction/">blog</a>.</li>
-<li>
-<a href="delegate.hpp">generic::delegate</a> - <a href="http://codereview.stackexchange.com/questions/14730/impossibly-fast-delegate-in-c11">Fast delegate in C++11</a>, also see <a href="https://code.google.com/p/cpppractice/source/browse/trunk/">here</a>.</li>
-<li>
-<a href="FastFunc.hpp"><del>ssvu::FastFunc</del></a> - Another Don Clugston's FastDelegate, as shown <a href="https://groups.google.com/a/isocpp.org/forum/#!topic/std-discussion/QgvHF7YMi3o">here</a>.</li>
+<li>func::function - From this <a href="http://probablydance.com/2013/01/13/a-faster-implementation-of-stdfunction/">blog</a>.</li>
+<li>generic::delegate - <a href="http://codereview.stackexchange.com/questions/14730/impossibly-fast-delegate-in-c11">Fast delegate in C++11</a>, also see <a href="https://code.google.com/p/cpppractice/source/browse/trunk/">here</a>.</li>
+<li>ssvu::FastFunc - Another Don Clugston's FastDelegate, as shown <a href="https://groups.google.com/a/isocpp.org/forum/#!topic/std-discussion/QgvHF7YMi3o">here</a>.</li>
 <li>
 <a href="https://github.com/potswa/cxx_function">cxx_function::function</a> - By David Krauss</li>
 </ul>
