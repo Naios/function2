@@ -893,10 +893,34 @@ public:
 
 template<typename ReturnType, typename... Args,
          typename Qualifier, typename Config>
-bool operator==(function<signature<ReturnType(Args...)>,
-                         Qualifier, Config const&> f, std::nullptr_t)
+bool operator== (function<signature<ReturnType(Args...)>,
+                                    Qualifier, Config> const& f, std::nullptr_t)
 {
-  return f.empty();
+  return bool(f);
+}
+
+template<typename ReturnType, typename... Args,
+         typename Qualifier, typename Config>
+bool operator!= (function<signature<ReturnType(Args...)>,
+                                    Qualifier, Config> const& f, std::nullptr_t)
+{
+  return !bool(f);
+}
+
+template<typename ReturnType, typename... Args,
+         typename Qualifier, typename Config>
+bool operator== (std::nullptr_t, function<signature<ReturnType(Args...)>,
+                                                    Qualifier, Config> const& f)
+{
+  return bool(f);
+}
+
+template<typename ReturnType, typename... Args,
+         typename Qualifier, typename Config>
+bool operator!= (std::nullptr_t, function<signature<ReturnType(Args...)>,
+                                                    Qualifier, Config> const& f)
+{
+  return !bool(f);
 }
 
 // Internal size of a empty function object
