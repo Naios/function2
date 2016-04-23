@@ -31,7 +31,7 @@
           <h1>
 <a id="c11-function-2---fu2" class="anchor" href="#c11-function-2---fu2" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>C++11 Function 2 - fu2::</h1>
 
-<p><a href="https://travis-ci.org/Naios/function2"><img src="https://travis-ci.org/Naios/function2.svg?branch=master" alt="Build Status"></a></p>
+<p><a href="https://travis-ci.org/Naios/function2"><img src="https://travis-ci.org/Naios/function2.svg?branch=master" alt="Build Status"></a> <img src="https://img.shields.io/badge/License-Boost-blue.svg" alt=""> </p>
 
 <p>Provides two improved implementations of <code>std::function</code>:</p>
 
@@ -95,8 +95,8 @@
 <h3>
 <a id="how-to-use" class="anchor" href="#how-to-use" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>How to use</h3>
 
-<p><strong>function2</strong> is implemented in one header <code>function.hpp</code>, no compilation is required.
-Just copy the header in your project and include <code>function2/function.hpp</code> to start.
+<p><strong>function2</strong> is implemented in one header (<code>function.hpp</code>), no compilation is required.
+Just copy the <code>function.hpp</code> header in your project and include it to start.
 It's recommended to import the library as git submodule using CMake:</p>
 
 <div class="highlight highlight-source-shell"><pre><span class="pl-c"># Shell:</span>
@@ -109,7 +109,7 @@ git submodule add https://github.com/Naios/function2.git</pre></div>
 <span class="pl-c1">target_link_libraries</span>(my_project function2)</pre></div>
 
 <p>Use <code>fu2::function</code> as a wrapper for copyable function wrappers and <code>fu2::unique_function</code> for move only types.
-In most cases is <code>std::function</code> and <code>fu2::function</code> compatible, see <a href="#converbility-of-functions">the chapter converbility of functions</a> for details.</p>
+The standard implementation <code>std::function</code> and <code>fu2::function</code> are convertible to each other, see <a href="#converbility-of-functions">the chapter converbility of functions</a> for details.</p>
 
 <p>A function wrapper is declared as followed:</p>
 
@@ -339,9 +339,9 @@ my_consumer&lt;<span class="pl-k">int</span>, <span class="pl-k">float</span>&gt
 
 <p><a href="https://goo.gl/S3YC98">Clang 3.4+ and GCC 4.8+ with -O3 compile the following short x86 asm code</a>:</p>
 
-<div class="highlight highlight-source-asm-x86"><pre>main: <span class="pl-c"># @main</span>
-    <span class="pl-k">lea</span> <span class="pl-k">eax</span>, [rdi + <span class="pl-c1">20</span>]
-    <span class="pl-k">ret</span></pre></div>
+<div class="highlight highlight-source-assembly"><pre><span class="pl-en">main: # @main</span>
+<span class="pl-en">    </span><span class="pl-k">lea</span><span class="pl-en"> </span><span class="pl-v">eax</span><span class="pl-s1">,</span><span class="pl-en"> </span><span class="pl-s1">[</span><span class="pl-v">rdi</span><span class="pl-en"> </span><span class="pl-s1">+</span><span class="pl-en"> </span><span class="pl-c1">20</span><span class="pl-s1">]</span>
+<span class="pl-en">    </span><span class="pl-k">ret</span></pre></div>
 
 <p>(<code>std::function</code> <a href="https://goo.gl/GO4G4b">compiles into ~70 instructions</a>).</p>
 
@@ -390,13 +390,13 @@ All tests passed (73 assertions in 7 test cases)
 <li>GCC 4.8+</li>
 </ul>
 
-<p>Every compiler with full C++11 capability should work.
+<p>Every compiler with modern C++11 support should work.
 Function2 only depends on the standard library.</p>
 
 <h2>
 <a id="license" class="anchor" href="#license" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>License</h2>
 
-<p>Function2 is licensed under the Boost 1.0 License.</p>
+<p>Function2 is licensed under the very permissive Boost 1.0 License.</p>
 
 <h2>
 <a id="similar-implementations" class="anchor" href="#similar-implementations" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Similar implementations</h2>
