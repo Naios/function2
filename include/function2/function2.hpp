@@ -20,7 +20,7 @@
   #endif
   // Use more C++11 features when using MSVC 14 or higher
   #if _MSC_VER >= 1900
-    #define FU2_MACRO_INLINE_NAMESPACE_BEGIN( NAME ) inline namespace NAME {
+    #define FU2_MACRO_INLINE_NAMESPACE_BEGIN(NAME) inline namespace NAME {
     #define FU2_MACRO_INLINE_NAMESPACE_END }
     #define FU2_MACRO_CONSTEXPR constexpr
   #else
@@ -36,13 +36,13 @@
       #define FU2_MACRO_DISABLE_EXCEPTIONS
     #endif
   #endif
-  #define FU2_MACRO_INLINE_NAMESPACE_BEGIN( NAME ) inline namespace NAME {
+  #define FU2_MACRO_INLINE_NAMESPACE_BEGIN(NAME) inline namespace NAME {
   #define FU2_MACRO_INLINE_NAMESPACE_END }
   #define FU2_MACRO_CONSTEXPR constexpr
 #endif
 
 #ifndef FU2_MACRO_INLINE_NAMESPACE_BEGIN
-  #define FU2_MACRO_INLINE_NAMESPACE_BEGIN( NAME )
+  #define FU2_MACRO_INLINE_NAMESPACE_BEGIN(NAME)
 #endif
 #ifndef FU2_MACRO_INLINE_NAMESPACE_END
   #define FU2_MACRO_INLINE_NAMESPACE_END
@@ -60,8 +60,8 @@
 // If macro to turn the expression into a r-value expression.
 #define FU2_MACRO_MOVE_IF(cond) \
   FU2_MACRO_MOVE_IF_ ## cond
-#define FU2_MACRO_MOVE_IF_true(EXPRESSION) std::move( EXPRESSION )
-#define FU2_MACRO_MOVE_IF_false(EXPRESSION) ( EXPRESSION )
+#define FU2_MACRO_MOVE_IF_true(EXPRESSION) std::move(EXPRESSION)
+#define FU2_MACRO_MOVE_IF_false(EXPRESSION) (EXPRESSION)
 
 // Qualifier without r-value ref.
 #define FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) \
@@ -387,7 +387,7 @@ struct bad_function_call : std::exception
 {
   bad_function_call() { }
 
-  virtual char const* what() const throw()
+  char const* what() const throw() override
   {
     return "bad function call";
   }
@@ -896,7 +896,7 @@ template<typename ReturnType, typename... Args,
 bool operator== (function<signature<ReturnType(Args...)>,
                                     Qualifier, Config> const& f, std::nullptr_t)
 {
-  return bool(f);
+  return !bool(f);
 }
 
 template<typename ReturnType, typename... Args,
@@ -904,7 +904,7 @@ template<typename ReturnType, typename... Args,
 bool operator!= (function<signature<ReturnType(Args...)>,
                                     Qualifier, Config> const& f, std::nullptr_t)
 {
-  return !bool(f);
+  return bool(f);
 }
 
 template<typename ReturnType, typename... Args,
@@ -912,7 +912,7 @@ template<typename ReturnType, typename... Args,
 bool operator== (std::nullptr_t, function<signature<ReturnType(Args...)>,
                                                     Qualifier, Config> const& f)
 {
-  return bool(f);
+  return !bool(f);
 }
 
 template<typename ReturnType, typename... Args,
@@ -920,7 +920,7 @@ template<typename ReturnType, typename... Args,
 bool operator!= (std::nullptr_t, function<signature<ReturnType(Args...)>,
                                                     Qualifier, Config> const& f)
 {
-  return !bool(f);
+  return bool(f);
 }
 
 // Internal size of a empty function object
