@@ -22,12 +22,32 @@ TYPED_TEST(AllTypeCheckTests, IsDeclareableWithSupportedTypes)
   }
   {
     typename TestFixture::template
+      left_t<bool() const> const left = returnTrue;
+    EXPECT_TRUE(left());
+  }
+  {
+    typename TestFixture::template
       left_t<bool() volatile> left = returnTrue;
     EXPECT_TRUE(left());
   }
   {
     typename TestFixture::template
+      left_t<bool() volatile> volatile left = returnTrue;
+    EXPECT_TRUE(left());
+  }
+  {
+    typename TestFixture::template
       left_t<bool() const volatile> left = returnTrue;
+    EXPECT_TRUE(left());
+  }
+  {
+    typename TestFixture::template
+      left_t<bool() const volatile> const volatile left = returnTrue;
+    EXPECT_TRUE(left());
+  }
+  {
+    typename TestFixture::template
+      left_t<bool()&> left = returnTrue;
     EXPECT_TRUE(left());
   }
   {
@@ -42,12 +62,27 @@ TYPED_TEST(AllTypeCheckTests, IsDeclareableWithSupportedTypes)
   }
   {
     typename TestFixture::template
+      left_t<bool() const&> const left = returnTrue;
+    EXPECT_TRUE(left());
+  }
+  {
+    typename TestFixture::template
       left_t<bool() volatile&> left = returnTrue;
     EXPECT_TRUE(left());
   }
   {
     typename TestFixture::template
+      left_t<bool() volatile&> volatile left = returnTrue;
+    EXPECT_TRUE(left());
+  }
+  {
+    typename TestFixture::template
       left_t<bool() const volatile&> left = returnTrue;
+    EXPECT_TRUE(left());
+  }
+  {
+    typename TestFixture::template
+      left_t<bool() const volatile&> const volatile left = returnTrue;
     EXPECT_TRUE(left());
   }
   {
@@ -62,12 +97,27 @@ TYPED_TEST(AllTypeCheckTests, IsDeclareableWithSupportedTypes)
   }
   {
     typename TestFixture::template
+      left_t<bool() const&&> const left = returnTrue;
+    EXPECT_TRUE(std::move(left)());
+  }
+  {
+    typename TestFixture::template
       left_t<bool() volatile&&> left = returnTrue;
     EXPECT_TRUE(std::move(left)());
   }
   {
     typename TestFixture::template
+      left_t<bool() volatile&&> volatile left = returnTrue;
+    EXPECT_TRUE(std::move(left)());
+  }
+  {
+    typename TestFixture::template
       left_t<bool() const volatile&&> left = returnTrue;
+    EXPECT_TRUE(std::move(left)());
+  }
+  {
+    typename TestFixture::template
+      left_t<bool() const volatile&&> const volatile left = returnTrue;
     EXPECT_TRUE(std::move(left)());
   }
 }

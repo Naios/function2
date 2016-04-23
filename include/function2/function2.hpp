@@ -4,7 +4,7 @@
 //       (See accompanying file LICENSE_1_0.txt or copy at
 //             http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef FU2_INCLUDED_FUNCTION_HPP_
+#ifndef FU2_INCLUDED_FUNCTION_HPP__
 #define FU2_INCLUDED_FUNCTION_HPP__
 
 #include <tuple>
