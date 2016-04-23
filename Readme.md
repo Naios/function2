@@ -1,7 +1,7 @@
 
 # C++11 Function 2 - fu2::
 
-[![Build Status](https://travis-ci.org/Naios/function2.svg?branch=master)](https://travis-ci.org/Naios/function2)
+[![Build Status](https://travis-ci.org/Naios/function2.svg?branch=master)](https://travis-ci.org/Naios/function2) ![](https://img.shields.io/badge/License-Boost-blue.svg) 
 
 Provides two improved implementations of `std::function`:
 
@@ -37,8 +37,8 @@ which are:
 
 ### How to use
 
-**function2** is implemented in one header `function.hpp`, no compilation is required.
-Just copy the header in your project and include `function2/function.hpp` to start.
+**function2** is implemented in one header (`function.hpp`), no compilation is required.
+Just copy the `function.hpp` header in your project and include it to start.
 It's recommended to import the library as git submodule using CMake:
 
 ```sh
@@ -55,7 +55,7 @@ target_link_libraries(my_project function2)
 ```
 
 Use `fu2::function` as a wrapper for copyable function wrappers and `fu2::unique_function` for move only types.
-In most cases is `std::function` and `fu2::function` compatible, see [the chapter converbility of functions](#converbility-of-functions) for details.
+The standard implementation `std::function` and `fu2::function` are convertible to each other, see [the chapter converbility of functions](#converbility-of-functions) for details.
 
 A function wrapper is declared as followed:
 ```c++
@@ -265,11 +265,11 @@ Tested with:
 - Clang 3.4+
 - GCC 4.8+
 
-Every compiler with full C++11 capability should work.
+Every compiler with modern C++11 support should work.
 Function2 only depends on the standard library.
 
 ## License
-Function2 is licensed under the Boost 1.0 License.
+Function2 is licensed under the very permissive Boost 1.0 License.
 
 ## Similar implementations
 

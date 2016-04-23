@@ -1,14 +1,19 @@
 
-#ifndef fu2_included_function2_test_hpp_
-#define fu2_included_function2_test_hpp_
+//  Copyright 2015-2016 Denis Blank <denis.blank at outlook dot com>
+//     Distributed under the Boost Software License, Version 1.0
+//       (See accompanying file LICENSE_1_0.txt or copy at
+//             http://www.boost.org/LICENSE_1_0.txt)
 
-#include "function2/function2.hpp"
+#ifndef FU2_INCLUDED_FUNCTION2_TEST_HPP__
+#define FU2_INCLUDED_FUNCTION2_TEST_HPP__
+
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <tuple>
 #include <type_traits>
 #include "gtest/gtest.h"
+#include "function2/function2.hpp"
 
 /// A function which always returns true
 inline bool returnTrue() { return true; }
@@ -225,4 +230,4 @@ std::unique_ptr<T> make_unique(Args&&... args)
   return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
-#endif // fu2_included_function2_test_hpp_
+#endif // FU2_INCLUDED_FUNCTION2_TEST_HPP__

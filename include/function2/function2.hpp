@@ -4,8 +4,8 @@
 //       (See accompanying file LICENSE_1_0.txt or copy at
 //             http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef fu2_included_function_hpp_
-#define fu2_included_function_hpp_
+#ifndef FU2_INCLUDED_FUNCTION_HPP_
+#define FU2_INCLUDED_FUNCTION_HPP__
 
 #include <tuple>
 #include <memory>
@@ -23,6 +23,8 @@
     #define FU2_MACRO_INLINE_NAMESPACE_BEGIN( NAME ) inline namespace NAME {
     #define FU2_MACRO_INLINE_NAMESPACE_END }
     #define FU2_MACRO_CONSTEXPR constexpr
+  #else
+    #define FU2_MACRO_NO_EXTENDED_SIGNATURE
   #endif
 #else
   #ifdef __clang__
@@ -71,16 +73,22 @@
   FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) \
   FU2_MACRO_IF(IS_RVALUE)(&&)
 
-// Expand the given macro with all possible combinations.
-#define FU2_MACRO_EXPAND_ALL(EXPRESSION) \
-  EXPRESSION(false, false, false) \
-  EXPRESSION(false, false, true) \
-  EXPRESSION(false, true, false) \
-  EXPRESSION(false, true, true) \
-  EXPRESSION(true, false, false) \
-  EXPRESSION(true, false, true) \
-  EXPRESSION(true, true, false) \
-  EXPRESSION(true, true, true)
+#ifndef FU2_MACRO_NO_EXTENDED_SIGNATURE
+  // Expand the given macro with all possible combinations.
+  #define FU2_MACRO_EXPAND_ALL_SUPPORTED(EXPRESSION) \
+    EXPRESSION(false, false, false) \
+    EXPRESSION(false, false, true) \
+    EXPRESSION(false, true, false) \
+    EXPRESSION(false, true, true) \
+    EXPRESSION(true, false, false) \
+    EXPRESSION(true, false, true) \
+    EXPRESSION(true, true, false) \
+    EXPRESSION(true, true, true)
+#else
+  // Only expand macros when only signatures without qualifiers are supported
+  #define FU2_MACRO_EXPAND_ALL_SUPPORTED(EXPRESSION) \
+    EXPRESSION(false, false, false)
+#endif
 
 namespace fu2 {
 namespace detail {
@@ -151,7 +159,7 @@ struct impl_is_callable_with_qualifiers<ReturnType(Args...)>
 {
   template<typename T>
   static auto test(int)
-    -> typename std::is_convertible<
+    -> std::is_convertible<
         decltype(std::declval<T>()(std::declval<Args>()...)),
         ReturnType
        >;
@@ -217,89 +225,32 @@ struct unwrap
     " \"ReturnType(Arg...) Qualifier\".");
 };
 
-template<typename ReturnType, typename... Args>
-struct unwrap<ReturnType(Args...)>
-  : unwrap_base<
-      signature<ReturnType(Args...)>,
-      qualifier<false, false, false>
-    > { };
+// Expand all const, volatile and l-value or r-value qualifiers
+#define FU2_MACRO_EXPAND_LVALUE_true(IS_CONST, IS_VOLATILE)
+#define FU2_MACRO_EXPAND_LVALUE_false(IS_CONST, IS_VOLATILE) \
+  template<typename ReturnType, typename... Args> \
+  struct unwrap<ReturnType(Args...) \
+    FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) &> \
+    : unwrap_base< \
+      signature<ReturnType(Args...)>, \
+        qualifier<IS_CONST, IS_VOLATILE, false> \
+      > { };
 
-template<typename ReturnType, typename... Args>
-struct unwrap<ReturnType(Args...) const>
-  : unwrap_base<
-      signature<ReturnType(Args...)>,
-      qualifier<true, false, false>
-    > { };
+#define FU2_MACRO_DEFINE_SIGNATURE_UNWRAP(IS_CONST, IS_VOLATILE, IS_RVALUE) \
+  template<typename ReturnType, typename... Args> \
+  struct unwrap<ReturnType(Args...) \
+    FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE)> \
+    : unwrap_base< \
+      signature<ReturnType(Args...)>, \
+        qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE> \
+      > { }; \
+    FU2_MACRO_EXPAND_LVALUE_ ## IS_RVALUE(IS_CONST, IS_VOLATILE)
 
-template<typename ReturnType, typename... Args>
-struct unwrap<ReturnType(Args...) volatile>
-  : unwrap_base<
-      signature<ReturnType(Args...)>,
-      qualifier<false, true, false>
-    > { };
+FU2_MACRO_EXPAND_ALL_SUPPORTED(FU2_MACRO_DEFINE_SIGNATURE_UNWRAP)
 
-template<typename ReturnType, typename... Args>
-struct unwrap<ReturnType(Args...) const volatile>
-  : unwrap_base<
-      signature<ReturnType(Args...)>,
-      qualifier<true, true, false>
-    > { };
-
-template<typename ReturnType, typename... Args>
-struct unwrap<ReturnType(Args...)&>
-  : unwrap_base<
-      signature<ReturnType(Args...)>,
-      qualifier<false, false, false>
-    > { };
-
-template<typename ReturnType, typename... Args>
-struct unwrap<ReturnType(Args...) const&>
-  : unwrap_base<
-      signature<ReturnType(Args...)>,
-      qualifier<true, false, false>
-    > { };
-
-template<typename ReturnType, typename... Args>
-struct unwrap<ReturnType(Args...) volatile&>
-  : unwrap_base<
-      signature<ReturnType(Args...)>,
-      qualifier<false, true, false>
-    > { };
-
-template<typename ReturnType, typename... Args>
-struct unwrap<ReturnType(Args...) const volatile&>
-  : unwrap_base<
-      signature<ReturnType(Args...)>,
-      qualifier<true, true, false>
-    > { };
-
-template<typename ReturnType, typename... Args>
-struct unwrap<ReturnType(Args...)&&>
-  : unwrap_base<
-      signature<ReturnType(Args...)>,
-      qualifier<false, false, true>
-    > { };
-
-template<typename ReturnType, typename... Args>
-struct unwrap<ReturnType(Args...) const&&>
-  : unwrap_base<
-      signature<ReturnType(Args...)>,
-      qualifier<true, false, true>
-    > { };
-
-template<typename ReturnType, typename... Args>
-struct unwrap<ReturnType(Args...) volatile&&>
-  : unwrap_base<
-      signature<ReturnType(Args...)>,
-      qualifier<false, true, true>
-    > { };
-
-template<typename ReturnType, typename... Args>
-struct unwrap<ReturnType(Args...) const volatile&&>
-  : unwrap_base<
-      signature<ReturnType(Args...)>,
-      qualifier<true, true, true>
-    > { };
+#undef FU2_MACRO_DEFINE_SIGNATURE_UNWRAP
+#undef FU2_MACRO_EXPAND_LVALUE_true
+#undef FU2_MACRO_EXPAND_LVALUE_false
 
 template<std::size_t Size, std::size_t Alignment>
 using round_up_to_alignment = typename std::conditional<Size % Alignment == 0,
@@ -362,21 +313,21 @@ struct function_vtable<signature<ReturnType(Args...)>, true>
 };
 
 // Performs no operation on the given pointer.
-static inline void function_wrapper_noop(void* /*dest*/) { }
+inline void function_wrapper_noop(void* /*dest*/) { }
 
 // Performs no operation on the given pointer.
-static inline void function_wrapper_noop2(void* /*dest*/, void* /*dest*/) { }
+inline void function_wrapper_noop2(void* /*dest*/, void* /*dest*/) { }
 
 // Constructs a type T at the given destination with the given arguments.
 template<typename T, typename... Args>
-static inline void function_wrapper_construct(void* destination, Args... args)
+static void function_wrapper_construct(void* destination, Args... args)
 {
   new (destination) typename std::decay<T>::type(std::forward<Args>(args)...);
 }
 
 // Destructs a type T at the given destination.
 template<typename T>
-static inline void function_wrapper_destruct(void* destination)
+static void function_wrapper_destruct(void* destination)
 {
   static_cast<T*>(destination)->~T();
   (void)destination;
@@ -384,27 +335,27 @@ static inline void function_wrapper_destruct(void* destination)
 
 // Returns the required size of the type to allocate in-place.
 template<typename T>
-static inline std::size_t function_wrapper_required_size()
+static std::size_t function_wrapper_required_size()
 {
   return required_capacity_to_allocate_inplace<T>::value;
 }
 
 // Returns a zero size.
-static inline std::size_t function_wrapper_zero_size()
+inline std::size_t function_wrapper_zero_size()
 {
   return 0UL;
 }
 
 // Moves the given type at the target location to another one.
 template<typename T>
-static inline void function_wrapper_move(void* from, void* to)
+static void function_wrapper_move(void* from, void* to)
 {
   function_wrapper_construct<T>(to, std::move(*static_cast<T*>(from)));
 }
 
 // Copies the given type at the target location to another one.
 template<typename T>
-static inline void function_wrapper_copy(void* from, void* to)
+static void function_wrapper_copy(void* from, void* to)
 {
   function_wrapper_construct<T>(to, *static_cast<T*>(from));
 }
@@ -420,7 +371,7 @@ struct function_wrapper_invoker;
     qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE> \
   > \
   { \
-    static inline ReturnType invoke(void* target, Args&&... args) \
+    static ReturnType invoke(void* target, Args&&... args) \
     { \
       return FU2_MACRO_MOVE_IF(IS_RVALUE)(* static_cast< \
         T FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) *>( \
@@ -428,7 +379,7 @@ struct function_wrapper_invoker;
     } \
   };
 
-FU2_MACRO_EXPAND_ALL(FU2_MACRO_DEFINE_CALL_OPERATOR)
+FU2_MACRO_EXPAND_ALL_SUPPORTED(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
 #undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
@@ -486,7 +437,7 @@ struct vtable_creator_of_empty_function<signature<ReturnType(Args...)>, false>
   >;
 
   // Non-Throwing empty function call
-  static inline ReturnType invoke(void*, Args&&...)
+  static ReturnType invoke(void*, Args&&...)
   {
     std::abort();
   }
@@ -754,7 +705,7 @@ struct call_operator;
     } \
   };
 
-FU2_MACRO_EXPAND_ALL(FU2_MACRO_DEFINE_CALL_OPERATOR)
+FU2_MACRO_EXPAND_ALL_SUPPORTED(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
 #undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
@@ -969,6 +920,7 @@ using detail::bad_function_call;
 #undef FU2_MACRO_INLINE_NAMESPACE_BEGIN
 #undef FU2_MACRO_INLINE_NAMESPACE_END
 #undef FU2_MACRO_CONSTEXPR
+#undef FU2_MACRO_NO_EXTENDED_SIGNATURE
 #undef FU2_MACRO_IF
 #undef FU2_MACRO_IF_true
 #undef FU2_MACRO_IF_false
@@ -977,6 +929,6 @@ using detail::bad_function_call;
 #undef FU2_MACRO_MOVE_IF_false
 #undef FU2_MACRO_NO_REF_QUALIFIER
 #undef FU2_MACRO_FULL_QUALIFIER
-#undef FU2_MACRO_EXPAND_ALL
+#undef FU2_MACRO_EXPAND_ALL_SUPPORTED
 
-#endif // fu2_included_function_hpp_
+#endif // FU2_INCLUDED_FUNCTION_HPP__
