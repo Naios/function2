@@ -880,7 +880,6 @@ public:
   /// Swaps the left function with the right one
   friend void swap(function& left, function& right)
   {
-    using std::swap;
     left.swap(right);
   }
 
