@@ -252,15 +252,15 @@ FU2_MACRO_EXPAND_ALL_SUPPORTED(FU2_MACRO_DEFINE_SIGNATURE_UNWRAP)
 #undef FU2_MACRO_EXPAND_LVALUE_true
 #undef FU2_MACRO_EXPAND_LVALUE_false
 
+// Rounds the required size up to the alignment
 template<std::size_t Size, std::size_t Alignment>
-using round_up_to_alignment = typename std::conditional<Size % Alignment == 0,
-  std::integral_constant<std::size_t, Size>,
-  std::integral_constant<std::size_t,
-    // Rounds the required size up to the alignment
-    Size + (Alignment - (Size % Alignment))
-  >
->::type;
+using round_up_to_alignment = std::integral_constant<std::size_t,
+  (Size % Alignment == 0)
+    ? Size
+    : Size + (Alignment - (Size % Alignment))
+>;
 
+// Defines the required capacity which is needed to allocate an object
 template<typename T>
 using required_capacity_to_allocate_inplace = round_up_to_alignment<
   sizeof(T), std::alignment_of<T>::value
