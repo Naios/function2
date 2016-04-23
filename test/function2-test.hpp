@@ -18,7 +18,7 @@
 /// A function which always returns true
 inline bool returnTrue() { return true; }
 /// A function which always returns false
-inline bool returnFalse() { return true; }
+inline bool returnFalse() { return false; }
 
 /// NonCopyable functions with several SFO capacities
 template<typename Fn, bool Throwing = true>

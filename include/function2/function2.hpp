@@ -566,7 +566,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
   }
 
   // Private API
-  inline void weak_deallocate()
+  void weak_deallocate()
   {
     _vtable->destruct(_impl);
 
@@ -581,7 +581,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
     tidy();
   }
 
-  inline void tidy()
+  void tidy()
   {
     _vtable = vtable_creator_of_empty_function<
       signature<ReturnType(Args...)>, Config::is_throwing
@@ -591,7 +591,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
 
   // Allocate in locale capacity.
   template<typename /*T*/>
-  inline void allocate_space(std::true_type)
+  void allocate_space(std::true_type)
   {
     _impl = &_locale;
   }
@@ -674,7 +674,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
     }
   }
 
-  inline bool empty() const { return _impl ? false : true; }
+  bool empty() const { return _impl ? false : true; }
 
 }; // struct storage_t
 
@@ -858,17 +858,53 @@ public:
   /// Returns true when the function isn't empty
   explicit operator bool() const { return !empty(); }
 
-  ///
+  /// Assigns a new target, note that the allocator
+  /// is ignored like in the common standard library implementations.
+  template<typename F, typename Alloc>
+  void assign(F&& f, Alloc /*alloc*/)
+  {
+    *this = std::forward<F>(f);
+  }
+
+  /// Swaps this function with the given function
+  void swap(function& other)
+  {
+    if (&other == this)
+      return;
+
+    function cache = std::move(other);
+    other = std::move(*this);
+    *this = std::move(cache);
+  }
+
+  /// Swaps the left function with the right one
+  friend void swap(function& left, function& right)
+  {
+    using std::swap;
+    left.swap(right);
+  }
+
+  /// Calls the function target, returns the result when the function exists
+  /// otherwise it throws a fu2::bad_function_call when exceptions are enabled.
+  /// When exceptions are disabled std::abort is called.
   using call_operator<function>::operator();
 
 }; // class function
 
+template<typename ReturnType, typename... Args,
+         typename Qualifier, typename Config>
+bool operator==(function<signature<ReturnType(Args...)>,
+                         Qualifier, Config const&> f, std::nullptr_t)
+{
+  return f.empty();
+}
+
 // Internal size of a empty function object
 using empty_size = std::integral_constant<std::size_t,
-  sizeof(detail::function<
-    typename detail::unwrap<void()>::signature,
-    typename detail::unwrap<void()>::qualifier,
-    detail::config<true, 0UL, true>>)
+  sizeof(function<
+    unwrap<void()>::signature,
+    unwrap<void()>::qualifier,
+    config<true, 0UL, true>>)
 >;
 
 // Default capacity for small functor optimization

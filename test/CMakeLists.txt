@@ -22,12 +22,18 @@ target_compile_features(gtest
     cxx_lambdas
     cxx_nullptr
     cxx_override)
-    
-file(GLOB TEST_SOURCES
-  "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
 
-add_executable(function2_tests ${TEST_SOURCES})
+add_executable(function2_tests
+  ${CMAKE_CURRENT_LIST_DIR}/../include/function2/function2.hpp
+  ${CMAKE_CURRENT_LIST_DIR}/assign-and-constructible-test.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/build-test.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/empty-function-call-test.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/function2-test.hpp
+  ${CMAKE_CURRENT_LIST_DIR}/functionality-test.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/noexcept-test.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/self-containing-test.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/standard-compliant-test.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/type-test.cpp)
 
 target_link_libraries(function2_tests
   PRIVATE
