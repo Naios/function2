@@ -15,17 +15,38 @@
 
 // Detect disabled exceptions
 #if defined(_MSC_VER)
-#  if !defined(_HAS_EXCEPTIONS) || (_HAS_EXCEPTIONS == 0)
-#    define FU2_MACRO_DISABLE_EXCEPTIONS
-#  endif
-#elif defined(__clang__)
-#  if !(__EXCEPTIONS && __has_feature(cxx_exceptions))
-#    define FU2_MACRO_DISABLE_EXCEPTIONS
-#  endif
-#elif defined(__GNUC__)
-#  if !__EXCEPTIONS
-#    define FU2_MACRO_DISABLE_EXCEPTIONS
-#  endif
+  #if !defined(_HAS_EXCEPTIONS) || (_HAS_EXCEPTIONS == 0)
+    #define FU2_MACRO_DISABLE_EXCEPTIONS
+  #endif
+  // Use more C++11 features when using MSVC 14 or higher
+  #if _MSC_VER >= 1900
+    #define FU2_MACRO_INLINE_NAMESPACE_BEGIN( NAME ) inline namespace NAME {
+    #define FU2_MACRO_INLINE_NAMESPACE_END }
+    #define FU2_MACRO_CONSTEXPR constexpr
+  #endif
+#else
+  #ifdef __clang__
+    #if !(__EXCEPTIONS && __has_feature(cxx_exceptions))
+      #define FU2_MACRO_DISABLE_EXCEPTIONS
+    #endif
+  #elif defined(__GNUC__)
+    #if !__EXCEPTIONS
+      #define FU2_MACRO_DISABLE_EXCEPTIONS
+    #endif
+  #endif
+  #define FU2_MACRO_INLINE_NAMESPACE_BEGIN( NAME ) inline namespace NAME {
+  #define FU2_MACRO_INLINE_NAMESPACE_END }
+  #define FU2_MACRO_CONSTEXPR constexpr
+#endif
+
+#ifndef FU2_MACRO_INLINE_NAMESPACE_BEGIN
+  #define FU2_MACRO_INLINE_NAMESPACE_BEGIN( NAME )
+#endif
+#ifndef FU2_MACRO_INLINE_NAMESPACE_END
+  #define FU2_MACRO_INLINE_NAMESPACE_END
+#endif
+#ifndef FU2_MACRO_CONSTEXPR
+  #define FU2_MACRO_CONSTEXPR
 #endif
 
 // If macro.
@@ -51,7 +72,7 @@
   FU2_MACRO_IF(IS_RVALUE)(&&)
 
 // Expand the given macro with all possible combinations.
-#define FU2_MACRO_EXPAND_3(EXPRESSION) \
+#define FU2_MACRO_EXPAND_ALL(EXPRESSION) \
   EXPRESSION(false, false, false) \
   EXPRESSION(false, false, true) \
   EXPRESSION(false, true, false) \
@@ -63,7 +84,7 @@
 
 namespace fu2 {
 namespace detail {
-inline namespace v2 {
+FU2_MACRO_INLINE_NAMESPACE_BEGIN(v3)
 
 // Copy enabler helper class
 template<bool /*Copyable*/>
@@ -74,9 +95,9 @@ struct copyable<false>
 {
   copyable() = default;
   copyable(copyable const&) = delete;
-  copyable(copyable&&) = default;
+  copyable(copyable&&) { }
   copyable& operator=(copyable const&) = delete;
-  copyable& operator=(copyable&&) = default;
+  copyable& operator=(copyable&&) { return *this; };
 };
 
 // Helper to store function signature.
@@ -98,13 +119,13 @@ template<bool Constant, bool Volatile, bool RValue>
 struct qualifier
 {
   // Is true if the qualifier has const.
-  static constexpr bool is_const = Constant;
+  static FU2_MACRO_CONSTEXPR bool const is_const = Constant;
 
   // Is true if the qualifier has volatile.
-  static constexpr bool is_volatile = Volatile;
+  static FU2_MACRO_CONSTEXPR bool const is_volatile = Volatile;
 
   // Is true if the qualifier has r-value reference.
-  static constexpr bool is_rvalue = RValue;
+  static FU2_MACRO_CONSTEXPR bool const is_rvalue = RValue;
 };
 
 // Helper to store the function configuration.
@@ -112,14 +133,14 @@ template<bool Copyable, std::size_t Capacity, bool Throws>
 struct config
 {
   // Is true if the function is copyable.
-  static constexpr bool is_copyable = Copyable;
+  static FU2_MACRO_CONSTEXPR bool const is_copyable = Copyable;
 
   // The internal capacity of the function
   // used in small functor optimization.
-  static constexpr std::size_t capacity = Capacity;
+  static FU2_MACRO_CONSTEXPR std::size_t const capacity = Capacity;
 
   // Is true if the function throws an exception on empty invocation.
-  static constexpr bool is_throwing = Throws;
+  static FU2_MACRO_CONSTEXPR bool const is_throwing = Throws;
 };
 
 template<typename Fn>
@@ -311,7 +332,7 @@ struct function_vtable<signature<ReturnType(Args...)>, Copyable>
   typedef std::size_t(*required_size_t)();
   typedef void (*move_t)(void* /*from*/, void* /*to*/);
 
-  constexpr function_vtable(destruct_t destruct_, invoke_t invoke_,
+  FU2_MACRO_CONSTEXPR function_vtable(destruct_t destruct_, invoke_t invoke_,
     required_size_t required_size_, move_t move_)
     : destruct(destruct_), invoke(invoke_),
       required_size(required_size_), move(move_) { }
@@ -328,7 +349,7 @@ struct function_vtable<signature<ReturnType(Args...)>, true>
 {
   typedef void (*copy_t)(void* /*from*/, void* /*to*/);
 
-  constexpr function_vtable(
+  FU2_MACRO_CONSTEXPR function_vtable(
       typename function_vtable::destruct_t destruct_,
       typename function_vtable::invoke_t invoke_,
       typename function_vtable::required_size_t required_size_,
@@ -407,7 +428,7 @@ struct function_wrapper_invoker;
     } \
   };
 
-FU2_MACRO_EXPAND_3(FU2_MACRO_DEFINE_CALL_OPERATOR)
+FU2_MACRO_EXPAND_ALL(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
 #undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
@@ -444,7 +465,7 @@ struct vtable_creator_of_empty_function<signature<ReturnType(Args...)>, true>
 
   static common_vtable_t const* create_vtable()
   {
-    static constexpr common_vtable_t const vtable(
+    static FU2_MACRO_CONSTEXPR common_vtable_t const vtable(
       function_wrapper_noop,
       invoke,
       function_wrapper_zero_size,
@@ -472,7 +493,7 @@ struct vtable_creator_of_empty_function<signature<ReturnType(Args...)>, false>
 
   static common_vtable_t const* create_vtable()
   {
-    static constexpr common_vtable_t const vtable(
+    static FU2_MACRO_CONSTEXPR common_vtable_t const vtable(
       function_wrapper_noop,
       invoke,
       function_wrapper_zero_size,
@@ -733,7 +754,7 @@ struct call_operator;
     } \
   };
 
-FU2_MACRO_EXPAND_3(FU2_MACRO_DEFINE_CALL_OPERATOR)
+FU2_MACRO_EXPAND_ALL(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
 #undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
@@ -775,9 +796,10 @@ class function<signature<ReturnType(Args...)>, Qualifier, Config>
   storage_t<signature<ReturnType(Args...)>, Qualifier, Config> _storage;
 
 public:
+  /// Default constructor which constructs the function empty
   function() = default;
 
-  // Copy construct
+  /// Copy construction from another copyable function
   template<typename RightConfig,
            typename std::enable_if<
             is_copyable_correct_to_this<RightConfig::is_copyable>::value &&
@@ -789,7 +811,7 @@ public:
     _storage.weak_copy_assign(right._storage);
   }
 
-  // Move construct
+  /// Move construction from another function
   template<typename RightConfig,
            typename std::enable_if<
             is_copyable_correct_to_this<RightConfig::is_copyable>::value
@@ -800,7 +822,7 @@ public:
     _storage.weak_move_assign(std::move(right._storage));
   }
 
-  // Constructor taking a function pointer
+  /// Construction from a function pointer
   template<typename T,
            typename std::enable_if<
             is_function_pointer_assignable_to_this<T>::value
@@ -810,7 +832,7 @@ public:
     _storage.weak_allocate_function_pointer(std::forward<T>(function_pointer));
   }
 
-  // Constructor taking a functor
+  /// Construction from a functional object which overloads the `()` operator
   template<typename T,
            typename = typename std::enable_if<
             is_functor_assignable_to_this<T>::value
@@ -820,10 +842,11 @@ public:
     _storage.weak_allocate_object(std::forward<T>(functor));
   }
 
+  /// Empty constructs the function
   explicit function(std::nullptr_t)
     : _storage() { }
 
-  // Copy assign
+  /// Copy assigning from another copyable function
   template<typename RightConfig,
            typename std::enable_if<RightConfig::is_copyable>::type* = nullptr>
   function& operator= (function<signature<ReturnType(Args...)>,
@@ -834,7 +857,7 @@ public:
     return *this;
   }
 
-  // Move assign
+  /// Move assigning from another function
   template<typename RightConfig,
            typename std::enable_if<
             is_copyable_correct_to_this<RightConfig::is_copyable>::value
@@ -847,7 +870,7 @@ public:
     return *this;
   }
 
-  // Copy assign taking a function pointer
+  /// Copy assigning from a function pointer
   template<typename T,
            typename std::enable_if<
             is_function_pointer_assignable_to_this<T>::value
@@ -859,7 +882,7 @@ public:
     return *this;
   }
 
-  // Copy assign taking a functor
+  /// Move assigning from a functional object
   template<typename T,
            typename std::enable_if<
             is_functor_assignable_to_this<T>::value
@@ -871,36 +894,41 @@ public:
     return *this;
   }
 
+  /// Clears the function
   function& operator= (std::nullptr_t)
   {
     _storage.deallocate();
     return *this;
   }
 
+  /// Returns true when the function is empty
   bool empty() const { return _storage.empty(); }
+
+  /// Returns true when the function isn't empty
   explicit operator bool() const { return !empty(); }
 
+  ///
   using call_operator<function>::operator();
 
 }; // class function
 
-// Default capacity for small functor optimization
-using default_capacity = std::integral_constant<std::size_t,
-  32UL
+// Internal size of a empty function object
+using empty_size = std::integral_constant<std::size_t,
+  sizeof(detail::function<
+    typename detail::unwrap<void()>::signature,
+    typename detail::unwrap<void()>::qualifier,
+    detail::config<true, 0UL, true>>)
 >;
 
-#undef FU2_MACRO_DISABLE_EXCEPTIONS
-#undef FU2_MACRO_IF
-#undef FU2_MACRO_IF_true
-#undef FU2_MACRO_IF_false
-#undef FU2_MACRO_MOVE_IF
-#undef FU2_MACRO_MOVE_IF_true
-#undef FU2_MACRO_MOVE_IF_false
-#undef FU2_MACRO_NO_REF_QUALIFIER
-#undef FU2_MACRO_FULL_QUALIFIER
-#undef FU2_MACRO_EXPAND_3
+// Default capacity for small functor optimization
+using default_capacity = std::integral_constant<std::size_t,
+  // Aim to size the function object to 32UL
+  (empty_size::value < 32UL)
+    ? (32UL - empty_size::value)
+    : 16UL
+>;
 
-} /// inline namespace v2
+FU2_MACRO_INLINE_NAMESPACE_END
 
 } /// namespace detail
 
@@ -936,5 +964,19 @@ using unique_function = function_base<
 using detail::bad_function_call;
 
 } /// namespace fu2
+
+#undef FU2_MACRO_DISABLE_EXCEPTIONS
+#undef FU2_MACRO_INLINE_NAMESPACE_BEGIN
+#undef FU2_MACRO_INLINE_NAMESPACE_END
+#undef FU2_MACRO_CONSTEXPR
+#undef FU2_MACRO_IF
+#undef FU2_MACRO_IF_true
+#undef FU2_MACRO_IF_false
+#undef FU2_MACRO_MOVE_IF
+#undef FU2_MACRO_MOVE_IF_true
+#undef FU2_MACRO_MOVE_IF_false
+#undef FU2_MACRO_NO_REF_QUALIFIER
+#undef FU2_MACRO_FULL_QUALIFIER
+#undef FU2_MACRO_EXPAND_ALL
 
 #endif // fu2_included_function_hpp_

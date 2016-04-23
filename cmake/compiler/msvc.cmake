@@ -1,7 +1,7 @@
-if (${MSVC_VERSION} LESS 1900)
+if (${MSVC_VERSION} LESS 1800)
   message(FATAL_ERROR "You are using an unsupported version of Visual Studio "
                       "which doesn't support all required C++11 features. "
-                      "(Visual Studio 2015 (version >= 1900) is required!)")
+                      "(Visual Studio 2013 (version >= 1800) is required!)")
 endif()
 
 if(CMAKE_SIZEOF_VOID_P MATCHES 8)

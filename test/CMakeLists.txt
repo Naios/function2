@@ -17,7 +17,6 @@ target_compile_features(gtest
   PUBLIC
     cxx_alias_templates
     cxx_auto_type
-    cxx_constexpr
     cxx_decltype
     cxx_final
     cxx_lambdas

@@ -13,16 +13,11 @@ target_compile_features(function2
   INTERFACE
     cxx_alias_templates
     cxx_auto_type
-    cxx_constexpr
     cxx_decltype
     cxx_final
     cxx_lambdas
-    cxx_generic_lambdas
-    cxx_inline_namespaces
-    cxx_noexcept
     cxx_variadic_templates
     cxx_defaulted_functions
-    cxx_defaulted_move_initializers
     cxx_nullptr)
 
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
