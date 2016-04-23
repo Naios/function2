@@ -51,20 +51,20 @@ matrix:
       compiler: clang
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports', 'llvm-toolchain-precise-3.7']
-          packages: ['clang-3.7', 'valgrind', 'cmake', 'cmake-data']
+          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports', 'llvm-toolchain-precise-3.8']
+          packages: ['clang-3.8', 'valgrind', 'cmake', 'cmake-data']
       env:
-        - COMPILER=clang++-3.7
+        - COMPILER=clang++-3.8
         - NO_EXCEPTIONS=OFF
 
     - os: linux
       compiler: clang
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports', 'llvm-toolchain-precise-3.7']
-          packages: ['clang-3.7', 'valgrind', 'cmake', 'cmake-data']
+          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports', 'llvm-toolchain-precise-3.8']
+          packages: ['clang-3.8', 'valgrind', 'cmake', 'cmake-data']
       env:
-        - COMPILER=clang++-3.7
+        - COMPILER=clang++-3.8
         - NO_EXCEPTIONS=ON
 
 install:
