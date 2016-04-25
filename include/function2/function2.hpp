@@ -85,14 +85,18 @@
     EXPRESSION(true, true, false) \
     EXPRESSION(true, true, true)
 #else
-  // Only expand macros when only signatures without qualifiers are supported
+  // Expand the given macro when signatures with qualifiers are unsupported
   #define FU2_MACRO_EXPAND_ALL_SUPPORTED(EXPRESSION) \
     EXPRESSION(false, false, false)
 #endif
 
 namespace fu2 {
 namespace detail {
-FU2_MACRO_INLINE_NAMESPACE_BEGIN(v3)
+FU2_MACRO_INLINE_NAMESPACE_BEGIN(v4)
+
+// Equivalent to C++17's std::void_t
+template<typename...>
+using always_void_t = void;
 
 // Copy enabler helper class
 template<bool /*Copyable*/>
@@ -156,54 +160,56 @@ struct config
   static FU2_MACRO_CONSTEXPR bool const is_partial_applyable = PartialApplyable;
 };
 
-template<typename Fn>
-struct impl_is_callable_with_qualifiers;
+template<typename T, typename Signature, typename = always_void_t<>>
+struct is_callable_with
+  : std::false_type { };
 
-template<typename ReturnType, typename... Args>
-struct impl_is_callable_with_qualifiers<ReturnType(Args...)>
-{
-  template<typename T>
-  static auto test(int)
-    -> std::is_convertible<
-        decltype(std::declval<T>()(std::declval<Args>()...)),
-        ReturnType
-       >;
-
-  template<typename T>
-  static auto test(...)
-    -> std::false_type;
-};
+template<typename T, typename ReturnType, typename... Args>
+struct is_callable_with<T, ReturnType(Args...),
+  always_void_t<
+    typename std::enable_if<std::is_convertible<
+      decltype(std::declval<T>()(std::declval<Args>()...)),
+      ReturnType
+    >::value>::type>>
+  : std::true_type { };
 
 template<bool Condition, typename T>
-using add_const_if_t = typename std::conditional<
+using add_const_if = typename std::conditional<
   Condition,
   typename std::add_const<T>::type,
   T
 >::type;
 
 template<bool Condition, typename T>
-using add_volatile_if_t = typename std::conditional<
+using add_volatile_if = typename std::conditional<
   Condition,
   typename std::add_volatile<T>::type,
   T
 >::type;
 
 template<bool Condition, typename T>
-using add_lvalue_if_t = typename std::conditional<
+using add_lvalue_if = typename std::conditional<
   Condition,
   typename std::add_lvalue_reference<T>::type,
   T
 >::type;
 
-template<typename T, typename Fn, typename Qualifier>
-using is_callable_with_qualifiers =
-  decltype(impl_is_callable_with_qualifiers<Fn>::template test<
-    add_lvalue_if_t<!Qualifier::is_rvalue,
-      add_volatile_if_t<Qualifier::is_volatile,
-        add_const_if_t<Qualifier::is_const,
-          typename std::decay<T>::type>>>
->(0));
+// Qualifies the type T as given in the Qualifier config
+template<typename T, typename Qualifier>
+using make_qualified_type =
+  add_lvalue_if<!Qualifier::is_rvalue,
+  add_volatile_if<Qualifier::is_volatile,
+  add_const_if<Qualifier::is_const, typename std::decay<T>::type>>>;
 
+// Deduces to a true_type when the object is callable with
+// the given signature and qualifier.
+template<typename T, typename Signature, typename Qualifier>
+using is_callable_with_qualifier = is_callable_with<
+  make_qualified_type<T, Qualifier>,
+  Signature
+>;
+
+// Deduces to a true type when the function is partial apply able
 template<typename T, typename Fn, typename Qualifier>
 using is_partial_callable_with_qualifiers = std::false_type;
 
@@ -606,7 +612,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
 
   // Allocate on the heap.
   template<typename T>
-  inline void allocate_space(std::false_type)
+  void allocate_space(std::false_type)
   {
     _impl = std::malloc(sizeof(T));
   }
@@ -739,11 +745,10 @@ class function<signature<ReturnType(Args...)>, Qualifier, Config>
 
   // Is a true type if the functor class is assignable to this.
   template<typename T>
-  using is_functor_assignable_to_this = std::integral_constant<std::size_t,
-    !is_function_pointer_assignable_to_this<T>::value &&
-    (is_callable_with_qualifiers<T, ReturnType(Args...), Qualifier>::value ||
+  using is_functional_object_assignable_to_this = std::integral_constant<std::size_t,
+    is_callable_with_qualifier<T, ReturnType(Args...), Qualifier>::value ||
     (Config::is_partial_applyable && is_partial_callable_with_qualifiers<
-      T, ReturnType(Args...), Qualifier>::value))
+      T, ReturnType(Args...), Qualifier>::value)
   >;
 
   // Implementation storage
@@ -779,7 +784,7 @@ public:
   /// Construction from a functional object which overloads the `()` operator
   template<typename T,
            typename = typename std::enable_if<
-            is_functor_assignable_to_this<T>::value
+            is_functional_object_assignable_to_this<T>::value
            >::type>
   function(T functor)
   {
@@ -817,7 +822,7 @@ public:
   /// Move assigning from a functional object
   template<typename T,
            typename std::enable_if<
-            is_functor_assignable_to_this<T>::value
+            is_functional_object_assignable_to_this<T>::value
            >::type* = nullptr>
   function& operator= (T functor)
   {
