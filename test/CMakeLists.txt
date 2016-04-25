@@ -34,7 +34,8 @@ add_executable(function2_tests
   ${CMAKE_CURRENT_LIST_DIR}/self-containing-test.cpp
   ${CMAKE_CURRENT_LIST_DIR}/standard-compliant-test.cpp
   ${CMAKE_CURRENT_LIST_DIR}/type-test.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/partial-apply.cpp)
+  ${CMAKE_CURRENT_LIST_DIR}/partial-apply-test.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/overload-test.cpp)
 
 target_link_libraries(function2_tests
   PRIVATE

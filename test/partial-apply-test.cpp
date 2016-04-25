@@ -12,4 +12,11 @@ TYPED_TEST(PartialApplyTests, IsDeclareableWithSupportedTypes)
 {
   // typename TestFixture::template left_t<void(int, int, int)> left = returnTrue;
   // EXPECT_TRUE(left());
+
+  int i = 0;
+
+  fu2::function<int(int, int)> fu = [&] (int, int) {
+
+    return i;
+  };
 }
