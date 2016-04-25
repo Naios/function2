@@ -737,13 +737,6 @@ class function<signature<ReturnType(Args...)>, Qualifier, Config>
     Config::is_copyable, RightCopyable
   >;
 
-  // Is a true type if the given function pointer is assignable to this.
-  template<typename T>
-  using is_function_pointer_assignable_to_this = std::integral_constant<bool,
-    std::is_convertible<T, ReturnType(*)(Args...)>::value &&
-    !Qualifier::is_volatile
-  >;
-
   // Is a true type if the functor class is assignable to this.
   template<typename T>
   using is_functor_assignable_to_this = std::integral_constant<std::size_t,
@@ -783,16 +776,6 @@ public:
     _storage.weak_move_assign(std::move(right._storage));
   }
 
-  /// Construction from a function pointer
-  template<typename T,
-           typename std::enable_if<
-            is_function_pointer_assignable_to_this<T>::value
-           >::type* = nullptr>
-  function(T function_pointer)
-  {
-    _storage.weak_allocate_function_pointer(std::forward<T>(function_pointer));
-  }
-
   /// Construction from a functional object which overloads the `()` operator
   template<typename T,
            typename = typename std::enable_if<
@@ -828,18 +811,6 @@ public:
   {
     _storage.weak_deallocate();
     _storage.weak_move_assign(std::move(right._storage));
-    return *this;
-  }
-
-  /// Copy assigning from a function pointer
-  template<typename T,
-           typename std::enable_if<
-            is_function_pointer_assignable_to_this<T>::value
-           >::type* = nullptr>
-  function& operator= (T function_pointer)
-  {
-    _storage.weak_deallocate();
-    _storage.weak_allocate_function_pointer(std::forward<T>(function_pointer));
     return *this;
   }
 
