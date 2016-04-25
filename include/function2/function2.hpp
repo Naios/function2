@@ -137,7 +137,8 @@ struct qualifier
 };
 
 // Helper to store the function configuration.
-template<bool Copyable, std::size_t Capacity, bool Throws>
+template<bool Copyable, std::size_t Capacity,
+         bool Throws, bool PartialApplyable>
 struct config
 {
   // Is true if the function is copyable.
@@ -147,8 +148,12 @@ struct config
   // used in small functor optimization.
   static FU2_MACRO_CONSTEXPR std::size_t const capacity = Capacity;
 
-  // Is true if the function throws an exception on empty invocation.
+  // Is true when the function throws an exception on empty invocation.
   static FU2_MACRO_CONSTEXPR bool const is_throwing = Throws;
+
+  // Is true when the function is assignable from a function with
+  // less arguments.
+  static FU2_MACRO_CONSTEXPR bool const is_partial_applyable = PartialApplyable;
 };
 
 template<typename Fn>
@@ -198,6 +203,9 @@ using is_callable_with_qualifiers =
         add_const_if_t<Qualifier::is_const,
           typename std::decay<T>::type>>>
 >(0));
+
+template<typename T, typename Fn, typename Qualifier>
+using is_partial_callable_with_qualifiers = std::false_type;
 
 // Is a true type if the left type is copyable correct to the right type.
 template<bool LeftCopyable, bool RightCopyable>
@@ -740,7 +748,9 @@ class function<signature<ReturnType(Args...)>, Qualifier, Config>
   template<typename T>
   using is_functor_assignable_to_this = std::integral_constant<std::size_t,
     !is_function_pointer_assignable_to_this<T>::value &&
-    is_callable_with_qualifiers<T, ReturnType(Args...), Qualifier>::value
+    (is_callable_with_qualifiers<T, ReturnType(Args...), Qualifier>::value ||
+    (Config::is_partial_applyable && is_partial_callable_with_qualifiers<
+      T, ReturnType(Args...), Qualifier>::value))
   >;
 
   // Implementation storage
@@ -768,7 +778,7 @@ public:
             is_copyable_correct_to_this<RightConfig::is_copyable>::value
            >::type* = nullptr>
   explicit function(function<signature<ReturnType(Args...)>,
-                             Qualifier, RightConfig>&& right)
+                                      Qualifier, RightConfig>&& right)
   {
     _storage.weak_move_assign(std::move(right._storage));
   }
@@ -927,7 +937,7 @@ using empty_size = std::integral_constant<std::size_t,
   sizeof(function<
     unwrap<void()>::signature,
     unwrap<void()>::qualifier,
-    config<true, 0UL, true>>)
+    config<true, 0UL, true, false>>)
 >;
 
 // Default capacity for small functor optimization
@@ -942,32 +952,42 @@ FU2_MACRO_INLINE_NAMESPACE_END
 
 } /// namespace detail
 
-/// \brief Adaptable function wrapper base for arbitrary functional types.
-template<typename Signature,
-     bool Copyable,
-     std::size_t Capacity = detail::default_capacity::value,
-     bool Throwing = true>
+/// Adaptable function wrapper base for arbitrary functional types.
+template<
+  /// Defines the signature of the function wrapper
+  typename Signature,
+  /// Defines whether the function is copyable or not
+  bool Copyable,
+  /// Defines the internal capacity of the function
+  /// for small functor optimization.
+  std::size_t Capacity = detail::default_capacity::value,
+  /// Defines whether the function throws an exception on empty function call,
+  /// `std::abort` is called otherwise.
+  bool Throwing = true,
+  /// Defines whether the function allows assignments from a
+  /// function with less arguments.
+  bool PartialApplyable = false>
 using function_base = detail::function<
   typename detail::unwrap<Signature>::signature,
   typename detail::unwrap<Signature>::qualifier,
-  detail::config<Copyable, Capacity, Throwing>
+  detail::config<Copyable, Capacity, Throwing, PartialApplyable>
 >;
 
-/// \brief Copyable function wrapper for arbitrary functional types.
+/// Copyable function wrapper for arbitrary functional types.
 template<typename Signature>
 using function = function_base<
   Signature,
   true
 >;
 
-/// \brief Non copyable function wrapper for arbitrary functional types.
+/// Non copyable function wrapper for arbitrary functional types.
 template<typename Signature>
 using unique_function = function_base<
   Signature,
   false
 >;
 
-/// \brief Exception type when invoking empty functional wrappers.
+/// Exception type when invoking empty functional wrappers.
 ///
 /// The exception type thrown through empty function calls
 /// when the template parameter 'Throwing' is set to true (default).
