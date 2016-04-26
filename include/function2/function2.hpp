@@ -524,6 +524,10 @@ struct vtable_creator_of_type<T, signature<ReturnType(Args...)>,
   }
 };
 
+struct initialize_functor_tag { };
+struct copy_assign_storage_tag { };
+struct move_assign_storage_tag { };
+
 template<typename /*Signature*/, typename /*Qualifier*/, typename /*Config*/>
 struct storage_t;
 
@@ -557,7 +561,25 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
 
   explicit storage_t(storage_t&& right)
   {
-    weak_move_assign(std::forward<storage_t>(right));
+    weak_move_assign(std::move(right));
+  }
+
+  template<typename T>
+  storage_t(initialize_functor_tag, T&& functor)
+  {
+    weak_allocate_object(std::forward<T>(functor));
+  }
+
+  template<typename T>
+  storage_t(copy_assign_storage_tag, T const& right)
+  {
+    weak_copy_assign(right);
+  }
+
+  template<typename T>
+  storage_t(move_assign_storage_tag, T&& right)
+  {
+    weak_move_assign(std::forward<T>(right));
   }
 
   storage_t& operator= (storage_t const& right)
@@ -570,7 +592,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
   storage_t& operator= (storage_t&& right)
   {
     weak_deallocate();
-    weak_move_assign(std::forward<storage_t>(right));
+    weak_move_assign(std::move(right));
     return *this;
   }
 
@@ -635,14 +657,6 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
     function_wrapper_construct<
       typename std::decay<T>::type
     >(_impl, std::forward<T>(functor));
-  }
-
-  void weak_allocate_function_pointer(ReturnType(*function_pointer)(Args...))
-  {
-    weak_allocate_object([function_pointer](Args&&... args) -> ReturnType
-    {
-      return function_pointer(std::forward<Args>(args)...);
-    });
   }
 
   // Private API
@@ -723,6 +737,15 @@ FU2_MACRO_EXPAND_ALL_SUPPORTED(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
 #undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
+template<typename /*T*/>
+struct is_function
+  : std::false_type { };
+
+template<typename ReturnType, typename... Args,
+  typename Qualifier, typename Config>
+struct is_function<function<signature<ReturnType(Args...)>, Qualifier, Config>>
+  : std::true_type { };
+
 template<typename ReturnType, typename... Args,
          typename Qualifier, typename Config>
 class function<signature<ReturnType(Args...)>, Qualifier, Config>
@@ -746,9 +769,10 @@ class function<signature<ReturnType(Args...)>, Qualifier, Config>
   // Is a true type if the functor class is assignable to this.
   template<typename T>
   using is_functional_object_assignable_to_this = std::integral_constant<std::size_t,
-    is_callable_with_qualifier<T, ReturnType(Args...), Qualifier>::value ||
+    (is_callable_with_qualifier<T, ReturnType(Args...), Qualifier>::value ||
     (Config::is_partial_applyable && is_partial_callable_with_qualifiers<
-      T, ReturnType(Args...), Qualifier>::value)
+      T, ReturnType(Args...), Qualifier>::value)) &&
+    !is_function<typename std::decay<T>::type>::value
   >;
 
   // Implementation storage
@@ -764,22 +788,18 @@ public:
             is_copyable_correct_to_this<RightConfig::is_copyable>::value &&
             RightConfig::is_copyable
            >::type* = nullptr>
-  explicit function(function<signature<ReturnType(Args...)>,
-                                       Qualifier, RightConfig> const& right)
-  {
-    _storage.weak_copy_assign(right._storage);
-  }
+  function(function<signature<ReturnType(Args...)>,
+                              Qualifier, RightConfig> const& right)
+    : _storage(copy_assign_storage_tag{}, right._storage) { }
 
   /// Move construction from another function
   template<typename RightConfig,
            typename std::enable_if<
             is_copyable_correct_to_this<RightConfig::is_copyable>::value
            >::type* = nullptr>
-  explicit function(function<signature<ReturnType(Args...)>,
-                                      Qualifier, RightConfig>&& right)
-  {
-    _storage.weak_move_assign(std::move(right._storage));
-  }
+  function(function<signature<ReturnType(Args...)>,
+                              Qualifier, RightConfig>&& right)
+    : _storage(move_assign_storage_tag{}, std::move(right._storage)) { }
 
   /// Construction from a functional object which overloads the `()` operator
   template<typename T,
@@ -787,9 +807,7 @@ public:
             is_functional_object_assignable_to_this<T>::value
            >::type>
   function(T functor)
-  {
-    _storage.weak_allocate_object(std::forward<T>(functor));
-  }
+    : _storage(initialize_functor_tag{}, std::forward<T>(functor)) { }
 
   /// Empty constructs the function
   explicit function(std::nullptr_t)

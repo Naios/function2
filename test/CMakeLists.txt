@@ -43,3 +43,11 @@ target_link_libraries(function2_tests
     gtest)
 
 add_test(NAME function2-unit-tests COMMAND function2_tests)
+
+add_executable(function2_playground
+  ${CMAKE_CURRENT_LIST_DIR}/../include/function2/function2.hpp
+  ${CMAKE_CURRENT_LIST_DIR}/playground.cpp)
+
+target_link_libraries(function2_playground
+  PRIVATE
+    function2)
