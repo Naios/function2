@@ -241,20 +241,28 @@ Benchmark: Invoke function wrapper
 
 ## Coverage and runtime checks
 
-Function2 is checked with unit tests and was tested with valgrind for memory leaks:
+Function2 is checked with unit tests and valgrind (for memory leaks), where the unit tests provide coverage for all possible template parameter assignments:
 
 ```
-===============================================================================
-All tests passed (73 assertions in 7 test cases)
+[----------] Global test environment tear-down
+[==========] 419 tests from 105 test cases ran. (1349 ms total)
+[  PASSED  ] 419 tests.
+==20005==
+==20005== HEAP SUMMARY:
+==20005==     in use at exit: 72,704 bytes in 1 blocks
+==20005==   total heap usage: 15,475 allocs, 15,474 frees, 1,807,616 bytes allocated
+==20005==
+==20005== LEAK SUMMARY:
+==20005==    definitely lost: 0 bytes in 0 blocks
+==20005==    indirectly lost: 0 bytes in 0 blocks
+==20005==      possibly lost: 0 bytes in 0 blocks
+==20005==    still reachable: 72,704 bytes in 1 blocks
+==20005==         suppressed: 0 bytes in 0 blocks
+==20005==
+==20005== For counts of detected and suppressed errors, rerun with: -v
+==20005== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
 
-==15215== LEAK SUMMARY:
-==15215==    definitely lost: 0 bytes in 0 blocks
-==15215==    indirectly lost: 0 bytes in 0 blocks
-==15215==      possibly lost: 0 bytes in 0 blocks
-==15215==    still reachable: 72,704 bytes in 1 blocks
-==15215==         suppressed: 0 bytes in 0 blocks
-==15215==
-==15215== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+
 ```
 
 ## Compatibility

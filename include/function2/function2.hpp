@@ -8,7 +8,6 @@
 #define FU2_INCLUDED_FUNCTION_HPP__
 
 #include <tuple>
-#include <memory>
 #include <cstdlib>
 #include <exception>
 #include <type_traits>
@@ -17,14 +16,6 @@
 #if defined(_MSC_VER)
   #if !defined(_HAS_EXCEPTIONS) || (_HAS_EXCEPTIONS == 0)
     #define FU2_MACRO_DISABLE_EXCEPTIONS
-  #endif
-  // Use more C++11 features when using MSVC 14 or higher
-  #if _MSC_VER >= 1900
-    #define FU2_MACRO_INLINE_NAMESPACE_BEGIN(NAME) inline namespace NAME {
-    #define FU2_MACRO_INLINE_NAMESPACE_END }
-    #define FU2_MACRO_CONSTEXPR constexpr
-  #else
-    #define FU2_MACRO_NO_EXTENDED_SIGNATURE
   #endif
 #else
   #ifdef __clang__
@@ -36,19 +27,6 @@
       #define FU2_MACRO_DISABLE_EXCEPTIONS
     #endif
   #endif
-  #define FU2_MACRO_INLINE_NAMESPACE_BEGIN(NAME) inline namespace NAME {
-  #define FU2_MACRO_INLINE_NAMESPACE_END }
-  #define FU2_MACRO_CONSTEXPR constexpr
-#endif
-
-#ifndef FU2_MACRO_INLINE_NAMESPACE_BEGIN
-  #define FU2_MACRO_INLINE_NAMESPACE_BEGIN(NAME)
-#endif
-#ifndef FU2_MACRO_INLINE_NAMESPACE_END
-  #define FU2_MACRO_INLINE_NAMESPACE_END
-#endif
-#ifndef FU2_MACRO_CONSTEXPR
-  #define FU2_MACRO_CONSTEXPR
 #endif
 
 // If macro.
@@ -73,9 +51,8 @@
   FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) \
   FU2_MACRO_IF(IS_RVALUE)(&&)
 
-#ifndef FU2_MACRO_NO_EXTENDED_SIGNATURE
-  // Expand the given macro with all possible combinations.
-  #define FU2_MACRO_EXPAND_ALL_SUPPORTED(EXPRESSION) \
+// Expand the given macro with all possible combinations.
+#define FU2_MACRO_EXPAND_ALL(EXPRESSION) \
     EXPRESSION(false, false, false) \
     EXPRESSION(false, false, true) \
     EXPRESSION(false, true, false) \
@@ -84,15 +61,10 @@
     EXPRESSION(true, false, true) \
     EXPRESSION(true, true, false) \
     EXPRESSION(true, true, true)
-#else
-  // Expand the given macro when signatures with qualifiers are unsupported
-  #define FU2_MACRO_EXPAND_ALL_SUPPORTED(EXPRESSION) \
-    EXPRESSION(false, false, false)
-#endif
 
 namespace fu2 {
 namespace detail {
-FU2_MACRO_INLINE_NAMESPACE_BEGIN(v4)
+inline namespace v4 {
 
 // Equivalent to C++17's std::void_t
 template<typename...>
@@ -107,9 +79,9 @@ struct copyable<false>
 {
   copyable() = default;
   copyable(copyable const&) = delete;
-  copyable(copyable&&) { }
+  copyable(copyable&&) = default;
   copyable& operator=(copyable const&) = delete;
-  copyable& operator=(copyable&&) { return *this; };
+  copyable& operator=(copyable&&) = default;
 };
 
 // Helper to store function signature.
@@ -131,13 +103,13 @@ template<bool Constant, bool Volatile, bool RValue>
 struct qualifier
 {
   // Is true if the qualifier has const.
-  static FU2_MACRO_CONSTEXPR bool const is_const = Constant;
+  static constexpr bool const is_const = Constant;
 
   // Is true if the qualifier has volatile.
-  static FU2_MACRO_CONSTEXPR bool const is_volatile = Volatile;
+  static constexpr bool const is_volatile = Volatile;
 
   // Is true if the qualifier has r-value reference.
-  static FU2_MACRO_CONSTEXPR bool const is_rvalue = RValue;
+  static constexpr bool const is_rvalue = RValue;
 };
 
 // Helper to store the function configuration.
@@ -146,18 +118,18 @@ template<bool Copyable, std::size_t Capacity,
 struct config
 {
   // Is true if the function is copyable.
-  static FU2_MACRO_CONSTEXPR bool const is_copyable = Copyable;
+  static constexpr bool const is_copyable = Copyable;
 
   // The internal capacity of the function
   // used in small functor optimization.
-  static FU2_MACRO_CONSTEXPR std::size_t const capacity = Capacity;
+  static constexpr std::size_t const capacity = Capacity;
 
   // Is true when the function throws an exception on empty invocation.
-  static FU2_MACRO_CONSTEXPR bool const is_throwing = Throws;
+  static constexpr bool const is_throwing = Throws;
 
   // Is true when the function is assignable from a function with
   // less arguments.
-  static FU2_MACRO_CONSTEXPR bool const is_partial_applyable = PartialApplyable;
+  static constexpr bool const is_partial_applyable = PartialApplyable;
 };
 
 template<typename T, typename Signature, typename = always_void_t<>>
@@ -260,7 +232,7 @@ struct unwrap
       > { }; \
     FU2_MACRO_EXPAND_LVALUE_ ## IS_RVALUE(IS_CONST, IS_VOLATILE)
 
-FU2_MACRO_EXPAND_ALL_SUPPORTED(FU2_MACRO_DEFINE_SIGNATURE_UNWRAP)
+FU2_MACRO_EXPAND_ALL(FU2_MACRO_DEFINE_SIGNATURE_UNWRAP)
 
 #undef FU2_MACRO_DEFINE_SIGNATURE_UNWRAP
 #undef FU2_MACRO_EXPAND_LVALUE_true
@@ -297,7 +269,7 @@ struct function_vtable<signature<ReturnType(Args...)>, Copyable>
   typedef std::size_t(*required_size_t)();
   typedef void (*move_t)(void* /*from*/, void* /*to*/);
 
-  FU2_MACRO_CONSTEXPR function_vtable(destruct_t destruct_, invoke_t invoke_,
+  constexpr function_vtable(destruct_t destruct_, invoke_t invoke_,
     required_size_t required_size_, move_t move_)
     : destruct(destruct_), invoke(invoke_),
       required_size(required_size_), move(move_) { }
@@ -314,7 +286,7 @@ struct function_vtable<signature<ReturnType(Args...)>, true>
 {
   typedef void (*copy_t)(void* /*from*/, void* /*to*/);
 
-  FU2_MACRO_CONSTEXPR function_vtable(
+  constexpr function_vtable(
       typename function_vtable::destruct_t destruct_,
       typename function_vtable::invoke_t invoke_,
       typename function_vtable::required_size_t required_size_,
@@ -393,7 +365,7 @@ struct function_wrapper_invoker;
     } \
   };
 
-FU2_MACRO_EXPAND_ALL_SUPPORTED(FU2_MACRO_DEFINE_CALL_OPERATOR)
+FU2_MACRO_EXPAND_ALL(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
 #undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
@@ -430,7 +402,7 @@ struct vtable_creator_of_empty_function<signature<ReturnType(Args...)>, true>
 
   static common_vtable_t const* create_vtable()
   {
-    static FU2_MACRO_CONSTEXPR common_vtable_t const vtable(
+    static constexpr common_vtable_t const vtable(
       function_wrapper_noop,
       invoke,
       function_wrapper_zero_size,
@@ -458,7 +430,7 @@ struct vtable_creator_of_empty_function<signature<ReturnType(Args...)>, false>
 
   static common_vtable_t const* create_vtable()
   {
-    static FU2_MACRO_CONSTEXPR common_vtable_t const vtable(
+    static constexpr common_vtable_t const vtable(
       function_wrapper_noop,
       invoke,
       function_wrapper_zero_size,
@@ -733,7 +705,7 @@ struct call_operator;
     } \
   };
 
-FU2_MACRO_EXPAND_ALL_SUPPORTED(FU2_MACRO_DEFINE_CALL_OPERATOR)
+FU2_MACRO_EXPAND_ALL(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
 #undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
@@ -803,9 +775,9 @@ public:
 
   /// Construction from a functional object which overloads the `()` operator
   template<typename T,
-           typename = typename std::enable_if<
+           typename std::enable_if<
             is_functional_object_assignable_to_this<T>::value
-           >::type>
+           >::type* = nullptr>
   function(T functor)
     : _storage(initialize_functor_tag{}, std::forward<T>(functor)) { }
 
@@ -942,8 +914,7 @@ using default_capacity = std::integral_constant<std::size_t,
     : 16UL
 >;
 
-FU2_MACRO_INLINE_NAMESPACE_END
-
+} /// inline namespace
 } /// namespace detail
 
 /// Adaptable function wrapper base for arbitrary functional types.
@@ -990,10 +961,6 @@ using detail::bad_function_call;
 } /// namespace fu2
 
 #undef FU2_MACRO_DISABLE_EXCEPTIONS
-#undef FU2_MACRO_INLINE_NAMESPACE_BEGIN
-#undef FU2_MACRO_INLINE_NAMESPACE_END
-#undef FU2_MACRO_CONSTEXPR
-#undef FU2_MACRO_NO_EXTENDED_SIGNATURE
 #undef FU2_MACRO_IF
 #undef FU2_MACRO_IF_true
 #undef FU2_MACRO_IF_false
@@ -1002,6 +969,6 @@ using detail::bad_function_call;
 #undef FU2_MACRO_MOVE_IF_false
 #undef FU2_MACRO_NO_REF_QUALIFIER
 #undef FU2_MACRO_FULL_QUALIFIER
-#undef FU2_MACRO_EXPAND_ALL_SUPPORTED
+#undef FU2_MACRO_EXPAND_ALL
 
 #endif // FU2_INCLUDED_FUNCTION_HPP__
