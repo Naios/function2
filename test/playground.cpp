@@ -49,28 +49,33 @@ struct invocation_acceptor<false>
   : std::integral_constant<bool, false>,
     invocation_wrapper_assert { };
 
-template<typename T, typename Signature, typename = always_void_t<>>
+template<typename T, typename Qualifier,
+         typename Signature, typename = always_void_t<>>
 struct is_accepted_with
   : invocation_acceptor<false> { };
 
 // Invocation acceptor which accepts (templated) functors and function pointers
-template<typename T, typename ReturnType, typename... Args>
-struct is_accepted_with<T, ReturnType(Args...),
+template<typename T, typename Qualifier, typename ReturnType, typename... Args>
+struct is_accepted_with<T, Qualifier, ReturnType(Args...),
   always_void_t<
     typename std::enable_if<std::is_convertible<
-      decltype(std::declval<T>()(std::declval<Args>()...)),
+      decltype(std::declval<
+        make_qualified_type_t<T, Qualifier>
+      >()(std::declval<Args>()...)),
       ReturnType
     >::value>::type>>
   : invocation_acceptor<true> { };
 
 // Invocation acceptor which accepts (templated) class method pointers
-// from pointer this
-template<typename T, typename ReturnType, typename FirstArg, typename... Args>
-struct is_accepted_with<T, ReturnType(FirstArg, Args...),
+// from a correct qualifier this pointer.
+template<typename T, typename Qualifier,
+         typename ReturnType, typename FirstArg, typename... Args>
+struct is_accepted_with<T, Qualifier, ReturnType(FirstArg, Args...),
   always_void_t<
     typename std::enable_if<std::is_convertible<
-      decltype((std::declval<FirstArg>()->*std::declval<T>())
-                 (std::declval<Args>()...)),
+      decltype((std::declval<
+        make_qualified_type_t<typename std::decay<FirstArg>::type, Qualifier, true>
+      >()->*std::declval<T>())(std::declval<Args>()...)),
       ReturnType
     >::value>::type>>
   : invocation_acceptor<true, invocation_wrapper_method_this_ptr> { };
@@ -97,9 +102,18 @@ int main(int, char**) {
 
   (cc->*ptr)(true);
 
-  using type = is_accepted_with<tt, bool(MyClass*, bool)>;
+  using q = qualifier<true, true, false>;
 
-  invocation_wrapper_method_this_ptr m = type{};
+  using t = make_qualified_type_t<MyClass*, q, true>;
+
+  t t_t;
+
+  /*invocation_wrapper_method_this_ptr m = is_accepted_with<
+    tt,
+    q,
+    bool(MyClass*, bool)
+  >{};
+  */
 
   return 0;
 }

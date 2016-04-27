@@ -150,6 +150,13 @@ struct is_callable_with<T, ReturnType(Args...),
   : std::true_type { };
 
 template<bool Condition, typename T>
+using add_pointer_if = typename std::conditional<
+  Condition,
+  typename std::add_pointer<T>::type,
+  T
+>::type;
+
+template<bool Condition, typename T>
 using add_const_if = typename std::conditional<
   Condition,
   typename std::add_const<T>::type,
@@ -171,17 +178,19 @@ using add_lvalue_if = typename std::conditional<
 >::type;
 
 // Qualifies the type T as given in the Qualifier config
-template<typename T, typename Qualifier>
-using make_qualified_type =
-  add_lvalue_if<!Qualifier::is_rvalue,
+template<typename T, typename Qualifier, bool IsPointer = false>
+using make_qualified_type_t =
+  add_pointer_if<IsPointer,
+  add_lvalue_if<!IsPointer && !Qualifier::is_rvalue,
   add_volatile_if<Qualifier::is_volatile,
-  add_const_if<Qualifier::is_const, typename std::decay<T>::type>>>;
+  add_const_if<Qualifier::is_const,
+    typename std::decay<typename std::remove_pointer<T>::type>::type>>>>;
 
 // Deduces to a true_type when the object is callable with
 // the given signature and qualifier.
 template<typename T, typename Signature, typename Qualifier>
 using is_callable_with_qualifier = is_callable_with<
-  make_qualified_type<T, Qualifier>,
+  make_qualified_type_t<T, Qualifier>,
   Signature
 >;
 
