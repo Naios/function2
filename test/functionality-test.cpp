@@ -189,3 +189,25 @@ TYPED_TEST(AllSingleMoveAssignConstructTests, AcceptsItsQualifier)
     EXPECT_TRUE(std::move(left)());
   }
 }
+
+struct MyTestClass
+{
+  bool result = true;
+
+  bool getResult() const
+  {
+    return result;
+  }
+};
+
+TYPED_TEST(AllSingleMoveAssignConstructTests, AcceptClassMethodPointers)
+{
+  /*
+  broken
+  typename TestFixture::template left_t<bool(MyTestClass*)> left
+    = &MyTestClass::getResult;
+
+  MyTestClass my_class;
+
+  EXPECT_TRUE(left(&my_class));*/
+}

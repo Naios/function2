@@ -70,13 +70,20 @@ inline namespace v4 {
 template<typename...>
 using always_void_t = void;
 
+// Always deduces to a true_type
+template<typename...>
+using always_true_t = std::true_type;
+
+// Always deduces to a false_type
+template<typename...>
+using always_false_t = std::false_type;
+
 // Copy enabler helper class
 template<bool /*Copyable*/>
 struct copyable { };
 
 template <>
-struct copyable<false>
-{
+struct copyable<false> {
   copyable() = default;
   copyable(copyable const&) = delete;
   copyable(copyable&&) = default;
@@ -89,8 +96,7 @@ template<typename /*Signature*/>
 struct signature;
 
 template<typename ReturnType, typename... Args>
-struct signature<ReturnType(Args...)>
-{
+struct signature<ReturnType(Args...)> {
   // The return type of the function.
   using return_type = ReturnType;
 
@@ -100,8 +106,7 @@ struct signature<ReturnType(Args...)>
 
 // Helper to store function qualifiers.
 template<bool Constant, bool Volatile, bool RValue>
-struct qualifier
-{
+struct qualifier {
   // Is true if the qualifier has const.
   static constexpr bool const is_const = Constant;
 
@@ -115,8 +120,7 @@ struct qualifier
 // Helper to store the function configuration.
 template<bool Copyable, std::size_t Capacity,
          bool Throws, bool PartialApplyable>
-struct config
-{
+struct config {
   // Is true if the function is copyable.
   static constexpr bool const is_copyable = Copyable;
 
@@ -193,8 +197,7 @@ using is_copyable_correct = std::integral_constant<bool,
 
 // Function unwrap trait
 template<typename Signature, typename Qualifier>
-struct unwrap_base
-{
+struct unwrap_base {
   // The signature of the function
   using signature = Signature;
 
@@ -204,8 +207,7 @@ struct unwrap_base
 
 // Function unwrap trait
 template<typename Fn>
-struct unwrap
-{
+struct unwrap {
   static_assert(sizeof(Fn) < 0,
     "Incompatible signature given, signature must be in the form of "
     " \"ReturnType(Arg...) Qualifier\".");
@@ -262,8 +264,7 @@ template<typename Signature, bool Copyable>
 struct function_vtable;
 
 template<typename ReturnType, typename... Args, bool Copyable>
-struct function_vtable<signature<ReturnType(Args...)>, Copyable>
-{
+struct function_vtable<signature<ReturnType(Args...)>, Copyable> {
   typedef void(*destruct_t)(void* /*destination*/);
   typedef ReturnType(*invoke_t)(void* /*destination*/, Args&&... /*args*/);
   typedef std::size_t(*required_size_t)();
@@ -282,8 +283,7 @@ struct function_vtable<signature<ReturnType(Args...)>, Copyable>
 
 template<typename ReturnType, typename... Args>
 struct function_vtable<signature<ReturnType(Args...)>, true>
-   : function_vtable<signature<ReturnType(Args...)>, false>
-{
+   : function_vtable<signature<ReturnType(Args...)>, false> {
   typedef void (*copy_t)(void* /*from*/, void* /*to*/);
 
   constexpr function_vtable(
@@ -306,43 +306,37 @@ inline void function_wrapper_noop2(void* /*dest*/, void* /*dest*/) { }
 
 // Constructs a type T at the given destination with the given arguments.
 template<typename T, typename... Args>
-static void function_wrapper_construct(void* destination, Args... args)
-{
+static void function_wrapper_construct(void* destination, Args... args) {
   new (destination) typename std::decay<T>::type(std::forward<Args>(args)...);
 }
 
 // Destructs a type T at the given destination.
 template<typename T>
-static void function_wrapper_destruct(void* destination)
-{
+static void function_wrapper_destruct(void* destination) {
   static_cast<T*>(destination)->~T();
   (void)destination;
 }
 
 // Returns the required size of the type to allocate in-place.
 template<typename T>
-static std::size_t function_wrapper_required_size()
-{
+static std::size_t function_wrapper_required_size() {
   return required_capacity_to_allocate_inplace<T>::value;
 }
 
 // Returns a zero size.
-inline std::size_t function_wrapper_zero_size()
-{
+inline std::size_t function_wrapper_zero_size() {
   return 0UL;
 }
 
 // Moves the given type at the target location to another one.
 template<typename T>
-static void function_wrapper_move(void* from, void* to)
-{
+static void function_wrapper_move(void* from, void* to) {
   function_wrapper_construct<T>(to, std::move(*static_cast<T*>(from)));
 }
 
 // Copies the given type at the target location to another one.
 template<typename T>
-static void function_wrapper_copy(void* from, void* to)
-{
+static void function_wrapper_copy(void* from, void* to) {
   function_wrapper_construct<T>(to, *static_cast<T*>(from));
 }
 
@@ -355,10 +349,8 @@ struct function_wrapper_invoker;
     T, \
     signature<ReturnType(Args...)>, \
     qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE> \
-  > \
-  { \
-    static ReturnType invoke(void* target, Args&&... args) \
-    { \
+  > { \
+    static ReturnType invoke(void* target, Args&&... args) { \
       return FU2_MACRO_MOVE_IF(IS_RVALUE)(* static_cast< \
         T FU2_MACRO_NO_REF_QUALIFIER(IS_CONST, IS_VOLATILE) *>( \
           target))(std::forward<Args>(args)...); \
@@ -369,12 +361,10 @@ FU2_MACRO_EXPAND_ALL(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
 #undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
-struct bad_function_call : std::exception
-{
+struct bad_function_call : std::exception {
   bad_function_call() { }
 
-  char const* what() const throw() override
-  {
+  char const* what() const throw() override {
     return "bad function call";
   }
 };
@@ -383,16 +373,14 @@ template<typename /*Signature*/, bool /*Throws*/>
 struct vtable_creator_of_empty_function;
 
 template<typename ReturnType, typename... Args>
-struct vtable_creator_of_empty_function<signature<ReturnType(Args...)>, true>
-{
+struct vtable_creator_of_empty_function<signature<ReturnType(Args...)>, true> {
   using common_vtable_t = function_vtable<
     signature<ReturnType(Args...)>,
     true
   >;
 
   // Throws an empty function call
-  static ReturnType invoke(void*, Args&&...)
-  {
+  static ReturnType invoke(void*, Args&&...) {
 #ifdef FU2_MACRO_DISABLE_EXCEPTIONS
     std::abort();
 #else
@@ -400,8 +388,7 @@ struct vtable_creator_of_empty_function<signature<ReturnType(Args...)>, true>
 #endif
   }
 
-  static common_vtable_t const* create_vtable()
-  {
+  static common_vtable_t const* create_vtable() {
     static constexpr common_vtable_t const vtable(
       function_wrapper_noop,
       invoke,
@@ -415,21 +402,18 @@ struct vtable_creator_of_empty_function<signature<ReturnType(Args...)>, true>
 };
 
 template<typename ReturnType, typename... Args>
-struct vtable_creator_of_empty_function<signature<ReturnType(Args...)>, false>
-{
+struct vtable_creator_of_empty_function<signature<ReturnType(Args...)>, false> {
   using common_vtable_t = function_vtable<
     signature<ReturnType(Args...)>,
     true
   >;
 
   // Non-Throwing empty function call
-  static ReturnType invoke(void*, Args&&...)
-  {
+  static ReturnType invoke(void*, Args&&...) {
     std::abort();
   }
 
-  static common_vtable_t const* create_vtable()
-  {
+  static common_vtable_t const* create_vtable() {
     static constexpr common_vtable_t const vtable(
       function_wrapper_noop,
       invoke,
@@ -448,15 +432,13 @@ struct vtable_creator_of_type;
 
 template<typename T, typename ReturnType, typename... Args, typename Qualifier>
 struct vtable_creator_of_type<T, signature<ReturnType(Args...)>,
-                              Qualifier, true>
-{
+                              Qualifier, true> {
   using common_vtable_t = function_vtable<
     signature<ReturnType(Args...)>,
     true
   >;
 
-  static common_vtable_t const* create_vtable()
-  {
+  static common_vtable_t const* create_vtable() {
     static common_vtable_t const vtable(
       function_wrapper_destruct<T>,
       function_wrapper_invoker<
@@ -473,15 +455,13 @@ struct vtable_creator_of_type<T, signature<ReturnType(Args...)>,
 
 template<typename T, typename ReturnType, typename... Args, typename Qualifier>
 struct vtable_creator_of_type<T, signature<ReturnType(Args...)>,
-                              Qualifier, false>
-{
+                              Qualifier, false> {
   using common_vtable_t = function_vtable<
     signature<ReturnType(Args...)>,
     true
   >;
 
-  static common_vtable_t const* create_vtable()
-  {
+  static common_vtable_t const* create_vtable() {
     static common_vtable_t const vtable(
       function_wrapper_destruct<T>,
       function_wrapper_invoker<
@@ -505,8 +485,7 @@ struct storage_t;
 
 template<typename ReturnType, typename... Args,
          typename Qualifier, typename Config>
-struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
-{
+struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config> {
   using vtable_ptr_t = function_vtable<
     signature<ReturnType(Args...)>,
     Config::is_copyable
@@ -521,61 +500,51 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
     std::true_type
   >::type _locale;
 
-  storage_t()
-  {
+  storage_t() {
     tidy();
   }
 
-  explicit storage_t(storage_t const& right)
-  {
+  explicit storage_t(storage_t const& right) {
     weak_copy_assign(right);
   }
 
-  explicit storage_t(storage_t&& right)
-  {
+  explicit storage_t(storage_t&& right) {
     weak_move_assign(std::move(right));
   }
 
   template<typename T>
-  storage_t(initialize_functor_tag, T&& functor)
-  {
+  storage_t(initialize_functor_tag, T&& functor) {
     weak_allocate_object(std::forward<T>(functor));
   }
 
   template<typename T>
-  storage_t(copy_assign_storage_tag, T const& right)
-  {
+  storage_t(copy_assign_storage_tag, T const& right) {
     weak_copy_assign(right);
   }
 
   template<typename T>
-  storage_t(move_assign_storage_tag, T&& right)
-  {
+  storage_t(move_assign_storage_tag, T&& right) {
     weak_move_assign(std::forward<T>(right));
   }
 
-  storage_t& operator= (storage_t const& right)
-  {
+  storage_t& operator= (storage_t const& right) {
     weak_deallocate();
     weak_copy_assign(right);
     return *this;
   }
 
-  storage_t& operator= (storage_t&& right)
-  {
+  storage_t& operator= (storage_t&& right) {
     weak_deallocate();
     weak_move_assign(std::move(right));
     return *this;
   }
 
-  ~storage_t()
-  {
+  ~storage_t() {
     weak_deallocate();
   }
 
   // Private API
-  void weak_deallocate()
-  {
+  void weak_deallocate() {
     _vtable->destruct(_impl);
 
     if (_impl != &_locale)
@@ -583,14 +552,12 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
   }
 
   // Private API
-  void deallocate()
-  {
+  void deallocate() {
     weak_deallocate();
     tidy();
   }
 
-  void tidy()
-  {
+  void tidy() {
     _vtable = vtable_creator_of_empty_function<
       signature<ReturnType(Args...)>, Config::is_throwing
     >::create_vtable();
@@ -599,21 +566,18 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
 
   // Allocate in locale capacity.
   template<typename /*T*/>
-  void allocate_space(std::true_type)
-  {
+  void allocate_space(std::true_type) {
     _impl = &_locale;
   }
 
   // Allocate on the heap.
   template<typename T>
-  void allocate_space(std::false_type)
-  {
+  void allocate_space(std::false_type) {
     _impl = std::malloc(sizeof(T));
   }
 
   template<typename T>
-  void weak_allocate_object(T functor)
-  {
+  void weak_allocate_object(T functor) {
     using is_local_allocateable = std::integral_constant<bool,
       required_capacity_to_allocate_inplace<
         typename std::decay<T>::type
@@ -635,8 +599,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
   template<typename RightConfig,
            typename std::enable_if<RightConfig::is_copyable>::type* = nullptr>
   void weak_copy_assign(storage_t<signature<ReturnType(Args...)>,
-                        Qualifier, RightConfig> const& right)
-  {
+                        Qualifier, RightConfig> const& right) {
     _vtable = right._vtable;
 
     std::size_t const required_size = right._vtable->required_size();
@@ -651,13 +614,11 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
   // Private API
   template<typename RightConfig>
   void weak_move_assign(storage_t<signature<ReturnType(Args...)>,
-                        Qualifier, RightConfig>&& right)
-  {
+                        Qualifier, RightConfig>&& right) {
     _vtable = right._vtable;
 
     std::size_t const required_size = right._vtable->required_size();
-    if (right._impl == &right._locale)
-    {
+    if (right._impl == &right._locale) {
       if (Config::capacity >= required_size)
         _impl = &_locale;
       else
@@ -666,8 +627,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config>
       right._vtable->move(right._impl, _impl);
       right.deallocate();
     }
-    else
-    {
+    else {
       // Steal the ownership
       _impl = right._impl;
       right.tidy();
@@ -688,11 +648,9 @@ struct call_operator;
   template<typename ReturnType, typename... Args, typename Config> \
   struct call_operator<function<signature<ReturnType(Args...)>, \
                                 qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, \
-                                Config>> \
-  { \
+                                Config>> { \
     ReturnType operator()(Args... args) \
-      FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) \
-    { \
+      FU2_MACRO_FULL_QUALIFIER(IS_CONST, IS_VOLATILE, IS_RVALUE) { \
       using base = function<signature<ReturnType(Args...)>, \
                             qualifier<IS_CONST, IS_VOLATILE, IS_RVALUE>, \
                             Config>; \
@@ -725,8 +683,7 @@ class function<signature<ReturnType(Args...)>, Qualifier, Config>
       function<signature<ReturnType(Args...)>, Qualifier, Config>
     >,
     public signature<ReturnType(Args...)>,
-    public copyable<Config::is_copyable>
-{
+    public copyable<Config::is_copyable> {
   template<typename, typename, typename>
   friend class function;
 
@@ -789,8 +746,7 @@ public:
   template<typename RightConfig,
            typename std::enable_if<RightConfig::is_copyable>::type* = nullptr>
   function& operator= (function<signature<ReturnType(Args...)>,
-                                          Qualifier, RightConfig> const& right)
-  {
+                                          Qualifier, RightConfig> const& right) {
     _storage.weak_deallocate();
     _storage.weak_copy_assign(right._storage);
     return *this;
@@ -802,8 +758,7 @@ public:
             is_copyable_correct_to_this<RightConfig::is_copyable>::value
            >::type* = nullptr>
   function& operator= (function<signature<ReturnType(Args...)>,
-                                          Qualifier, RightConfig>&& right)
-  {
+                                          Qualifier, RightConfig>&& right) {
     _storage.weak_deallocate();
     _storage.weak_move_assign(std::move(right._storage));
     return *this;
@@ -814,16 +769,14 @@ public:
            typename std::enable_if<
             is_functional_object_assignable_to_this<T>::value
            >::type* = nullptr>
-  function& operator= (T functor)
-  {
+  function& operator= (T functor) {
     _storage.weak_deallocate();
     _storage.weak_allocate_object(std::forward<T>(functor));
     return *this;
   }
 
   /// Clears the function
-  function& operator= (std::nullptr_t)
-  {
+  function& operator= (std::nullptr_t) {
     _storage.deallocate();
     return *this;
   }
@@ -837,14 +790,12 @@ public:
   /// Assigns a new target, note that the allocator
   /// is ignored like in the common standard library implementations.
   template<typename F, typename Alloc>
-  void assign(F&& f, Alloc /*alloc*/)
-  {
+  void assign(F&& f, Alloc /*alloc*/) {
     *this = std::forward<F>(f);
   }
 
   /// Swaps this function with the given function
-  void swap(function& other)
-  {
+  void swap(function& other) {
     if (&other == this)
       return;
 
@@ -854,8 +805,7 @@ public:
   }
 
   /// Swaps the left function with the right one
-  friend void swap(function& left, function& right)
-  {
+  friend void swap(function& left, function& right) {
     left.swap(right);
   }
 
@@ -869,32 +819,28 @@ public:
 template<typename ReturnType, typename... Args,
          typename Qualifier, typename Config>
 bool operator== (function<signature<ReturnType(Args...)>,
-                                    Qualifier, Config> const& f, std::nullptr_t)
-{
+                                    Qualifier, Config> const& f, std::nullptr_t) {
   return !bool(f);
 }
 
 template<typename ReturnType, typename... Args,
          typename Qualifier, typename Config>
 bool operator!= (function<signature<ReturnType(Args...)>,
-                                    Qualifier, Config> const& f, std::nullptr_t)
-{
+                                    Qualifier, Config> const& f, std::nullptr_t) {
   return bool(f);
 }
 
 template<typename ReturnType, typename... Args,
          typename Qualifier, typename Config>
 bool operator== (std::nullptr_t, function<signature<ReturnType(Args...)>,
-                                                    Qualifier, Config> const& f)
-{
+                                                    Qualifier, Config> const& f) {
   return !bool(f);
 }
 
 template<typename ReturnType, typename... Args,
          typename Qualifier, typename Config>
 bool operator!= (std::nullptr_t, function<signature<ReturnType(Args...)>,
-                                                    Qualifier, Config> const& f)
-{
+                                                    Qualifier, Config> const& f) {
   return bool(f);
 }
 
