@@ -40,6 +40,17 @@ TYPED_TEST(StandardCompliantTest, IsSwappableWithStdSwap)
   EXPECT_FALSE(right());
 }
 
+TYPED_TEST(StandardCompliantTest, IsSwappableWithSelf)
+{
+  typename TestFixture::template left_t<bool()> left;
+  left.swap(left);
+  EXPECT_FALSE(left);
+  left = returnTrue;
+  left.swap(left);
+  EXPECT_TRUE(left);
+  EXPECT_TRUE(left());
+}
+
 TYPED_TEST(StandardCompliantTest, IsAssignableWithMemberMethod)
 {
   typename TestFixture::template left_t<bool()> left;
