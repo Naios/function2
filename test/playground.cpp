@@ -93,7 +93,7 @@ struct MyClass
 
 int main(int, char**) {
 
-  using tt = decltype(&MyClass::get);
+  // using tt = decltype(&MyClass::get);
 
   MyClass c;
 
