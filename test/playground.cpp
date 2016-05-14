@@ -21,7 +21,7 @@ struct invocation_wrapper_none {
 struct invocation_wrapper_assert {
   template<typename T>
   static T wrap(T&&) {
-    static_assert(always_false_t<T>::value, "This functor isn't accepted!")
+    static_assert(always_false_t<T>::value, "This functor isn't accepted!");
   }
 };
 
@@ -107,6 +107,7 @@ int main(int, char**) {
   using t = make_qualified_type_t<MyClass*, q, true>;
 
   t t_t;
+  (void)t_t;
 
   /*invocation_wrapper_method_this_ptr m = is_accepted_with<
     tt,
