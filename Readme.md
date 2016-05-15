@@ -271,7 +271,7 @@ Tested with:
 
 - Visual Studio 2015+ Update 2
 - Clang 3.4+
-- GCC 5.0+ (Due to expression sfinae bugs in earlier releases)
+- GCC 4.9+
 
 Every compiler with modern C++11 support should work.
 Function2 only depends on the standard library.
