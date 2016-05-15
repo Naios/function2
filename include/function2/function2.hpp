@@ -4,8 +4,8 @@
 //       (See accompanying file LICENSE_1_0.txt or copy at
 //             http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef FU2_INCLUDED_FUNCTION_HPP__
-#define FU2_INCLUDED_FUNCTION_HPP__
+#ifndef FU2_INCLUDED_FUNCTION2_HPP__
+#define FU2_INCLUDED_FUNCTION2_HPP__
 
 #include <tuple>
 #include <cstdlib>
@@ -200,8 +200,9 @@ struct reject_invocation { };
 // SFINAE helper which provides a wrapper invocation_acceptor::type when
 // the invocation of the given type T is acceptable to the specialized
 // invocation_acceptor.
-template<typename T, typename Qualifier,
-         typename Signature, typename = always_void_t<>>
+template<typename T,
+         typename Signature, typename Qualifier, typename Config,
+         typename = always_void_t<>>
 struct invocation_acceptor : reject_invocation { };
 
 // Always reject function2 classes
@@ -209,10 +210,11 @@ struct invocation_acceptor : reject_invocation { };
 // operators over the move constructor when copying is disabled or disallowed,
 // which results in test case failure.
 template<typename AnyQualifier, typename AnyConfig,
-         typename Qualifier, typename ReturnType, typename... Args>
+         typename AnyReturnType, typename... AnyArgs,
+         typename Signature, typename Qualifier, typename Config>
 struct invocation_acceptor<
-  function<signature<ReturnType(Args...)>, AnyQualifier, AnyConfig>,
-  Qualifier, ReturnType(Args...), void
+  function<signature<AnyReturnType(AnyArgs...)>, AnyQualifier, AnyConfig>,
+  Signature, Qualifier, Config, void
 > : reject_invocation { };
 
 // Invocation acceptor which accepts (template) functors and function pointers
@@ -223,8 +225,9 @@ struct invocation_acceptor<
 //
 // The given user type is wrappable through a static method wrap of a class
 // you pass to the accept_invocation struct.
-template<typename T, typename Qualifier, typename ReturnType, typename... Args>
-struct invocation_acceptor<T, Qualifier, ReturnType(Args...),
+template<typename T, typename Qualifier,
+         typename ReturnType, typename... Args, typename Config>
+struct invocation_acceptor<T, ReturnType(Args...), Qualifier, Config,
   always_void_t<
     typename std::enable_if<std::is_convertible<
       decltype(std::declval<
@@ -233,10 +236,6 @@ struct invocation_acceptor<T, Qualifier, ReturnType(Args...),
       ReturnType
     >::value>::type>>
   : accept_invocation<> { };
-
-// Deduces to a true type when the function is partial apply able
-template<typename T, typename Fn, typename Qualifier>
-using is_partial_callable_with_qualifiers = std::false_type;
 
 // Is a true type if the left type is copyable correct to the right type.
 template<bool LeftCopyable, bool RightCopyable>
@@ -735,7 +734,7 @@ class function<signature<ReturnType(Args...)>, Qualifier, Config>
   // SFINAE helper to filter not invocable parameters T.
   template<typename T>
   using invocation_acceptor_t = typename invocation_acceptor<
-    T, Qualifier, ReturnType(Args...)
+    T, ReturnType(Args...), Qualifier, Config
   >::type;
 
   // Implementation storage
@@ -950,4 +949,4 @@ using detail::bad_function_call;
 #undef FU2_MACRO_FULL_QUALIFIER
 #undef FU2_MACRO_EXPAND_ALL
 
-#endif // FU2_INCLUDED_FUNCTION_HPP__
+#endif // FU2_INCLUDED_FUNCTION2_HPP__
