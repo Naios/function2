@@ -75,7 +75,7 @@ template<typename /*Signature*/, typename /*Qualifier*/, typename /*Config*/>
 class function;
 
 // Equivalent to C++17's std::void_t which is targets a bug in GCC,
-// that prevents correct substitution failure.
+// that prevents correct SFINAE behavior.
 // See http://stackoverflow.com/questions/35753920 for details.
 template<typename...>
 struct deduce_to_void : std::common_type<void> { };
@@ -113,13 +113,13 @@ struct signature<ReturnType(Args...)> {
 template<bool Constant, bool Volatile, bool RValue>
 struct qualifier {
   // Is true if the qualifier has const.
-  static constexpr bool const is_const = Constant;
+  static constexpr auto const is_const = Constant;
 
   // Is true if the qualifier has volatile.
-  static constexpr bool const is_volatile = Volatile;
+  static constexpr auto const is_volatile = Volatile;
 
   // Is true if the qualifier has r-value reference.
-  static constexpr bool const is_rvalue = RValue;
+  static constexpr auto const is_rvalue = RValue;
 };
 
 // Helper to store the function configuration.
@@ -127,18 +127,17 @@ template<bool Copyable, std::size_t Capacity,
          bool Throws, bool PartialApplyable>
 struct config {
   // Is true if the function is copyable.
-  static constexpr bool const is_copyable = Copyable;
+  static constexpr auto const is_copyable = Copyable;
 
   // The internal capacity of the function
   // used in small functor optimization.
-  static constexpr std::size_t const capacity = Capacity;
+  static constexpr auto const capacity = Capacity;
 
   // Is true when the function throws an exception on empty invocation.
-  static constexpr bool const is_throwing = Throws;
+  static constexpr auto const is_throwing = Throws;
 
-  // Is true when the function is assignable from a function with
-  // less arguments.
-  static constexpr bool const is_partial_applyable = PartialApplyable;
+  // Is true when the function is assignable with less arguments.
+  static constexpr auto const is_partial_applyable = PartialApplyable;
 };
 
 template<bool Condition, typename T>
@@ -194,37 +193,35 @@ struct accept_invocation
 // Type which is inheritable to reject a certain invocation
 struct reject_invocation { };
 
+// Trait to check whether a given parameter T is a fu2::detail::function
+template<typename /*T*/>
+struct is_function
+  : std::false_type { };
+
+template<typename ReturnType, typename... Args,
+typename Qualifier, typename Config>
+struct is_function<function<signature<ReturnType(Args...)>, Qualifier, Config>>
+  : std::true_type { };
+
 // SFINAE helper which provides a wrapper invocation_acceptor::type when
 // the invocation of the given type T is acceptable to the specialized
 // invocation_acceptor.
 template<typename T,
          typename Signature, typename Qualifier, typename Config,
          typename = always_void_t<>>
-struct invocation_acceptor : reject_invocation { };
-
-// Always reject function2 classes
-// This is required to prevent MSVC from prioritizing template assignment
-// operators over the move constructor when copying is disabled or disallowed,
-// which results in test case failure.
-template<typename AnyQualifier, typename AnyConfig,
-         typename AnyReturnType, typename... AnyArgs,
-         typename Signature, typename Qualifier, typename Config>
-struct invocation_acceptor<
-  function<signature<AnyReturnType(AnyArgs...)>, AnyQualifier, AnyConfig>,
-  Signature, Qualifier, Config, void
-> : reject_invocation { };
+struct invocation_acceptor_select : reject_invocation { };
 
 // Invocation acceptor which accepts (template) functors and function pointers
-// Deduces to a true invocation_acceptor on success.
+// Deduces to an invocation_acceptor on success.
 //
 // You may define your own specializations of this class to accept more
 // types which are accepted as functors or functions.
 //
-// The given user type is wrappable through a static method wrap of a class
-// you pass to the accept_invocation struct.
+// The given user type is wrappable through a static method named wrap
+// of a class you pass to the accept_invocation struct.
 template<typename T, typename Qualifier,
          typename ReturnType, typename... Args, typename Config>
-struct invocation_acceptor<T, ReturnType(Args...), Qualifier, Config,
+struct invocation_acceptor_select<T, ReturnType(Args...), Qualifier, Config,
   always_void_t<
     typename std::enable_if<std::is_convertible<
       decltype(std::declval<
@@ -233,6 +230,22 @@ struct invocation_acceptor<T, ReturnType(Args...), Qualifier, Config,
       ReturnType
     >::value>::type>>
   : accept_invocation<> { };
+
+template<typename T,
+         typename Signature, typename Qualifier, typename Config>
+struct invocation_acceptor : std::conditional<
+  // Base requirements of a functional type:
+  // * Always reject function2 classes
+  //   This is required to prevent MSVC from prioritizing template assignment
+  //   operators over the move constructor when copying is disabled,
+  //   which results in test case failure.
+  !is_function<T>::value,
+  // Select the correct acceptor which can accept the given object
+  // when the base requirements fit.
+  invocation_acceptor_select<T, Signature, Qualifier, Config>,
+  // Otherwise reject the invocation
+  reject_invocation
+>::type { };
 
 // Is a true type if the left type is copyable correct to the right type.
 template<bool LeftCopyable, bool RightCopyable>
@@ -611,13 +624,13 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config> {
 
   // Allocate in locale capacity.
   template<typename /*T*/>
-  void allocate_space(std::true_type) {
+  void allocate_space(std::true_type /*is_local_allocateable*/) {
     _impl = &_locale;
   }
 
   // Allocate on the heap.
   template<typename T>
-  void allocate_space(std::false_type) {
+  void allocate_space(std::false_type /*is_local_allocateable*/) {
     _impl = std::malloc(sizeof(T));
   }
 
@@ -647,7 +660,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config> {
                         Qualifier, RightConfig> const& right) {
     _vtable = right._vtable;
 
-    std::size_t const required_size = right._vtable->required_size();
+    auto const required_size = right._vtable->required_size();
     if (right._impl == &right._locale && (Config::capacity >= required_size))
       _impl = &_locale;
     else
@@ -662,7 +675,7 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config> {
                         Qualifier, RightConfig>&& right) {
     _vtable = right._vtable;
 
-    std::size_t const required_size = right._vtable->required_size();
+    auto const required_size = right._vtable->required_size();
     if (right._impl == &right._locale) {
       if (Config::capacity >= required_size)
         _impl = &_locale;
