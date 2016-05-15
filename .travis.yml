@@ -12,16 +12,6 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports']
-          packages: ['g++-4.9', 'valgrind', 'cmake', 'cmake-data']
-      env:
-        - COMPILER=g++-4.9
-        - NO_EXCEPTIONS=OFF
-
-    - os: linux
-      compiler: gcc
-      addons:
-        apt:
-          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports']
           packages: ['g++-5', 'valgrind', 'cmake', 'cmake-data']
       env:
         - COMPILER=g++-5

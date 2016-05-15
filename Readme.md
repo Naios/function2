@@ -269,9 +269,9 @@ Function2 is checked with unit tests and valgrind (for memory leaks), where the 
 
 Tested with:
 
-- Visual Studio 2015+
+- Visual Studio 2015+ Update 2
 - Clang 3.4+
-- GCC 4.8+
+- GCC 5.0+ (Due to expression sfinae bugs in earlier releases)
 
 Every compiler with modern C++11 support should work.
 Function2 only depends on the standard library.
