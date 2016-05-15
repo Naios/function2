@@ -208,6 +208,7 @@ struct is_function<function<signature<ReturnType(Args...)>, Qualifier, Config>>
 // invocation_acceptor.
 template<typename T,
          typename Signature, typename Qualifier, typename Config,
+         template<typename...> class Accept,
          typename = always_void_t<>>
 struct invocation_acceptor_select : reject_invocation { };
 
@@ -220,16 +221,57 @@ struct invocation_acceptor_select : reject_invocation { };
 // The given user type is wrappable through a static method named wrap
 // of a class you pass to the accept_invocation struct.
 template<typename T, typename Qualifier,
-         typename ReturnType, typename... Args, typename Config>
+         typename ReturnType, typename... Args, typename Config,
+         template<typename...> class Accept>
 struct invocation_acceptor_select<T, ReturnType(Args...), Qualifier, Config,
-  always_void_t<
+  Accept, always_void_t<
     typename std::enable_if<std::is_convertible<
       decltype(std::declval<
         make_qualified_type_t<T, Qualifier>
       >()(std::declval<Args>()...)),
       ReturnType
     >::value>::type>>
-  : accept_invocation<> { };
+  : Accept<> { };
+
+// Decorates this calls of method pointers
+template<typename Signature, typename Qualifier>
+struct invocation_wrapper_decorate_this_call;
+
+template<typename ReturnType, typename Callee, typename... Args>
+struct invocation_wrapper_decorate_this_call<
+  ReturnType(Callee, Args...), qualifier<false, false, false>> {
+  template<typename T>
+  struct decorator {
+    typename std::decay<T>::type decorated_;
+    ReturnType operator() (Callee callee, Args&&... args) /*qualifiers here*/ {
+      return (callee->*decorated_)(std::forward<Args>(args)...);
+    }
+  };
+
+  template<typename T>
+  static auto wrap(T&& functor) -> decorator<T> {
+    return { std::forward<T>(functor) };
+  }
+};
+
+// Invocation acceptor which accepts (templated) class method pointers
+// from a correct qualifier this pointer.
+template<typename T, typename Qualifier,
+         typename ReturnType, typename FirstArg, typename... Args,
+         typename Config, template<typename...> class Accept>
+struct invocation_acceptor_select<T, ReturnType(FirstArg, Args...),
+                                  Qualifier, Config,
+  Accept, always_void_t<
+    typename std::enable_if<std::is_convertible<
+      decltype((std::declval<
+      make_qualified_type_t<
+          typename std::decay<FirstArg>::type, Qualifier, true
+      >>()->*std::declval<T>())(std::declval<Args>()...)),
+      ReturnType
+    >::value>::type>>
+  : Accept<invocation_wrapper_decorate_this_call<
+      ReturnType(FirstArg, Args...), Qualifier
+    >> { };
 
 template<typename T,
          typename Signature, typename Qualifier, typename Config>
@@ -242,7 +284,9 @@ struct invocation_acceptor : std::conditional<
   !is_function<T>::value,
   // Select the correct acceptor which can accept the given object
   // when the base requirements fit.
-  invocation_acceptor_select<T, Signature, Qualifier, Config>,
+  invocation_acceptor_select<
+    T, Signature, Qualifier, Config, accept_invocation
+  >,
   // Otherwise reject the invocation
   reject_invocation
 >::type { };
@@ -885,7 +929,7 @@ bool operator!= (std::nullptr_t, function<signature<ReturnType(Args...)>,
   return bool(f);
 }
 
-// Internal size of a empty function object
+// Internal size of an empty function object
 using empty_size = std::integral_constant<std::size_t,
   sizeof(function<
     unwrap<void()>::signature,
