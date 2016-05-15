@@ -74,9 +74,14 @@ inline namespace v4 {
 template<typename /*Signature*/, typename /*Qualifier*/, typename /*Config*/>
 class function;
 
-// Equivalent to C++17's std::void_t
-template<typename...>
-using always_void_t = void;
+// Equivalent to C++17's std::void_t which is targets a bug in GCC,
+// that prevents correct substitution failure.
+// See http://stackoverflow.com/questions/35753920 for details.
+template<typename... >
+struct deduce_to_void : std::common_type<void> { };
+
+template<typename... T>
+using always_void_t = typename deduce_to_void<T...>::type;
 
 // Always deduces to a true_type
 template<typename...>
