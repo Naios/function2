@@ -17,6 +17,8 @@
   #if !defined(_HAS_EXCEPTIONS) || (_HAS_EXCEPTIONS == 0)
     #define FU2_MACRO_DISABLE_EXCEPTIONS
   #endif
+
+  #define FU2_MACRO_EXPECT(EXPRESSION, VALUE) (EXPRESSION)
 #else
   #ifdef __clang__
     #if !(__EXCEPTIONS && __has_feature(cxx_exceptions))
@@ -27,6 +29,9 @@
       #define FU2_MACRO_DISABLE_EXCEPTIONS
     #endif
   #endif
+
+  #define FU2_MACRO_EXPECT(EXPRESSION, VALUE) \
+    __builtin_expect(EXPRESSION, VALUE)
 #endif
 
 // If macro.
@@ -136,19 +141,6 @@ struct config {
   static constexpr bool const is_partial_applyable = PartialApplyable;
 };
 
-template<typename T, typename Signature, typename = always_void_t<>>
-struct is_callable_with
-  : std::false_type { };
-
-template<typename T, typename ReturnType, typename... Args>
-struct is_callable_with<T, ReturnType(Args...),
-  always_void_t<
-    typename std::enable_if<std::is_convertible<
-      decltype(std::declval<T>()(std::declval<Args>()...)),
-      ReturnType
-    >::value>::type>>
-  : std::true_type { };
-
 template<bool Condition, typename T>
 using add_pointer_if = typename std::conditional<
   Condition,
@@ -186,13 +178,44 @@ using make_qualified_type_t =
   add_const_if<Qualifier::is_const,
     typename std::decay<typename std::remove_pointer<T>::type>::type>>>>;
 
-// Deduces to a true_type when the object is callable with
-// the given signature and qualifier.
-template<typename T, typename Signature, typename Qualifier>
-using is_callable_with_qualifier = is_callable_with<
-  make_qualified_type_t<T, Qualifier>,
-  Signature
->;
+// Provides a static wrap method which routes the functor through
+struct invocation_wrapper_none {
+  template<typename T>
+  static T wrap(T&& functor) {
+    return std::forward<T>(functor);
+  }
+};
+
+// Type which is inheritable to accept a certain invocation
+template<typename InvocationWrapper = invocation_wrapper_none>
+struct accept_invocation
+  : std::common_type<InvocationWrapper> { };
+
+// SFINAE helper which provides a wrapper invocation_acceptor::type when
+// the invocation of the given type T is acceptable to the specialized
+// invocation_acceptor.
+template<typename T, typename Qualifier,
+         typename Signature, typename = always_void_t<>>
+struct invocation_acceptor { };
+
+// Invocation acceptor which accepts (template) functors and function pointers
+// Deduces to a true invocation_acceptor on success.
+//
+// You may define your own specializations of this class to accept more
+// types which are accepted as functors or functions.
+//
+// The given user type is wrappable through a static method wrap of a class
+// you pass to the accept_invocation struct.
+template<typename T, typename Qualifier, typename ReturnType, typename... Args>
+struct invocation_acceptor<T, Qualifier, ReturnType(Args...),
+  always_void_t<
+    typename std::enable_if<std::is_convertible<
+      decltype(std::declval<
+        make_qualified_type_t<T, Qualifier>
+      >()(std::declval<Args>()...)),
+      ReturnType
+    >::value>::type>>
+  : accept_invocation<> { };
 
 // Deduces to a true type when the function is partial apply able
 template<typename T, typename Fn, typename Qualifier>
@@ -706,12 +729,19 @@ class function<signature<ReturnType(Args...)>, Qualifier, Config>
 
   // Is a true type if the functor class is assignable to this.
   template<typename T>
+  using invocation_acceptor_t = typename std::enable_if<
+    !is_function<typename std::decay<T>::type>::value, // TODO move this to acceptor
+    invocation_acceptor<T, Qualifier, ReturnType(Args...)>
+  >::type;
+
+  /*
   using is_functional_object_assignable_to_this = std::integral_constant<std::size_t,
     (is_callable_with_qualifier<T, ReturnType(Args...), Qualifier>::value ||
     (Config::is_partial_applyable && is_partial_callable_with_qualifiers<
       T, ReturnType(Args...), Qualifier>::value)) &&
     !is_function<typename std::decay<T>::type>::value
   >;
+  */
 
   // Implementation storage
   storage_t<signature<ReturnType(Args...)>, Qualifier, Config> _storage;
@@ -741,9 +771,7 @@ public:
 
   /// Construction from a functional object which overloads the `()` operator
   template<typename T,
-           typename std::enable_if<
-            is_functional_object_assignable_to_this<T>::value
-           >::type* = nullptr>
+           typename Acceptor = typename invocation_acceptor_t<T>::type>
   function(T functor)
     : _storage(initialize_functor_tag{}, std::forward<T>(functor)) { }
 
@@ -775,9 +803,7 @@ public:
 
   /// Move assigning from a functional object
   template<typename T,
-           typename std::enable_if<
-            is_functional_object_assignable_to_this<T>::value
-           >::type* = nullptr>
+           typename Acceptor = typename invocation_acceptor_t<T>::type>
   function& operator= (T functor) {
     _storage.weak_deallocate();
     _storage.weak_allocate_object(std::forward<T>(functor));
@@ -800,6 +826,7 @@ public:
   /// is ignored like in the common standard library implementations.
   template<typename F, typename Alloc>
   void assign(F&& f, Alloc /*alloc*/) {
+    // TODO add acceptor
     *this = std::forward<F>(f);
   }
 
@@ -916,6 +943,7 @@ using detail::bad_function_call;
 } /// namespace fu2
 
 #undef FU2_MACRO_DISABLE_EXCEPTIONS
+#undef FU2_MACRO_EXPECT
 #undef FU2_MACRO_IF
 #undef FU2_MACRO_IF_true
 #undef FU2_MACRO_IF_false
