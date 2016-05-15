@@ -71,6 +71,9 @@ namespace fu2 {
 namespace detail {
 inline namespace v4 {
 
+template<typename /*Signature*/, typename /*Qualifier*/, typename /*Config*/>
+class function;
+
 // Equivalent to C++17's std::void_t
 template<typename...>
 using always_void_t = void;
@@ -181,7 +184,7 @@ using make_qualified_type_t =
 // Provides a static wrap method which routes the functor through
 struct invocation_wrapper_none {
   template<typename T>
-  static T wrap(T&& functor) {
+  static auto wrap(T&& functor) -> typename std::decay<T>::type {
     return std::forward<T>(functor);
   }
 };
@@ -191,12 +194,26 @@ template<typename InvocationWrapper = invocation_wrapper_none>
 struct accept_invocation
   : std::common_type<InvocationWrapper> { };
 
+// Type which is inheritable to reject a certain invocation
+struct reject_invocation { };
+
 // SFINAE helper which provides a wrapper invocation_acceptor::type when
 // the invocation of the given type T is acceptable to the specialized
 // invocation_acceptor.
 template<typename T, typename Qualifier,
          typename Signature, typename = always_void_t<>>
-struct invocation_acceptor { };
+struct invocation_acceptor : reject_invocation { };
+
+// Always reject function2 classes
+// This is required to prevent MSVC from prioritizing template assignment
+// operators over the move constructor when copying is disabled or disallowed,
+// which results in test case failure.
+template<typename AnyQualifier, typename AnyConfig,
+         typename Qualifier, typename ReturnType, typename... Args>
+struct invocation_acceptor<
+  function<signature<ReturnType(Args...)>, AnyQualifier, AnyConfig>,
+  Qualifier, ReturnType(Args...), void
+> : reject_invocation { };
 
 // Invocation acceptor which accepts (template) functors and function pointers
 // Deduces to a true invocation_acceptor on success.
@@ -670,9 +687,6 @@ struct storage_t<signature<ReturnType(Args...)>, Qualifier, Config> {
 
 }; // struct storage_t
 
-template<typename /*Signature*/, typename /*Qualifier*/, typename /*Config*/>
-class function;
-
 template <typename /*Fn*/>
 struct call_operator;
 
@@ -699,15 +713,6 @@ FU2_MACRO_EXPAND_ALL(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
 #undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
-template<typename /*T*/>
-struct is_function
-  : std::false_type { };
-
-template<typename ReturnType, typename... Args,
-  typename Qualifier, typename Config>
-struct is_function<function<signature<ReturnType(Args...)>, Qualifier, Config>>
-  : std::true_type { };
-
 template<typename ReturnType, typename... Args,
          typename Qualifier, typename Config>
 class function<signature<ReturnType(Args...)>, Qualifier, Config>
@@ -727,21 +732,11 @@ class function<signature<ReturnType(Args...)>, Qualifier, Config>
     Config::is_copyable, RightCopyable
   >;
 
-  // Is a true type if the functor class is assignable to this.
+  // SFINAE helper to filter not invocable parameters T.
   template<typename T>
-  using invocation_acceptor_t = typename std::enable_if<
-    !is_function<typename std::decay<T>::type>::value, // TODO move this to acceptor
-    invocation_acceptor<T, Qualifier, ReturnType(Args...)>
+  using invocation_acceptor_t = typename invocation_acceptor<
+    T, Qualifier, ReturnType(Args...)
   >::type;
-
-  /*
-  using is_functional_object_assignable_to_this = std::integral_constant<std::size_t,
-    (is_callable_with_qualifier<T, ReturnType(Args...), Qualifier>::value ||
-    (Config::is_partial_applyable && is_partial_callable_with_qualifiers<
-      T, ReturnType(Args...), Qualifier>::value)) &&
-    !is_function<typename std::decay<T>::type>::value
-  >;
-  */
 
   // Implementation storage
   storage_t<signature<ReturnType(Args...)>, Qualifier, Config> _storage;
@@ -771,9 +766,10 @@ public:
 
   /// Construction from a functional object which overloads the `()` operator
   template<typename T,
-           typename Acceptor = typename invocation_acceptor_t<T>::type>
+           typename Acceptor = invocation_acceptor_t<T>>
   function(T functor)
-    : _storage(initialize_functor_tag{}, std::forward<T>(functor)) { }
+    : _storage(initialize_functor_tag{},
+               Acceptor::wrap(std::forward<T>(functor))) { }
 
   /// Empty constructs the function
   explicit function(std::nullptr_t)
@@ -803,10 +799,10 @@ public:
 
   /// Move assigning from a functional object
   template<typename T,
-           typename Acceptor = typename invocation_acceptor_t<T>::type>
+           typename Acceptor = invocation_acceptor_t<T>>
   function& operator= (T functor) {
     _storage.weak_deallocate();
-    _storage.weak_allocate_object(std::forward<T>(functor));
+    _storage.weak_allocate_object(Acceptor::wrap(std::forward<T>(functor)));
     return *this;
   }
 
@@ -824,10 +820,10 @@ public:
 
   /// Assigns a new target, note that the allocator
   /// is ignored like in the common standard library implementations.
-  template<typename F, typename Alloc>
-  void assign(F&& f, Alloc /*alloc*/) {
-    // TODO add acceptor
-    *this = std::forward<F>(f);
+  template<typename T, typename Alloc,
+           typename Acceptor = invocation_acceptor_t<T>>
+  void assign(T&& function, Alloc /*alloc*/) {
+    *this = Acceptor::wrap(std::forward<T>(function));
   }
 
   /// Swaps this function with the given function
