@@ -77,19 +77,11 @@ class function;
 // Equivalent to C++17's std::void_t which is targets a bug in GCC,
 // that prevents correct substitution failure.
 // See http://stackoverflow.com/questions/35753920 for details.
-template<typename... >
+template<typename...>
 struct deduce_to_void : std::common_type<void> { };
 
 template<typename... T>
 using always_void_t = typename deduce_to_void<T...>::type;
-
-// Always deduces to a true_type
-template<typename...>
-using always_true_t = std::true_type;
-
-// Always deduces to a false_type
-template<typename...>
-using always_false_t = std::false_type;
 
 // Copy enabler helper class
 template<bool /*Copyable*/>
