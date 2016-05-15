@@ -7,71 +7,19 @@
 
 #include "function2/function2.hpp"
 
-/*
 using namespace fu2::detail;
 
-namespace experimental {
-
-struct invocation_wrapper_method_this_ptr {
-  template<typename T>
-  static T wrap(T&& functor) {
-    return std::forward<T>(functor);
+struct MyClass {
+  int get(int) {
+    return 0;
   }
 };
 
-
-// Invocation acceptor which accepts (templated) class method pointers
-// from a correct qualifier this pointer.
-template<typename T, typename Qualifier,
-         typename ReturnType, typename FirstArg, typename... Args>
-struct is_accepted_with<T, Qualifier, ReturnType(FirstArg, Args...),
-  always_void_t<
-    typename std::enable_if<std::is_convertible<
-      decltype((std::declval<
-        make_qualified_type_t<typename std::decay<FirstArg>::type, Qualifier, true>
-      >()->*std::declval<T>())(std::declval<Args>()...)),
-      ReturnType
-    >::value>::type>>
-  : invocation_acceptor<true, invocation_wrapper_method_this_ptr> { };
-}
-
-using namespace experimental;
-
-struct MyClass
-{
-  bool get(bool)
-  {
-    return true;
-  }
-};
-*/
 int main(int, char**) {
 
-  /*
-  // using tt = decltype(&MyClass::get);
+#ifdef _WIN32
+  auto ptr = &MyClass::get;
 
-  MyClass c;
-
-  auto cc = &c;
-  auto ptr = (&MyClass::get);
-
-  (cc->*ptr)(true);
-
-  using q = qualifier<true, true, false>;
-
-  using t = make_qualified_type_t<MyClass*, q, true>;
-
-  t t_t;
-  (void)t_t;
-
-  invocation_wrapper_method_this_ptr m = is_accepted_with<
-    tt,
-    q,
-    bool(MyClass*, bool)
-  >{};
-  */
-
-
-
+#endif // _WIN32
   return 0;
 }

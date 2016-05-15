@@ -83,6 +83,15 @@ struct deduce_to_void : std::common_type<void> { };
 template<typename... T>
 using always_void_t = typename deduce_to_void<T...>::type;
 
+// Is convertible trait to fix MSVC crashes and misbehavior
+template<typename From, typename To, typename = always_void_t<>>
+struct is_convertible : std::false_type { };
+
+template<typename From, typename To>
+struct is_convertible<From, To, always_void_t<
+  decltype(To(std::declval<From>()))
+>> : std::true_type { };
+
 // Copy enabler helper class
 template<bool /*Copyable*/>
 struct copyable { };
@@ -190,50 +199,8 @@ template<typename InvocationWrapper = invocation_wrapper_none>
 struct accept_invocation
   : std::common_type<InvocationWrapper> { };
 
-// Type which is inheritable to reject a certain invocation
-struct reject_invocation { };
 
-// Trait to check whether a given parameter T is a fu2::detail::function
-template<typename /*T*/>
-struct is_function
-  : std::false_type { };
-
-template<typename ReturnType, typename... Args,
-typename Qualifier, typename Config>
-struct is_function<function<signature<ReturnType(Args...)>, Qualifier, Config>>
-  : std::true_type { };
-
-// SFINAE helper which provides a wrapper invocation_acceptor::type when
-// the invocation of the given type T is acceptable to the specialized
-// invocation_acceptor.
-template<typename T,
-         typename Signature, typename Qualifier, typename Config,
-         template<typename...> class Accept,
-         typename = always_void_t<>>
-struct invocation_acceptor_select : reject_invocation { };
-
-// Invocation acceptor which accepts (template) functors and function pointers
-// Deduces to an invocation_acceptor on success.
-//
-// You may define your own specializations of this class to accept more
-// types which are accepted as functors or functions.
-//
-// The given user type is wrappable through a static method named wrap
-// of a class you pass to the accept_invocation struct.
-template<typename T, typename Qualifier,
-         typename ReturnType, typename... Args, typename Config,
-         template<typename...> class Accept>
-struct invocation_acceptor_select<T, ReturnType(Args...), Qualifier, Config,
-  Accept, always_void_t<
-    typename std::enable_if<std::is_convertible<
-      decltype(std::declval<
-        make_qualified_type_t<T, Qualifier>
-      >()(std::declval<Args>()...)),
-      ReturnType
-    >::value>::type>>
-  : Accept<> { };
-
-// Decorates this calls of method pointers
+// Decorate this calls of method pointers
 template<typename Signature, typename Qualifier>
 struct invocation_wrapper_decorate_this_call;
 
@@ -243,7 +210,7 @@ struct invocation_wrapper_decorate_this_call<
   template<typename T>
   struct decorator {
     typename std::decay<T>::type decorated_;
-    ReturnType operator() (Callee callee, Args&&... args) /*qualifiers here*/ {
+    ReturnType operator() (Callee callee, Args&&... args) {
       return (callee->*decorated_)(std::forward<Args>(args)...);
     }
   };
@@ -254,42 +221,85 @@ struct invocation_wrapper_decorate_this_call<
   }
 };
 
-// Invocation acceptor which accepts (templated) class method pointers
-// from a correct qualifier this pointer.
-template<typename T, typename Qualifier,
-         typename ReturnType, typename FirstArg, typename... Args,
-         typename Config, template<typename...> class Accept>
-struct invocation_acceptor_select<T, ReturnType(FirstArg, Args...),
-                                  Qualifier, Config,
+// 3) Invocation acceptor which accepts (templated) class method pointers
+// from a correct qualified this pointer.
+/*template<typename T,
+         typename Signature, typename Qualifier, typename Config,
+         template<typename...> class Accept,
+         typename = always_void_t<>>
+struct accept_decorated_this_calls { };
+
+template<typename T,
+         typename ReturnType, typename Callee, typename... Args,
+         typename Qualifier, typename Config,
+         template<typename...> class Accept>
+struct accept_decorated_this_calls<T, ReturnType(Callee, Args...),
+                                   Qualifier, Config,
   Accept, always_void_t<
-    typename std::enable_if<std::is_convertible<
-      decltype((std::declval<
-      make_qualified_type_t<
-          typename std::decay<FirstArg>::type, Qualifier, true
-      >>()->*std::declval<T>())(std::declval<Args>()...)),
+    typename std::enable_if<is_convertible<
+      decltype((std::declval<Callee>()->*std::declval<T>())(std::declval<Args>()...)),
+      ReturnType
+    >::value>::type
+  >>
+  : Accept<invocation_wrapper_decorate_this_call<
+      ReturnType(Callee, Args...), Qualifier
+    >> { };
+*/
+
+// 2) Invocation acceptor which accepts (template) functors and function pointers
+// Deduces to an invocation_acceptor on success.
+//
+// You may define your own specializations of this class to accept more
+// types which are accepted as functors or functions.
+//
+// The given user type is wrappable through a static method named wrap
+// of a class you pass to the accept_invocation struct.
+template<typename T,
+         typename Signature, typename Qualifier, typename Config,
+         template<typename...> class Accept,
+         typename = always_void_t<>>
+struct accept_default_call
+  /*: accept_decorated_this_calls<T, Signature, Qualifier, Config, Accept>*/ { };
+
+template<typename T,
+         typename ReturnType, typename... Args,
+         typename Qualifier, typename Config,
+         template<typename...> class Accept>
+struct accept_default_call<T, ReturnType(Args...), Qualifier, Config,
+  Accept, always_void_t<
+    typename std::enable_if<is_convertible<
+      decltype(std::declval<
+        make_qualified_type_t<T, Qualifier>
+      >()(std::declval<Args>()...)),
       ReturnType
     >::value>::type>>
-  : Accept<invocation_wrapper_decorate_this_call<
-      ReturnType(FirstArg, Args...), Qualifier
-    >> { };
+  : Accept<> { };
+
+// 1) Always reject function2 classes
+// This is required to prevent MSVC from prioritizing template assignment
+// operators over the move constructor when copying is disabled,
+// which results in test case failure.
+template<typename T,
+         typename Signature, typename Qualifier, typename Config,
+         template<typename...> class Accept>
+struct reject_function2
+  : accept_default_call<T, Signature, Qualifier, Config, Accept> { };
+
+template<typename FnReturnType, typename... FnArgs,
+         typename FnQualifier, typename FnConfig,
+         typename ReturnType, typename... Args,
+         typename Qualifier, typename Config,
+         template<typename...> class Accept>
+struct reject_function2<
+  function<signature<FnReturnType(FnArgs...)>, FnQualifier, FnConfig>,
+  ReturnType(Args...), Qualifier, Config, Accept
+> /*reject*/ { };
 
 template<typename T,
          typename Signature, typename Qualifier, typename Config>
-struct invocation_acceptor : std::conditional<
-  // Base requirements of a functional type:
-  // * Always reject function2 classes
-  //   This is required to prevent MSVC from prioritizing template assignment
-  //   operators over the move constructor when copying is disabled,
-  //   which results in test case failure.
-  !is_function<T>::value,
-  // Select the correct acceptor which can accept the given object
-  // when the base requirements fit.
-  invocation_acceptor_select<
-    T, Signature, Qualifier, Config, accept_invocation
-  >,
-  // Otherwise reject the invocation
-  reject_invocation
->::type { };
+struct invocation_acceptor : reject_function2<
+  T, Signature, Qualifier, Config, accept_invocation
+> { };
 
 // Is a true type if the left type is copyable correct to the right type.
 template<bool LeftCopyable, bool RightCopyable>
