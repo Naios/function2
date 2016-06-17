@@ -34,6 +34,10 @@
     __builtin_expect(EXPRESSION, VALUE)
 #endif
 
+#if !defined(FU2_NO_FUNCTIONAL_HEADER) || !defined(FU2_MACRO_DISABLE_EXCEPTIONS)
+  #include <functional>
+#endif
+
 // If macro.
 #define FU2_MACRO_IF(cond) \
   FU2_MACRO_IF_ ## cond
@@ -473,13 +477,15 @@ FU2_MACRO_EXPAND_ALL(FU2_MACRO_DEFINE_CALL_OPERATOR)
 
 #undef FU2_MACRO_DEFINE_CALL_OPERATOR
 
-struct bad_function_call : std::exception {
-  bad_function_call() { }
+#if defined(FU2_NO_FUNCTIONAL_HEADER) && !defined(FU2_MACRO_DISABLE_EXCEPTIONS)
+  struct bad_function_call : std::exception {
+    bad_function_call() { }
 
-  char const* what() const throw() override {
-    return "bad function call";
-  }
-};
+    char const* what() const throw() override {
+      return "bad function call";
+    }
+  };
+#endif
 
 template<typename /*Signature*/, bool /*Throws*/>
 struct vtable_creator_of_empty_function;
@@ -495,6 +501,9 @@ struct vtable_creator_of_empty_function<signature<ReturnType(Args...)>, true> {
   static ReturnType invoke(void*, Args&&...) {
 #ifdef FU2_MACRO_DISABLE_EXCEPTIONS
     std::abort();
+#elif !defined(FU2_NO_FUNCTIONAL_HEADER) \
+      || !defined(FU2_MACRO_DISABLE_EXCEPTIONS)
+    throw std::bad_function_call{};
 #else
     throw bad_function_call{};
 #endif
@@ -997,7 +1006,9 @@ using unique_function = function_base<
 ///
 /// The exception type thrown through empty function calls
 /// when the template parameter 'Throwing' is set to true (default).
-using detail::bad_function_call;
+#if defined(FU2_NO_FUNCTIONAL_HEADER) && !defined(FU2_MACRO_DISABLE_EXCEPTIONS)
+  using detail::bad_function_call;
+#endif
 
 } /// namespace fu2
 
