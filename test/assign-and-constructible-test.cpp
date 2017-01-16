@@ -7,69 +7,54 @@
 #include "function2-test.hpp"
 
 namespace {
-  /// Coroutine which increases it's return value by every call
-  class UniqueIncreasingCoroutine
-  {
-    std::unique_ptr<std::size_t> state = make_unique<std::size_t>(0);
+/// Coroutine which increases it's return value by every call
+class UniqueIncreasingCoroutine {
+  std::unique_ptr<std::size_t> state = make_unique<std::size_t>(0);
 
-  public:
-    UniqueIncreasingCoroutine() { }
+public:
+  UniqueIncreasingCoroutine() {}
 
-    std::size_t operator() ()
-    {
-      return (*state)++;
-    }
-  };
+  std::size_t operator()() { return (*state)++; }
+};
 
-  /// Coroutine which increases it's return value by every call
-  class CopyableIncreasingCoroutine
-  {
-    std::size_t state = 0UL;
+/// Coroutine which increases it's return value by every call
+class CopyableIncreasingCoroutine {
+  std::size_t state = 0UL;
 
-  public:
-    CopyableIncreasingCoroutine() { }
+public:
+  CopyableIncreasingCoroutine() {}
 
-    std::size_t operator() ()
-    {
-      return state++;
-    }
-  };
+  std::size_t operator()() { return state++; }
+};
 
-  /// Functor which returns it's shared count
-  class SharedCountFunctor
-  {
-    std::shared_ptr<std::size_t> state = std::make_shared<std::size_t>(0);
+/// Functor which returns it's shared count
+class SharedCountFunctor {
+  std::shared_ptr<std::size_t> state = std::make_shared<std::size_t>(0);
 
-  public:
-    std::size_t operator() () const
-    {
-      return state.use_count();
-    }
-  };
+public:
+  std::size_t operator()() const { return state.use_count(); }
+};
 }
 
 ALL_LEFT_RIGHT_TYPED_TEST_CASE(AllMoveAssignConstructTests)
 
-TYPED_TEST(AllMoveAssignConstructTests, AreMoveConstructible)
-{
+TYPED_TEST(AllMoveAssignConstructTests, AreMoveConstructible) {
   typename TestFixture::template right_t<bool()> right = returnTrue;
   typename TestFixture::template left_t<bool()> left(std::move(right));
   EXPECT_TRUE(left());
 }
 
-TYPED_TEST(AllMoveAssignConstructTests, AreMoveAssignable)
-{
+TYPED_TEST(AllMoveAssignConstructTests, AreMoveAssignable) {
   typename TestFixture::template left_t<bool()> left;
   typename TestFixture::template right_t<bool()> right = returnTrue;
   left = std::move(right);
   EXPECT_TRUE(left());
 }
 
-TYPED_TEST(AllMoveAssignConstructTests, TransferStatesOnConstruct)
-{
+TYPED_TEST(AllMoveAssignConstructTests, TransferStatesOnConstruct) {
   typename TestFixture::template left_t<std::size_t()> left;
   typename TestFixture::template right_t<std::size_t()> right =
-    CopyableIncreasingCoroutine();
+      CopyableIncreasingCoroutine();
   EXPECT_EQ(right(), 0UL);
   EXPECT_EQ(right(), 1UL);
   left = std::move(right);
@@ -78,10 +63,9 @@ TYPED_TEST(AllMoveAssignConstructTests, TransferStatesOnConstruct)
   EXPECT_EQ(left(), 4UL);
 }
 
-TYPED_TEST(AllMoveAssignConstructTests, TransferStatesOnAssign)
-{
+TYPED_TEST(AllMoveAssignConstructTests, TransferStatesOnAssign) {
   typename TestFixture::template right_t<std::size_t()> right =
-    CopyableIncreasingCoroutine();
+      CopyableIncreasingCoroutine();
   EXPECT_EQ(right(), 0UL);
   EXPECT_EQ(right(), 1UL);
   typename TestFixture::template left_t<std::size_t()> left(std::move(right));
@@ -90,8 +74,7 @@ TYPED_TEST(AllMoveAssignConstructTests, TransferStatesOnAssign)
   EXPECT_EQ(left(), 4UL);
 }
 
-TYPED_TEST(AllMoveAssignConstructTests, AreEmptyAfterMoveConstruct)
-{
+TYPED_TEST(AllMoveAssignConstructTests, AreEmptyAfterMoveConstruct) {
   typename TestFixture::template right_t<bool()> right = returnTrue;
   EXPECT_TRUE(right);
   EXPECT_TRUE(right());
@@ -101,8 +84,7 @@ TYPED_TEST(AllMoveAssignConstructTests, AreEmptyAfterMoveConstruct)
   EXPECT_TRUE(left());
 }
 
-TYPED_TEST(AllMoveAssignConstructTests, AreEmptyAfterMoveAssign)
-{
+TYPED_TEST(AllMoveAssignConstructTests, AreEmptyAfterMoveAssign) {
   typename TestFixture::template left_t<bool()> left;
   typename TestFixture::template right_t<bool()> right;
   EXPECT_FALSE(left);
@@ -118,18 +100,17 @@ TYPED_TEST(AllMoveAssignConstructTests, AreEmptyAfterMoveAssign)
 
 UNIQUE_LEFT_RIGHT_TYPED_TEST_CASE(UniqueMoveAssignConstructTests)
 
-TYPED_TEST(UniqueMoveAssignConstructTests, TransferStateOnMoveConstruct)
-{
+TYPED_TEST(UniqueMoveAssignConstructTests, TransferStateOnMoveConstruct) {
   {
     typename TestFixture::template right_t<std::size_t()> right =
-      UniqueIncreasingCoroutine();
+        UniqueIncreasingCoroutine();
     typename TestFixture::template left_t<std::size_t()> left(std::move(right));
     EXPECT_EQ(left(), 0UL);
   }
 
   {
     typename TestFixture::template right_t<std::size_t()> right =
-      UniqueIncreasingCoroutine();
+        UniqueIncreasingCoroutine();
     EXPECT_EQ(right(), 0UL);
     EXPECT_EQ(right(), 1UL);
     EXPECT_EQ(right(), 2UL);
@@ -139,12 +120,11 @@ TYPED_TEST(UniqueMoveAssignConstructTests, TransferStateOnMoveConstruct)
   }
 }
 
-TYPED_TEST(UniqueMoveAssignConstructTests, TransferStateOnMoveAssign)
-{
+TYPED_TEST(UniqueMoveAssignConstructTests, TransferStateOnMoveAssign) {
   {
     typename TestFixture::template left_t<std::size_t()> left;
     typename TestFixture::template right_t<std::size_t()> right =
-      UniqueIncreasingCoroutine();
+        UniqueIncreasingCoroutine();
     left = std::move(right);
     EXPECT_EQ(left(), 0UL);
   }
@@ -152,7 +132,7 @@ TYPED_TEST(UniqueMoveAssignConstructTests, TransferStateOnMoveAssign)
   {
     typename TestFixture::template left_t<std::size_t()> left;
     typename TestFixture::template right_t<std::size_t()> right =
-      UniqueIncreasingCoroutine();
+        UniqueIncreasingCoroutine();
     EXPECT_EQ(right(), 0UL);
     EXPECT_EQ(right(), 1UL);
     EXPECT_EQ(right(), 2UL);
@@ -164,8 +144,7 @@ TYPED_TEST(UniqueMoveAssignConstructTests, TransferStateOnMoveAssign)
 
 COPYABLE_LEFT_RIGHT_TYPED_TEST_CASE(CopyableCopyAssignConstructTests)
 
-TYPED_TEST(CopyableCopyAssignConstructTests, AreCopyConstructible)
-{
+TYPED_TEST(CopyableCopyAssignConstructTests, AreCopyConstructible) {
   typename TestFixture::template right_t<bool()> right = returnTrue;
   typename TestFixture::template left_t<bool()> left(right);
   EXPECT_TRUE(left());
@@ -174,8 +153,7 @@ TYPED_TEST(CopyableCopyAssignConstructTests, AreCopyConstructible)
   EXPECT_TRUE(right);
 }
 
-TYPED_TEST(CopyableCopyAssignConstructTests, AreCopyAssignable)
-{
+TYPED_TEST(CopyableCopyAssignConstructTests, AreCopyAssignable) {
   typename TestFixture::template left_t<bool()> left;
   typename TestFixture::template right_t<bool()> right = returnTrue;
   EXPECT_FALSE(left);
@@ -186,11 +164,10 @@ TYPED_TEST(CopyableCopyAssignConstructTests, AreCopyAssignable)
   EXPECT_TRUE(right);
 }
 
-TYPED_TEST(CopyableCopyAssignConstructTests, CopyStateOnCopyConstruct)
-{
+TYPED_TEST(CopyableCopyAssignConstructTests, CopyStateOnCopyConstruct) {
   {
     typename TestFixture::template right_t<std::size_t()> right =
-      CopyableIncreasingCoroutine();
+        CopyableIncreasingCoroutine();
     typename TestFixture::template left_t<std::size_t()> left(right);
     EXPECT_EQ(left(), 0UL);
     EXPECT_EQ(right(), 0UL);
@@ -198,7 +175,7 @@ TYPED_TEST(CopyableCopyAssignConstructTests, CopyStateOnCopyConstruct)
 
   {
     typename TestFixture::template right_t<std::size_t()> right =
-      CopyableIncreasingCoroutine();
+        CopyableIncreasingCoroutine();
     EXPECT_EQ(right(), 0UL);
     EXPECT_EQ(right(), 1UL);
     EXPECT_EQ(right(), 2UL);
@@ -210,12 +187,11 @@ TYPED_TEST(CopyableCopyAssignConstructTests, CopyStateOnCopyConstruct)
   }
 }
 
-TYPED_TEST(CopyableCopyAssignConstructTests, CopyStateOnCopyAssign)
-{
+TYPED_TEST(CopyableCopyAssignConstructTests, CopyStateOnCopyAssign) {
   {
     typename TestFixture::template left_t<std::size_t()> left;
     typename TestFixture::template right_t<std::size_t()> right =
-      CopyableIncreasingCoroutine();
+        CopyableIncreasingCoroutine();
     left = right;
     EXPECT_EQ(left(), 0UL);
     EXPECT_EQ(right(), 0UL);
@@ -224,7 +200,7 @@ TYPED_TEST(CopyableCopyAssignConstructTests, CopyStateOnCopyAssign)
   {
     typename TestFixture::template left_t<std::size_t()> left;
     typename TestFixture::template right_t<std::size_t()> right =
-      CopyableIncreasingCoroutine();
+        CopyableIncreasingCoroutine();
     EXPECT_EQ(right(), 0UL);
     EXPECT_EQ(right(), 1UL);
     EXPECT_EQ(right(), 2UL);

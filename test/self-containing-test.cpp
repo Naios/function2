@@ -6,12 +6,8 @@
 
 #include "function2/function2.hpp"
 
-bool testSelfContaining()
-{
-  fu2::function<bool()> first = []
-  {
-    return true;
-  };
+bool testSelfContaining() {
+  fu2::function<bool()> first = [] { return true; };
   fu2::unique_function<bool()> second = first;
   return first() && second();
 }

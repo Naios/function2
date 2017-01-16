@@ -8,8 +8,7 @@
 
 ALL_LEFT_TYPED_TEST_CASE(StandardCompliantTest)
 
-TYPED_TEST(StandardCompliantTest, IsSwappableWithMemberMethod)
-{
+TYPED_TEST(StandardCompliantTest, IsSwappableWithMemberMethod) {
   // The standard only requires that functions
   // with the same signature are swappable
   typename TestFixture::template left_t<bool()> left = returnTrue;
@@ -24,8 +23,7 @@ TYPED_TEST(StandardCompliantTest, IsSwappableWithMemberMethod)
   EXPECT_FALSE(right());
 }
 
-TYPED_TEST(StandardCompliantTest, IsSwappableWithStdSwap)
-{
+TYPED_TEST(StandardCompliantTest, IsSwappableWithStdSwap) {
   // The standard only requires that functions
   // with the same signature are swappable
   typename TestFixture::template left_t<bool()> left = returnTrue;
@@ -40,8 +38,7 @@ TYPED_TEST(StandardCompliantTest, IsSwappableWithStdSwap)
   EXPECT_FALSE(right());
 }
 
-TYPED_TEST(StandardCompliantTest, IsSwappableWithSelf)
-{
+TYPED_TEST(StandardCompliantTest, IsSwappableWithSelf) {
   typename TestFixture::template left_t<bool()> left;
   left.swap(left);
   EXPECT_FALSE(left);
@@ -51,8 +48,7 @@ TYPED_TEST(StandardCompliantTest, IsSwappableWithSelf)
   EXPECT_TRUE(left());
 }
 
-TYPED_TEST(StandardCompliantTest, IsAssignableWithMemberMethod)
-{
+TYPED_TEST(StandardCompliantTest, IsAssignableWithMemberMethod) {
   typename TestFixture::template left_t<bool()> left;
   EXPECT_FALSE(left);
   left.assign(returnFalse, std::allocator<int>{});
@@ -61,8 +57,7 @@ TYPED_TEST(StandardCompliantTest, IsAssignableWithMemberMethod)
   EXPECT_TRUE(left());
 }
 
-TYPED_TEST(StandardCompliantTest, IsCompareableWithNullptrT)
-{
+TYPED_TEST(StandardCompliantTest, IsCompareableWithNullptrT) {
   typename TestFixture::template left_t<bool()> left;
   EXPECT_TRUE(left == nullptr);
   EXPECT_TRUE(nullptr == left);

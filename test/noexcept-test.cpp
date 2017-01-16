@@ -8,8 +8,7 @@
 
 ALL_LEFT_TYPED_TEST_CASE(AllNoExceptTests)
 
-TYPED_TEST(AllNoExceptTests, CallSucceedsIfNonEmpty)
-{
+TYPED_TEST(AllNoExceptTests, CallSucceedsIfNonEmpty) {
   typename TestFixture::template left_t<bool(), false> left = returnTrue;
   EXPECT_TRUE(left());
 }
@@ -18,8 +17,7 @@ TYPED_TEST(AllNoExceptTests, CallSucceedsIfNonEmpty)
 // Death tests are causing issues when doing leak checks in valgrind
 #ifndef TESTS_NO_DEATH_TESTS
 
-TYPED_TEST(AllNoExceptTests, CallAbortsIfEmpty)
-{
+TYPED_TEST(AllNoExceptTests, CallAbortsIfEmpty) {
   typename TestFixture::template left_t<bool(), false> left;
   EXPECT_DEATH(left(), "");
 }

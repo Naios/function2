@@ -8,22 +8,19 @@
 
 ALL_LEFT_TYPED_TEST_CASE(OverloadTests)
 
-template<typename TestFixture>
-struct FunctionProvider
-{
-  static bool OverloadedMethod(typename TestFixture::template left_t <void(std::false_type)>)
-  {
+template <typename TestFixture> struct FunctionProvider {
+  static bool OverloadedMethod(
+      typename TestFixture::template left_t<void(std::false_type)>) {
     return false;
   }
 
-  static bool OverloadedMethod(typename TestFixture::template left_t <void(std::true_type)>)
-  {
+  static bool OverloadedMethod(
+      typename TestFixture::template left_t<void(std::true_type)>) {
     return true;
   }
 };
 
-TYPED_TEST(OverloadTests, IsOverloadable)
-{
+TYPED_TEST(OverloadTests, IsOverloadable) {
   // Test whether fu2::function supports overloading which isn't possible
   // with C++11 std::function implementations because of
   // a non SFINAE guarded templated constructor.

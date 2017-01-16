@@ -4,15 +4,12 @@
 //       (See accompanying file LICENSE_1_0.txt or copy at
 //             http://www.boost.org/LICENSE_1_0.txt)
 
-
 #include "function2/function2.hpp"
 
 using namespace fu2::detail;
 
 struct MyClass {
-  int get(int) {
-    return 0;
-  }
+  int get(int) { return 0; }
 };
 
 int main(int, char**) {

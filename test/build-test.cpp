@@ -9,7 +9,6 @@
 bool testSelfContaining();
 
 // Issue #6
-TEST(build_tests, the_header_is_self_containing)
-{
+TEST(build_tests, the_header_is_self_containing) {
   EXPECT_TRUE(testSelfContaining());
 }

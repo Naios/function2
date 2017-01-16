@@ -8,16 +8,14 @@
 
 ALL_LEFT_TYPED_TEST_CASE(AllEmptyFunctionCallTests)
 
-TYPED_TEST(AllEmptyFunctionCallTests, CallSucceedsIfNonEmpty)
-{
+TYPED_TEST(AllEmptyFunctionCallTests, CallSucceedsIfNonEmpty) {
   typename TestFixture::template left_t<bool()> left = returnTrue;
   EXPECT_TRUE(left());
 }
 
 #ifndef TESTS_NO_EXCEPTIONS
 
-TYPED_TEST(AllEmptyFunctionCallTests, CallThrowsIfEmpty)
-{
+TYPED_TEST(AllEmptyFunctionCallTests, CallThrowsIfEmpty) {
   typename TestFixture::template left_t<bool()> left;
   EXPECT_THROW(left(), fu2::bad_function_call);
 }
