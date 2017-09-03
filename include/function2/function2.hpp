@@ -1,4 +1,4 @@
-
+﻿
 //  Copyright 2015-2017 Denis Blank <denis.blank at outlook dot com>
 //     Distributed under the Boost Software License, Version 1.0
 //       (See accompanying file LICENSE_1_0.txt or copy at
@@ -399,7 +399,8 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
           }
           // The object isn't allocate on the heap
           else {
-            construct(std::move(*box), to_table, to, to_capacity);
+            construct(std::true_type{}, std::move(*box), to_table, to,
+                      to_capacity);
           }
           return;
         }
@@ -407,9 +408,12 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
           auto box = static_cast<T const*>(retrieve<T>(
               std::integral_constant<bool, IsInplace>{}, from, from_capacity));
           assert(box && "The object must not be over aligned or null!");
+          assert(std::is_copy_constructible<T>::value &&
+                 "The box is required to be copyable here!");
 
           // Try to allocate the object inplace
-          construct(*box, to_table, to, to_capacity);
+          construct(std::is_copy_constructible<T>{}, *box, to_table, to,
+                    to_capacity);
           return;
         }
         case opcode::op_destroy:
@@ -441,8 +445,10 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
       std::exit(-1);
     }
 
+    template <typename Box>
     static constexpr void
-    construct(T box, vtable* to_table, data_accessor* to,
+    construct(std::true_type /*apply*/, Box&& box, vtable* to_table,
+              data_accessor* to,
               std::size_t to_capacity) noexcept(HasStrongExceptGuarantee) {
       // Try to allocate the object inplace
       void* storage = retrieve<T>(std::true_type{}, to, to_capacity);
@@ -453,7 +459,14 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
         to->ptr_ = storage = box.box_allocate();
         to_table->set_allocated<T>();
       }
-      new (storage) T(std::move(box));
+      new (storage) T(std::forward<Box>(box));
+    }
+
+    template <typename Box>
+    static constexpr void
+    construct(std::false_type /*apply*/, Box&& /*box*/, vtable* /*to_table*/,
+              data_accessor* /*to*/,
+              std::size_t /*to_capacity*/) noexcept(HasStrongExceptGuarantee) {
     }
   };
 
@@ -490,8 +503,8 @@ public:
   static constexpr void init(vtable& table, T&& object, data_accessor* to,
                              std::size_t to_capacity) {
 
-    trait<std::decay_t<T>>::construct(std::forward<T>(object), &table, to,
-                                      to_capacity);
+    trait<std::decay_t<T>>::construct(std::true_type{}, std::forward<T>(object),
+                                      &table, to, to_capacity);
   }
 
   /// Initializes the vtable object
@@ -645,6 +658,9 @@ template <typename Config, typename Property>
 class erasure : internal_capacity<Config::capacity> {
   friend struct erasure_attorney;
 
+  template <typename, typename>
+  friend class erasure;
+
   using VTable = tables::vtable<Property>;
 
   VTable vtable_;
@@ -726,7 +742,8 @@ public:
             std::enable_if_t<is_box<std::decay_t<T>>::value>* = nullptr>
   constexpr erasure& operator=(T&& object) {
     vtable_.weak_destroy(this->opaque_ptr(), capacity());
-    vtable_.init(std::forward<T>(object), this->opaque_ptr(), capacity());
+    VTable::init(vtable_, std::forward<T>(object), this->opaque_ptr(),
+                 capacity());
     return *this;
   }
 
@@ -789,7 +806,7 @@ public:
 
   /// Construction from a callable object which overloads the `()` operator
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>,
-            enable_if_callable_t<T, Args...>* = nullptr>
+            enable_if_callable_t<std::decay_t<T>, Args...>* = nullptr>
   function(T callable, Allocator&& allocator = Allocator{})
       : erasure_(type_erasure::make_box(std::forward<T>(callable),
                                         std::forward<Allocator>(allocator))) {
@@ -816,7 +833,8 @@ public:
   }
 
   /// Move assigning from a functional object
-  template <typename T, enable_if_callable_t<T, Args...>* = nullptr>
+  template <typename T,
+            enable_if_callable_t<std::decay_t<T>, Args...>* = nullptr>
   function& operator=(T&& callable) {
     erasure_ = type_erasure::make_box(std::forward<T>(callable));
     return *this;
@@ -840,7 +858,7 @@ public:
 
   /// Assigns a new target with an optional allocator
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>,
-            enable_if_callable_t<T, Args...>* = nullptr>
+            enable_if_callable_t<std::decay_t<T>, Args...>* = nullptr>
   void assign(T&& callable, Allocator&& allocator = Allocator{}) {
     erasure_ = type_erasure::make_box(std::forward<T>(callable),
                                       std::forward<Allocator>(allocator));
