@@ -1,5 +1,5 @@
 
-//  Copyright 2015-2016 Denis Blank <denis.blank at outlook dot com>
+//  Copyright 2015-2017 Denis Blank <denis.blank at outlook dot com>
 //     Distributed under the Boost Software License, Version 1.0
 //       (See accompanying file LICENSE_1_0.txt or copy at
 //             http://www.boost.org/LICENSE_1_0.txt)
@@ -20,25 +20,35 @@ public:
           std::default_delete<std::reference_wrapper<std::size_t>>{}(ptr);
         });
   }
-  std::size_t operator()() const { return checker_->get(); }
+  std::size_t operator()() const {
+    return checker_->get();
+  }
 };
 
 struct VolatileProvider {
-  bool operator()() volatile { return true; }
+  bool operator()() volatile {
+    return true;
+  }
 };
 
 struct ConstProvider {
-  bool operator()() const { return true; }
+  bool operator()() const {
+    return true;
+  }
 };
 
 struct ConstVolatileProvider {
-  bool operator()() const volatile { return true; }
+  bool operator()() const volatile {
+    return true;
+  }
 };
 
 struct RValueProvider {
-  bool operator()() && { return true; }
+  bool operator()() && {
+    return true;
+  }
 };
-}
+} // namespace
 
 ALL_LEFT_TYPED_TEST_CASE(AllSingleMoveAssignConstructTests)
 
@@ -151,7 +161,9 @@ TYPED_TEST(AllSingleMoveAssignConstructTests, AcceptsItsQualifier) {
 struct MyTestClass {
   bool result = true;
 
-  bool getResult() const { return result; }
+  bool getResult() const {
+    return result;
+  }
 };
 
 TYPED_TEST(AllSingleMoveAssignConstructTests, AcceptClassMethodPointers) {

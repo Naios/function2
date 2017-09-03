@@ -1,5 +1,5 @@
 
-//  Copyright 2015-2016 Denis Blank <denis.blank at outlook dot com>
+//  Copyright 2015-2017 Denis Blank <denis.blank at outlook dot com>
 //     Distributed under the Boost Software License, Version 1.0
 //       (See accompanying file LICENSE_1_0.txt or copy at
 //             http://www.boost.org/LICENSE_1_0.txt)
@@ -12,9 +12,12 @@ class UniqueIncreasingCoroutine {
   std::unique_ptr<std::size_t> state = make_unique<std::size_t>(0);
 
 public:
-  UniqueIncreasingCoroutine() {}
+  UniqueIncreasingCoroutine() {
+  }
 
-  std::size_t operator()() { return (*state)++; }
+  std::size_t operator()() {
+    return (*state)++;
+  }
 };
 
 /// Coroutine which increases it's return value by every call
@@ -22,9 +25,12 @@ class CopyableIncreasingCoroutine {
   std::size_t state = 0UL;
 
 public:
-  CopyableIncreasingCoroutine() {}
+  CopyableIncreasingCoroutine() {
+  }
 
-  std::size_t operator()() { return state++; }
+  std::size_t operator()() {
+    return state++;
+  }
 };
 
 /// Functor which returns it's shared count
@@ -32,9 +38,11 @@ class SharedCountFunctor {
   std::shared_ptr<std::size_t> state = std::make_shared<std::size_t>(0);
 
 public:
-  std::size_t operator()() const { return state.use_count(); }
+  std::size_t operator()() const {
+    return state.use_count();
+  }
 };
-}
+} // namespace
 
 ALL_LEFT_RIGHT_TYPED_TEST_CASE(AllMoveAssignConstructTests)
 

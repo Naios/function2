@@ -1,5 +1,5 @@
 
-//  Copyright 2015-2016 Denis Blank <denis.blank at outlook dot com>
+//  Copyright 2015-2017 Denis Blank <denis.blank at outlook dot com>
 //     Distributed under the Boost Software License, Version 1.0
 //       (See accompanying file LICENSE_1_0.txt or copy at
 //             http://www.boost.org/LICENSE_1_0.txt)
@@ -16,24 +16,32 @@
 #include <type_traits>
 
 /// A function which always returns true
-inline bool returnTrue() { return true; }
+constexpr bool returnTrue() noexcept {
+  return true;
+}
 /// A function which always returns false
-inline bool returnFalse() { return false; }
+constexpr bool returnFalse() noexcept {
+  return false;
+}
+
+template <typename Fn, bool Copyable, std::size_t Capacity, bool Throwing>
+using short_def =
+    fu2::function_base<true, Copyable, Capacity, Throwing, false, false, Fn>;
 
 /// NonCopyable functions with several SFO capacities
 template <typename Fn, bool Throwing = true>
-using unique_no_sfo = fu2::function_base<Fn, false, 0, Throwing>;
+using unique_no_sfo = short_def<Fn, false, 0, Throwing>;
 template <typename Fn, bool Throwing = true>
-using unique_256_sfo = fu2::function_base<Fn, false, 256, Throwing>;
+using unique_256_sfo = short_def<Fn, false, 256, Throwing>;
 template <typename Fn, bool Throwing = true>
-using unique_512_sfo = fu2::function_base<Fn, false, 512, Throwing>;
+using unique_512_sfo = short_def<Fn, false, 512, Throwing>;
 /// Copyable functions with several SFO capacities
 template <typename Fn, bool Throwing = true>
-using copyable_no_sfo = fu2::function_base<Fn, true, 0, Throwing>;
+using copyable_no_sfo = short_def<Fn, true, 0, Throwing>;
 template <typename Fn, bool Throwing = true>
-using copyable_256_sfo = fu2::function_base<Fn, true, 256, Throwing>;
+using copyable_256_sfo = short_def<Fn, true, 256, Throwing>;
 template <typename Fn, bool Throwing = true>
-using copyable_512_sfo = fu2::function_base<Fn, true, 512, Throwing>;
+using copyable_512_sfo = short_def<Fn, true, 512, Throwing>;
 /// std::function
 template <typename Fn, bool Throwing = true>
 using std_function = std::function<Fn>;
@@ -46,14 +54,16 @@ template <typename... Tuple, typename... Rest>
 struct MergeTypes<std::tuple<Tuple...>, Rest...>
     : MergeTypes<Rest..., Tuple...> {};
 
-template <typename Tuple> struct TupleToTypes;
+template <typename Tuple>
+struct TupleToTypes;
 
 template <typename... Args>
 struct TupleToTypes<std::tuple<Args...>>
     : std::common_type<testing::Types<Args...>> {};
 
 /// Provides the left type which is used in this test case
-template <template <typename, bool> class Left> struct LeftType {
+template <template <typename, bool> class Left>
+struct LeftType {
   /// Left function type which is provided by this test case.
   /// The left type isn't assignable to the right type!
   template <typename Fn, bool Throwing = true>
