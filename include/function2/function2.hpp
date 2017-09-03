@@ -222,18 +222,18 @@ using std::bad_function_call;
 #endif
 
 #define FU2_EXPAND_QUALIFIERS(F)                                               \
-  F(, , )                                                                      \
-  F(const, , )                                                                 \
-  F(, volatile, )                                                              \
-  F(const, volatile, )                                                         \
-  F(, , &)                                                                     \
-  F(const, , &)                                                                \
-  F(, volatile, &)                                                             \
-  F(const, volatile, &)                                                        \
-  F(, , &&)                                                                    \
-  F(const, , &&)                                                               \
-  F(, volatile, &&)                                                            \
-  F(const, volatile, &&)
+  F(, , , &)                                                                   \
+  F(const, , , &)                                                              \
+  F(, volatile, , &)                                                           \
+  F(const, volatile, , &)                                                      \
+  F(, , &, &)                                                                  \
+  F(const, , &, &)                                                             \
+  F(, volatile, &, &)                                                          \
+  F(const, volatile, &, &)                                                     \
+  F(, , &&, &&)                                                                \
+  F(const, , &&, &&)                                                           \
+  F(, volatile, &&, &&)                                                        \
+  F(const, volatile, &&, &&)
 
 /// Calls std::abort on empty function calls
 [[noreturn]] inline void throw_or_abort(std::false_type /*is_throwing*/) {
@@ -251,10 +251,10 @@ using std::bad_function_call;
 template <typename T>
 struct function_trait;
 
-#define FU2_DEFINE_FUNCTION_TRAIT(CONST, VOLATILE, REFERENCE)                  \
+#define FU2_DEFINE_FUNCTION_TRAIT(CONST, VOLATILE, OVL_REF, REF)               \
   template <typename Ret, typename... Args>                                    \
-  struct function_trait<Ret(Args...) CONST VOLATILE REFERENCE> {               \
-    using pointer_type = Ret (*CONST VOLATILE REFERENCE)(                      \
+  struct function_trait<Ret(Args...) CONST VOLATILE OVL_REF> {                 \
+    using pointer_type = Ret (*CONST VOLATILE REF)(                            \
         data_accessor CONST VOLATILE*, std::size_t capacity, Args...);         \
     template <typename T, bool IsInplace>                                      \
     struct internal_invoker {                                                  \
@@ -264,17 +264,18 @@ struct function_trait;
                                data, capacity);                                \
         auto box = static_cast<T CONST VOLATILE*>(obj);                        \
         return invocation::invoke(                                             \
-            static_cast<decltype(box->value_) REFERENCE>(box->value_),         \
+            static_cast<decltype(box->value_) REF>(box->value_),               \
             std::move(args)...);                                               \
       }                                                                        \
     };                                                                         \
                                                                                \
     template <typename T>                                                      \
-    struct accept_sfinae : std::enable_if<std::is_convertible<                 \
-                               decltype(invocation::invoke(                    \
-                                   std::declval<T CONST VOLATILE REFERENCE>(), \
-                                   std::declval<Args>()...)),                  \
-                               Ret>::value> {};                                \
+    struct accept_sfinae                                                       \
+        : std::enable_if<                                                      \
+              std::is_convertible<decltype(invocation::invoke(                 \
+                                      std::declval<T CONST VOLATILE REF>(),    \
+                                      std::declval<Args>()...)),               \
+                                  Ret>::value> {};                             \
                                                                                \
     template <bool Throws>                                                     \
     struct empty_invoker {                                                     \
@@ -304,33 +305,30 @@ using accept_sfinae_t =
 template <std::size_t Index, typename Function, typename... Signatures>
 struct operator_impl;
 
-#define FU2_DEFINE_FUNCTION_TRAIT(CONST, VOLATILE, REFERENCE)                  \
+#define FU2_DEFINE_FUNCTION_TRAIT(CONST, VOLATILE, OVL_REF, REF)               \
   template <std::size_t Index, typename Function, typename Ret,                \
             typename... Args, typename Next, typename... Signatures>           \
-  struct operator_impl<Index, Function, Ret(Args...) CONST VOLATILE REFERENCE, \
+  struct operator_impl<Index, Function, Ret(Args...) CONST VOLATILE OVL_REF,   \
                        Next, Signatures...>                                    \
       : operator_impl<Index + 1, Function, Next, Signatures...> {              \
                                                                                \
     using operator_impl<Index + 1, Function, Next, Signatures...>::operator(); \
                                                                                \
-    Ret operator()(Args... args) CONST VOLATILE REFERENCE {                    \
+    Ret operator()(Args... args) CONST VOLATILE REF {                          \
       auto function = static_cast<Function CONST VOLATILE*>(this);             \
       return erasure_attorney::invoke<Index>(                                  \
-          static_cast<decltype(function->erasure_) REFERENCE>(                 \
-              function->erasure_),                                             \
+          static_cast<decltype(function->erasure_) REF>(function->erasure_),   \
           std::move(args)...);                                                 \
     }                                                                          \
   };                                                                           \
   template <std::size_t Index, typename Function, typename Ret,                \
             typename... Args>                                                  \
-  struct operator_impl<Index, Function,                                        \
-                       Ret(Args...) CONST VOLATILE REFERENCE> {                \
+  struct operator_impl<Index, Function, Ret(Args...) CONST VOLATILE OVL_REF> { \
                                                                                \
-    Ret operator()(Args... args) CONST VOLATILE REFERENCE {                    \
+    Ret operator()(Args... args) CONST VOLATILE REF {                          \
       auto function = static_cast<Function CONST VOLATILE*>(this);             \
       return erasure_attorney::invoke<Index>(                                  \
-          static_cast<decltype(function->erasure_) REFERENCE>(                 \
-              function->erasure_),                                             \
+          static_cast<decltype(function->erasure_) REF>(function->erasure_),   \
           std::move(args)...);                                                 \
     }                                                                          \
   };
@@ -957,6 +955,17 @@ template <typename... Signatures>
 using unique_function =
     function_base<true, false, detail::default_capacity::value, true, false,
                   false, Signatures...>;
+
+/// Exception type when invoking empty functional wrappers.
+///
+/// The exception type thrown through empty function calls
+/// when the template parameter 'Throwing' is set to true (default).
+///
+/// This type will default to std::bad_function_call if the
+/// functional header is used, otherwise the library provide its own type.
+#if !defined(FU2_MACRO_DISABLE_EXCEPTIONS)
+using detail::type_erasure::invocation_table::bad_function_call;
+#endif
 } // namespace fu2
 
 #undef FU2_NO_FUNCTIONAL_HEADER

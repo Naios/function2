@@ -15,6 +15,7 @@ int scrn() {
   };
 
   (void)fun;
+  return 0;
 }
 
 // Issue #6
