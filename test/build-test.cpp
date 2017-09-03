@@ -1,4 +1,4 @@
-
+﻿
 //  Copyright 2015-2017 Denis Blank <denis.blank at outlook dot com>
 //     Distributed under the Boost Software License, Version 1.0
 //       (See accompanying file LICENSE_1_0.txt or copy at
@@ -10,7 +10,7 @@ bool testSelfContaining();
 
 int scrn() {
 
-  fu2::unique_function<void(int, int)> fun = [](int a, int b) {
+  fu2::unique_function<void(int, int)> fun = [](int /*a*/, int /*b*/) {
     // ...
   };
 

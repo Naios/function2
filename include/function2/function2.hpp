@@ -254,8 +254,8 @@ struct function_trait;
 #define FU2_DEFINE_FUNCTION_TRAIT(CONST, VOLATILE, OVL_REF, REF)               \
   template <typename Ret, typename... Args>                                    \
   struct function_trait<Ret(Args...) CONST VOLATILE OVL_REF> {                 \
-    using pointer_type = Ret (*CONST VOLATILE REF)(                            \
-        data_accessor CONST VOLATILE*, std::size_t capacity, Args...);         \
+    using pointer_type = Ret (*CONST VOLATILE)(data_accessor CONST VOLATILE*,  \
+                                               std::size_t capacity, Args...); \
     template <typename T, bool IsInplace>                                      \
     struct internal_invoker {                                                  \
       static Ret invoke(data_accessor CONST VOLATILE* data,                    \
@@ -673,7 +673,7 @@ public:
     vtable_.init_empty();
   }
 
-  explicit constexpr erasure(std::nullptr_t) noexcept {
+  constexpr erasure(std::nullptr_t) noexcept {
     vtable_.init_empty();
   }
 

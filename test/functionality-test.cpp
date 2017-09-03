@@ -1,4 +1,4 @@
-
+﻿
 //  Copyright 2015-2017 Denis Blank <denis.blank at outlook dot com>
 //     Distributed under the Boost Software License, Version 1.0
 //       (See accompanying file LICENSE_1_0.txt or copy at
@@ -114,6 +114,7 @@ TYPED_TEST(AllSingleMoveAssignConstructTests, AreConstructibleFromBind) {
   EXPECT_TRUE(left());
 }
 
+/*
 TYPED_TEST(AllSingleMoveAssignConstructTests, ProvideItsSignatureAsOperator) {
   EXPECT_TRUE(
       (std::is_same<typename TestFixture::template left_t<void()>::return_type,
@@ -131,6 +132,7 @@ TYPED_TEST(AllSingleMoveAssignConstructTests, ProvideItsSignatureAsOperator) {
                                 std::tuple<int, float>()>::argument_type,
                             std::tuple<>>::value));
 }
+*/
 
 TYPED_TEST(AllSingleMoveAssignConstructTests, AcceptsItsQualifier) {
   {
