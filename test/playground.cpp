@@ -4,7 +4,14 @@
 //             http://www.boost.org/LICENSE_1_0.txt)
 
 #include "function2/function2.hpp"
-// using namespace fu2::detail;
+
+struct RValueProvider {
+  bool operator()() && {
+    return true;
+  }
+};
 
 int main(int, char**) {
+  fu2::unique_function<bool()&&> f;
+  f.assign(RValueProvider{}); 
 }

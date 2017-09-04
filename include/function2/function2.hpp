@@ -91,9 +91,10 @@ constexpr auto invoke(Callable&& callable, Args&&... args) noexcept(
 /// Invokes the given member function pointer
 template <typename T, typename Type, typename Self, typename... Args>
 constexpr auto invoke(Type T::*member, Self&& self, Args&&... args) noexcept(
-    noexcept((std::forward<Self>(self).*member)(std::forward<Args>(args))))
-    -> decltype((std::forward<Self>(self).*member)(std::forward<Args>(args))) {
-  return (std::forward<Self>(self).*member)(std::forward<Args>(args));
+    noexcept((std::forward<Self>(self).*member)(std::forward<Args>(args)...)))
+    -> decltype((std::forward<Self>(self).*
+                 member)(std::forward<Args>(args)...)) {
+  return (std::forward<Self>(self).*member)(std::forward<Args>(args)...);
 }
 } // end namespace invocation
 
@@ -208,16 +209,16 @@ struct erasure_attorney {
 };
 
 namespace invocation_table {
-#if defined(FU2_NO_FUNCTIONAL_HEADER) && !defined(FU2_MACRO_DISABLE_EXCEPTIONS)
+#if defined(FU2_NO_FUNCTIONAL_HEADER)
 struct bad_function_call : std::exception {
-  bad_function_call() {
+  bad_function_call() noexcept {
   }
 
-  char const* what() const throw() override {
+  char const* what() const noexcept override {
     return "bad function call";
   }
 };
-#else
+#elif !defined(FU2_MACRO_DISABLE_EXCEPTIONS)
 using std::bad_function_call;
 #endif
 
@@ -269,13 +270,13 @@ struct function_trait;
       }                                                                        \
     };                                                                         \
                                                                                \
+    template <typename T, typename = void>                                     \
+    struct accept_sfinae {};                                                   \
     template <typename T>                                                      \
-    struct accept_sfinae                                                       \
-        : std::enable_if<                                                      \
-              std::is_convertible<decltype(invocation::invoke(                 \
-                                      std::declval<T CONST VOLATILE REF>(),    \
-                                      std::declval<Args>()...)),               \
-                                  Ret>::value> {};                             \
+    struct accept_sfinae<T, always_void_t<decltype(invocation::invoke(         \
+                                std::declval<T CONST VOLATILE REF>(),          \
+                                std::declval<Args>()...))>>                    \
+        : std::common_type<void> {};                                           \
                                                                                \
     template <bool Throws>                                                     \
     struct empty_invoker {                                                     \
@@ -299,8 +300,8 @@ using invoke_table_of_t = std::tuple<function_pointer_of<Args>...>;
 
 /// SFINAES out if the object T isn't invocable with the given signature
 template <typename T, typename Signature>
-using accept_sfinae_t =
-    typename function_trait<Signature>::template accept_sfinae<T>::type;
+using accept_sfinae =
+    typename function_trait<Signature>::template accept_sfinae<T>;
 
 template <std::size_t Index, typename Function, typename... Signatures>
 struct operator_impl;
@@ -754,8 +755,9 @@ public:
 
 /// SFINAES out if the object T isn't invocable with all signatures
 template <typename T, typename... Signature>
-using enable_if_callable_t = always_void_t<
-    type_erasure::invocation_table::accept_sfinae_t<T, Signature>...>;
+using enable_if_callable_t =
+    always_void_t<typename type_erasure::invocation_table::accept_sfinae<
+        T, Signature>::type...>;
 
 /// SFINAES out if the given callable is not copyable correct to the left one.
 template <typename LeftConfig, typename RightConfig>
@@ -811,7 +813,7 @@ public:
   }
 
   /// Empty constructs the function
-  explicit function(std::nullptr_t np) : erasure_(np) {
+  function(std::nullptr_t np) : erasure_(np) {
   }
 
   /// Copy assigning from another copyable function
