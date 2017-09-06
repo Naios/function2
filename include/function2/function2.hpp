@@ -832,7 +832,7 @@ public:
     return *this;
   }
 
-  /// Move assigning from a functional object
+  /// Move assigning from a callable object
   template <typename T,
             enable_if_callable_t<std::decay_t<T>, Args...>* = nullptr>
   function& operator=(T&& callable) {
@@ -970,7 +970,6 @@ using detail::type_erasure::invocation_table::bad_function_call;
 #endif
 } // namespace fu2
 
-#undef FU2_NO_FUNCTIONAL_HEADER
 #undef FU2_MACRO_DISABLE_EXCEPTIONS
 
 #endif // FU2_INCLUDED_FUNCTION2_HPP__
