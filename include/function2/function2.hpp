@@ -89,13 +89,13 @@ constexpr auto invoke(Callable&& callable, Args&&... args) noexcept(
   return std::forward<Callable>(callable)(std::forward<Args>(args)...);
 }
 /// Invokes the given member function pointer
-template <typename T, typename Type, typename Self, typename... Args>
+/*template <typename T, typename Type, typename Self, typename... Args>
 constexpr auto invoke(Type T::*member, Self&& self, Args&&... args) noexcept(
     noexcept((std::forward<Self>(self).*member)(std::forward<Args>(args)...)))
     -> decltype((std::forward<Self>(self).*
                  member)(std::forward<Args>(args)...)) {
   return (std::forward<Self>(self).*member)(std::forward<Args>(args)...);
-}
+}*/
 } // end namespace invocation
 
 /// Declares the namespace which provides the functionality to work with a
@@ -271,12 +271,12 @@ struct function_trait;
     };                                                                         \
                                                                                \
     template <typename T, typename = void>                                     \
-    struct accept_sfinae {};                                                   \
+    struct is_accepting : std::false_type {};                                  \
     template <typename T>                                                      \
-    struct accept_sfinae<T, always_void_t<decltype(invocation::invoke(         \
-                                std::declval<T CONST VOLATILE REF>(),          \
-                                std::declval<Args>()...))>>                    \
-        : std::common_type<void> {};                                           \
+    struct is_accepting<T, always_void_t<decltype(invocation::invoke(          \
+                               std::declval<T CONST VOLATILE REF>(),           \
+                               std::declval<Args>()...))>> : std::true_type {  \
+    };                                                                         \
                                                                                \
     template <bool Throws>                                                     \
     struct empty_invoker {                                                     \
@@ -300,8 +300,8 @@ using invoke_table_of_t = std::tuple<function_pointer_of<Args>...>;
 
 /// SFINAES out if the object T isn't invocable with the given signature
 template <typename T, typename Signature>
-using accept_sfinae =
-    typename function_trait<Signature>::template accept_sfinae<T>;
+using is_accepting_t =
+    typename function_trait<Signature>::template is_accepting<T>;
 
 template <std::size_t Index, typename Function, typename... Signatures>
 struct operator_impl;
@@ -318,7 +318,8 @@ struct operator_impl;
     Ret operator()(Args... args) CONST VOLATILE REF {                          \
       auto function = static_cast<Function CONST VOLATILE*>(this);             \
       return erasure_attorney::invoke<Index>(                                  \
-          static_cast<decltype(function->erasure_) REF>(function->erasure_),   \
+          static_cast<decltype(function->erasure_) CONST VOLATILE REF>(        \
+              function->erasure_),                                             \
           std::move(args)...);                                                 \
     }                                                                          \
   };                                                                           \
@@ -329,7 +330,8 @@ struct operator_impl;
     Ret operator()(Args... args) CONST VOLATILE REF {                          \
       auto function = static_cast<Function CONST VOLATILE*>(this);             \
       return erasure_attorney::invoke<Index>(                                  \
-          static_cast<decltype(function->erasure_) REF>(function->erasure_),   \
+          static_cast<decltype(function->erasure_) CONST VOLATILE REF>(        \
+              function->erasure_),                                             \
           std::move(args)...);                                                 \
     }                                                                          \
   };
@@ -754,10 +756,9 @@ public:
 } // namespace type_erasure
 
 /// SFINAES out if the object T isn't invocable with all signatures
-template <typename T, typename... Signature>
-using enable_if_callable_t =
-    always_void_t<typename type_erasure::invocation_table::accept_sfinae<
-        T, Signature>::type...>;
+template <typename T, typename Signature>
+using is_accepting =
+    type_erasure::invocation_table::is_accepting_t<T, Signature>;
 
 /// SFINAES out if the given callable is not copyable correct to the left one.
 template <typename LeftConfig, typename RightConfig>
@@ -805,8 +806,7 @@ public:
   }
 
   /// Construction from a callable object which overloads the `()` operator
-  template <typename T, typename Allocator = std::allocator<std::decay_t<T>>,
-            enable_if_callable_t<std::decay_t<T>, Args...>* = nullptr>
+  template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
   function(T callable, Allocator&& allocator = Allocator{})
       : erasure_(type_erasure::make_box(std::forward<T>(callable),
                                         std::forward<Allocator>(allocator))) {
@@ -826,15 +826,14 @@ public:
 
   /// Move assigning from another function
   template <typename RightConfig,
-            enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
+            enable_if_copyable_correct_t<Config, RightConfig>>
   function& operator=(function<RightConfig, Property>&& right) {
     erasure_ = std::move(right.erasure_);
     return *this;
   }
 
   /// Move assigning from a callable object
-  template <typename T,
-            enable_if_callable_t<std::decay_t<T>, Args...>* = nullptr>
+  template <typename T>
   function& operator=(T&& callable) {
     erasure_ = type_erasure::make_box(std::forward<T>(callable));
     return *this;
@@ -857,9 +856,10 @@ public:
   }
 
   /// Assigns a new target with an optional allocator
-  template <typename T, typename Allocator = std::allocator<std::decay_t<T>>,
-            enable_if_callable_t<std::decay_t<T>, Args...>* = nullptr>
-  void assign(T&& callable, Allocator&& allocator = Allocator{}) {
+  template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
+  void assign(T&& callable, Allocator&& allocator = Allocator{},
+              always_void_t<std::enable_if_t<
+                  is_accepting<std::decay_t<T>, Args>::value>...>* = nullptr) {
     erasure_ = type_erasure::make_box(std::forward<T>(callable),
                                       std::forward<Allocator>(allocator));
   }
