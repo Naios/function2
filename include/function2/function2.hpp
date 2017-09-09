@@ -760,6 +760,17 @@ template <typename T, typename Signature>
 using is_accepting =
     type_erasure::invocation_table::is_accepting_t<T, Signature>;
 
+
+
+template <typename T, typename... Signature>
+struct can_accept;
+template <typename T, typename First, typename... Signature>
+struct can_accept<T, First, Signature...>
+    : std::conditional_t<is_accepting<T, First>::value, std::true_type,
+                         can_accept<T, Signature...>> {};
+template <typename T>
+struct can_accept<T> : std::false_type {};
+
 /// SFINAES out if the given callable is not copyable correct to the left one.
 template <typename LeftConfig, typename RightConfig>
 using enable_if_copyable_correct_t =
@@ -856,10 +867,9 @@ public:
   }
 
   /// Assigns a new target with an optional allocator
-  template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
-  void assign(T&& callable, Allocator&& allocator = Allocator{},
-              always_void_t<std::enable_if_t<
-                  is_accepting<std::decay_t<T>, Args>::value>...>* = nullptr) {
+  template <typename T, typename Allocator = std::allocator<std::decay_t<T>>,
+            std::enable_if_t<can_accept<T, Args...>::value>* = nullptr>
+  void assign(T&& callable, Allocator&& allocator = Allocator{}) {
     erasure_ = type_erasure::make_box(std::forward<T>(callable),
                                       std::forward<Allocator>(allocator));
   }
