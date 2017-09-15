@@ -44,21 +44,6 @@ struct fn2 {
 };
 */
 
-template <typename T, typename Signature,
-          typename trait =
-              type_erasure::invocation_table::function_trait<Signature>>
-struct accepts_one
-    : invocation::can_invoke<typename trait::template callable<T>,
-                             typename trait::arguments> {};
-
-template <typename T, typename Args, typename = void>
-struct accepts_all : std::false_type {};
-template <typename T, typename... Args>
-struct accepts_all<
-    T, identity<Args...>,
-    always_void_t<std::enable_if_t<accepts_one<T, Args>::value>...>>
-    : std::true_type {};
-
 int main(int, char**) {
 
   using trait =
@@ -72,8 +57,8 @@ int main(int, char**) {
   std::true_type tt2 =
       accepts_all<RValueProvider, identity<bool() const volatile&&>>{};
 
-  /*fu2::unique_function<bool() const volatile&&> f;
-  f.assign(RValueProvider{});*/
+  fu2::unique_function<bool() const volatile&&> f;
+  f.assign(RValueProvider{});
 
   /*std::true_type t = type_erasure::invocation_table::function_trait<
       bool() &&>::is_accepting<std::decay_t<RValueProvider>>{};*/

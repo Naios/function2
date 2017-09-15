@@ -283,14 +283,6 @@ struct function_trait;
       }                                                                        \
     };                                                                         \
                                                                                \
-    template <typename T, typename = void>                                     \
-    struct is_accepting : std::false_type {};                                  \
-    template <typename T>                                                      \
-    struct is_accepting<T, always_void_t<decltype(invocation::invoke(          \
-                               std::declval<T CONST VOLATILE REF>(),           \
-                               std::declval<Args>()...))>> : std::true_type {  \
-    };                                                                         \
-                                                                               \
     template <typename T>                                                      \
     using callable = T CONST VOLATILE REF;                                     \
                                                                                \
@@ -315,11 +307,6 @@ using function_pointer_of = typename function_trait<Signature>::pointer_type;
 /// A packed tuple of signatures
 template <typename... Args>
 using invoke_table_of_t = std::tuple<function_pointer_of<Args>...>;
-
-/// SFINAES out if the object T isn't invocable with the given signature
-template <typename T, typename Signature>
-using is_accepting_t =
-    typename function_trait<Signature>::template is_accepting<T>;
 
 template <std::size_t Index, typename Function, typename... Signatures>
 struct operator_impl;
@@ -773,23 +760,20 @@ public:
 };
 } // namespace type_erasure
 
-/// SFINAES out if the object T isn't invocable with all signatures
-template <typename T, typename Signature>
-using is_accepting =
-    type_erasure::invocation_table::is_accepting_t<T, Signature>;
+template <typename T, typename Signature,
+          typename trait =
+              type_erasure::invocation_table::function_trait<Signature>>
+struct accepts_one
+    : invocation::can_invoke<typename trait::template callable<T>,
+                             typename trait::arguments> {};
 
+template <typename T, typename Args, typename = void>
+struct accepts_all : std::false_type {};
 template <typename T, typename... Args>
-struct can_accept_all_impl;
-template <typename T, typename First, typename... Args>
-struct can_accept_all_impl<T, First, Args...>
-    : std::conditional_t<First::template is_accepting<T>::value,
-                         can_accept_all_impl<T, Args...>, std::false_type> {};
-template <typename T>
-struct can_accept_all_impl<T> : std::true_type {};
-
-template <typename T, typename... Args>
-using can_accept_all = can_accept_all_impl<
-    T, type_erasure::invocation_table::function_trait<Args>...>;
+struct accepts_all<
+    T, identity<Args...>,
+    always_void_t<std::enable_if_t<accepts_one<T, Args>::value>...>>
+    : std::true_type {};
 
 /// SFINAES out if the given callable is not copyable correct to the left one.
 template <typename LeftConfig, typename RightConfig>
@@ -817,6 +801,9 @@ class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
 
   type_erasure::erasure<Config, Property> erasure_;
 
+  template <typename T>
+  using can_accept_all = accepts_all<std::decay_t<T>, identity<Args...>>;
+
 public:
   /// Default constructor which constructs the function empty
   function() = default;
@@ -837,7 +824,8 @@ public:
   }
 
   /// Construction from a callable object which overloads the `()` operator
-  template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
+  template <typename T, typename Allocator = std::allocator<std::decay_t<T>>,
+            std::enable_if_t<can_accept_all<T>::value>* = nullptr>
   function(T callable, Allocator&& allocator = Allocator{})
       : erasure_(type_erasure::make_box(std::forward<T>(callable),
                                         std::forward<Allocator>(allocator))) {
@@ -864,7 +852,7 @@ public:
   }
 
   /// Move assigning from a callable object
-  template <typename T>
+  template <typename T, std::enable_if_t<can_accept_all<T>::value>* = nullptr>
   function& operator=(T&& callable) {
     erasure_ = type_erasure::make_box(std::forward<T>(callable));
     return *this;
@@ -887,16 +875,11 @@ public:
   }
 
   /// Assigns a new target with an optional allocator
-  template <
-      typename T /*, typename Allocator = std::allocator<std::decay_t<T>>,
-      std::enable_if_t<can_accept_all<std::decay_t<T>, Args...>::value>* =
-          nullptr*/>
-  void assign(T&& callable /*, Allocator&& allocator = Allocator{}*/) {
-    std::decay_t<T> volatile const p;
-    invocation::invoke(static_cast<std::decay_t<T> volatile const&&>(p));
-
-    /*erasure_ = type_erasure::make_box(std::forward<T>(callable),
-                                      std::forward<Allocator>(allocator));*/
+  template <typename T, typename Allocator = std::allocator<std::decay_t<T>>,
+            std::enable_if_t<can_accept_all<T>::value>* = nullptr>
+  void assign(T&& callable, Allocator&& allocator = Allocator{}) {
+    erasure_ = type_erasure::make_box(std::forward<T>(callable),
+                                      std::forward<Allocator>(allocator));
   }
 
   /// Swaps this function with the given function
@@ -946,17 +929,15 @@ bool operator!=(std::nullptr_t, function<Config, Property> const& f) {
 }
 
 // Internal size of an empty function object
-/*using empty_size = std::integral_constant<
+using empty_size = std::integral_constant<
     std::size_t, sizeof(function<detail::config<true, true, 0UL>,
-                                 detail::property<true, false, void()
-   const>>)>;*/
+                                 detail::property<true, false, void() const>>)>;
 
 // Default capacity for small functor optimization
 using default_capacity = std::integral_constant<
     std::size_t,
     // Aim to size the function object to 32UL
-    // (empty_size::value < 32UL) ? (32UL - empty_size::value) : 16UL>;
-    16UL>;
+    (empty_size::value < 32UL) ? (32UL - empty_size::value) : 16UL>;
 } // namespace detail
 } // namespace v5
 
