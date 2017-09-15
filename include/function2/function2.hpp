@@ -41,6 +41,9 @@
 namespace fu2 {
 inline namespace v5 {
 namespace detail {
+template <typename...>
+struct identity {};
+
 // Equivalent to C++17's std::void_t which is targets a bug in GCC,
 // that prevents correct SFINAE behavior.
 // See http://stackoverflow.com/questions/35753920 for details.
@@ -96,6 +99,16 @@ constexpr auto invoke(Type T::*member, Self&& self, Args&&... args) noexcept(
                  member)(std::forward<Args>(args)...)) {
   return (std::forward<Self>(self).*member)(std::forward<Args>(args)...);
 }*/
+
+/// Deduces to a true type if the callable object can be invoked with
+/// the given arguments
+template <typename T, typename Args, typename = void>
+struct can_invoke : std::false_type {};
+template <typename T, typename... Args>
+struct can_invoke<
+    T, identity<Args...>,
+    always_void_t<decltype(invoke(std::declval<T>(), std::declval<Args>()...))>>
+    : std::true_type {};
 } // end namespace invocation
 
 /// Declares the namespace which provides the functionality to work with a
@@ -277,6 +290,11 @@ struct function_trait;
                                std::declval<T CONST VOLATILE REF>(),           \
                                std::declval<Args>()...))>> : std::true_type {  \
     };                                                                         \
+                                                                               \
+    template <typename T>                                                      \
+    using callable = T CONST VOLATILE REF;                                     \
+                                                                               \
+    using arguments = identity<Args...>;                                       \
                                                                                \
     template <bool Throws>                                                     \
     struct empty_invoker {                                                     \
