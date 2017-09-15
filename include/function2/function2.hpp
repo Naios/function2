@@ -278,7 +278,8 @@ struct function_trait;
                                data, capacity);                                \
         auto box = static_cast<T CONST VOLATILE*>(obj);                        \
         return invocation::invoke(                                             \
-            static_cast<decltype(box->value_) REF>(box->value_),               \
+            static_cast<std::decay_t<decltype(box->value_)> CONST VOLATILE     \
+                            REF>(box->value_),                                 \
             std::move(args)...);                                               \
       }                                                                        \
     };                                                                         \
@@ -760,6 +761,7 @@ public:
 };
 } // namespace type_erasure
 
+/// Deduces to a true_type if the type T provides the given signature
 template <typename T, typename Signature,
           typename trait =
               type_erasure::invocation_table::function_trait<Signature>>
@@ -767,12 +769,13 @@ struct accepts_one
     : invocation::can_invoke<typename trait::template callable<T>,
                              typename trait::arguments> {};
 
-template <typename T, typename Args, typename = void>
+/// Deduces to a true_type if the type T provides all signatures
+template <typename T, typename Signatures, typename = void>
 struct accepts_all : std::false_type {};
-template <typename T, typename... Args>
+template <typename T, typename... Signatures>
 struct accepts_all<
-    T, identity<Args...>,
-    always_void_t<std::enable_if_t<accepts_one<T, Args>::value>...>>
+    T, identity<Signatures...>,
+    always_void_t<std::enable_if_t<accepts_one<T, Signatures>::value>...>>
     : std::true_type {};
 
 /// SFINAES out if the given callable is not copyable correct to the left one.

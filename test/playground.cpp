@@ -8,74 +8,63 @@
 using namespace fu2::detail;
 
 struct RValueProvider {
-  bool operator()() const volatile&& {
+  bool operator()() const&& {
     return true;
   }
 };
 
-/*
-struct fn1 {
-  template <typename T,
-            std::enable_if_t<type_erasure::invocation_table::function_trait<
-                void()>::is_accepting<std::decay_t<T>>::value>* = nullptr>
-  void assign(T&& callable) {
-  }
-};
+template <typename T, typename = void>
+struct tryit;
 
-template <typename T, typename... Args>
-struct can_accept_all_impl;
-template <typename T, typename First, typename... Args>
-struct can_accept_all_impl<T, First, Args...>
-    : std::conditional_t<First::template is_accepting<T>::value,
-                         can_accept_all_impl<T, Args...>, std::false_type> {};
 template <typename T>
-struct can_accept_all_impl<T> : std::true_type {};
-
-template <typename T, typename... Args>
-using can_accept_all = can_accept_all_impl<
-    T, type_erasure::invocation_table::function_trait<Args>...>;
-
-struct fn2 {
-  template <typename T,
-            std::enable_if_t<can_accept_all<std::decay_t<T>, void()>::value>* =
-                nullptr>
-  void assign(T&& callable) {
-  }
-};
-*/
+struct tryit<
+    T, std::enable_if_t<accepts_all<std::decay_t<T>, identity<bool()>>::value>>
+    : std::true_type {};
 
 int main(int, char**) {
 
-  using trait =
-      type_erasure::invocation_table::function_trait<bool() const volatile&&>;
+  {
+    using trait =
+        type_erasure::invocation_table::function_trait<bool() const&&>;
 
-  using callable = trait::callable<RValueProvider>;
-  using args = trait::arguments;
+    using callable = trait::callable<RValueProvider>;
+    using args = trait::arguments;
 
-  std::true_type tt = invocation::can_invoke<callable, args>{};
+    std::true_type tt = invocation::can_invoke<callable, args>{};
 
-  std::true_type tt2 =
-      accepts_all<RValueProvider, identity<bool() const volatile&&>>{};
+    std::true_type tt2 =
+        accepts_all<RValueProvider, identity<bool() const&&>>{};
+  }
 
-  fu2::unique_function<bool() const volatile&&> f;
-  f.assign(RValueProvider{});
+  {
+    fu2::unique_function<bool() const&&> f;
+    f.assign(RValueProvider{});
 
-  /*std::true_type t = type_erasure::invocation_table::function_trait<
-      bool() &&>::is_accepting<std::decay_t<RValueProvider>>{};*/
+    fu2::unique_function<bool() const&&> f2 = std::move(f);
+    fu2::unique_function<bool() const&&> f3(std::move(f2));
+  }
 
-  /*RValueProvider pr;
+  {
+    fu2::unique_function<bool()> f2;
 
-  auto res = invocation::invoke(static_cast<RValueProvider&&>(pr));*/
+    using trait = type_erasure::invocation_table::function_trait<bool()>;
 
-  // fu2::unique_function<bool()> f2;
-  // f2.assign([] { return true; });
+    using callable = trait::callable<std::function<bool()>>;
+    using args = trait::arguments;
 
-  /*auto cal = []() {
+    std::common_type<callable> ct;
+    std::common_type<args> at;
 
-  };
+    std::true_type tt2 = accepts_all<std::function<bool()>, identity<>>{};
 
-  fn2 f;
-  f.assign(cal);*/
+    std::true_type tt3 = tryit<std::function<bool()>>{};
+
+    std::function<bool()> f3;
+
+    f2.assign([] { return true; });
+
+    f2.assign(f3);
+  }
 
   return 0;
 }
