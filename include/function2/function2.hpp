@@ -85,30 +85,53 @@ struct property {
 namespace invocation {
 /// Invokes the given callable object with the given arguments
 template <typename Callable, typename... Args>
-constexpr auto invoke(Callable&& callable, Args&&... args) /*noexcept(
-    noexcept(std::forward<Callable>(callable)(std::forward<Args>(args)...)))*/
+constexpr auto invoke(Callable&& callable, Args&&... args) noexcept(
+    noexcept(std::forward<Callable>(callable)(std::forward<Args>(args)...)))
     -> decltype(std::forward<Callable>(callable)(std::forward<Args>(args)...)) {
 
   return std::forward<Callable>(callable)(std::forward<Args>(args)...);
 }
-/// Invokes the given member function pointer
-/*template <typename T, typename Type, typename Self, typename... Args>
+/// Invokes the given member function pointer by reference
+template <typename T, typename Type, typename Self, typename... Args>
 constexpr auto invoke(Type T::*member, Self&& self, Args&&... args) noexcept(
     noexcept((std::forward<Self>(self).*member)(std::forward<Args>(args)...)))
     -> decltype((std::forward<Self>(self).*
                  member)(std::forward<Args>(args)...)) {
   return (std::forward<Self>(self).*member)(std::forward<Args>(args)...);
-}*/
+}
+/// Invokes the given member function pointer by pointer
+template <typename T, typename Type, typename Self, typename... Args>
+constexpr auto invoke(Type T::*member, Self&& self, Args&&... args) noexcept(
+    noexcept((std::forward<Self>(self)->*member)(std::forward<Args>(args)...)))
+    -> decltype(
+        (std::forward<Self>(self)->*member)(std::forward<Args>(args)...)) {
+  return (std::forward<Self>(self)->*member)(std::forward<Args>(args)...);
+}
 
 /// Deduces to a true type if the callable object can be invoked with
-/// the given arguments
+/// the given arguments.
+/// We don't use invoke here because MSVC can't evaluate the nested expression
+/// SFINAE here.
 template <typename T, typename Args, typename = void>
 struct can_invoke : std::false_type {};
 template <typename T, typename... Args>
-struct can_invoke<
-    T, identity<Args...>,
-    always_void_t<decltype(invoke(std::declval<T>(), std::declval<Args>()...))>>
+struct can_invoke<T, identity<Args...>,
+                  decltype((void)std::declval<T>()(std::declval<Args>()...))>
     : std::true_type {};
+template <typename Pointer, typename T, typename... Args>
+struct can_invoke<Pointer, identity<T&, Args...>,
+                  decltype((void)((std::declval<T&>().*std::declval<Pointer>())(
+                      std::declval<Args>()...)))> : std::true_type {};
+template <typename Pointer, typename T, typename... Args>
+struct can_invoke<Pointer, identity<T&&, Args...>,
+                  decltype(
+                      (void)((std::declval<T&&>().*std::declval<Pointer>())(
+                          std::declval<Args>()...)))> : std::true_type {};
+template <typename Pointer, typename T, typename... Args>
+struct can_invoke<Pointer, identity<T*, Args...>,
+                  decltype(
+                      (void)((std::declval<T*>()->*std::declval<Pointer>())(
+                          std::declval<Args>()...)))> : std::true_type {};
 } // end namespace invocation
 
 /// Declares the namespace which provides the functionality to work with a
