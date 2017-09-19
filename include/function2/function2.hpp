@@ -840,45 +840,45 @@ class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
   template <std::size_t, typename, typename...>
   friend struct type_erasure::invocation_table::operator_impl;
 
-  using Property = property<IsThrowing, HasStrongExceptGuarantee, Args...>;
-
-  type_erasure::erasure<Config, Property> erasure_;
+  using my_property = property<IsThrowing, HasStrongExceptGuarantee, Args...>;
 
   template <typename T>
   using can_accept_all = accepts_all<std::decay_t<T>, identity<Args...>>;
+
+  type_erasure::erasure<Config, my_property> erasure_;
 
 public:
   /// Default constructor which constructs the function empty
   function() = default;
 
-  explicit function(function const& /*right*/) = default;
-  explicit function(function&& /*right*/) = default;
+  explicit constexpr function(function const& /*right*/) = default;
+  explicit constexpr function(function&& /*right*/) = default;
 
   /// Copy construction from another copyable function
-  /// Move construction from another function
   template <typename RightConfig,
-            std::enable_if_t<RightConfig::is_copyable>* = nullptr>
-  function(function<RightConfig, Property> const& right)
+            std::enable_if_t<RightConfig::is_copyable>* = nullptr,
+            enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
+  constexpr function(function<RightConfig, my_property> const& right)
       : erasure_(right.erasure_) {
   }
 
   /// Move construction from another function
   template <typename RightConfig,
             enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
-  function(function<RightConfig, Property>&& right)
+  constexpr function(function<RightConfig, my_property>&& right)
       : erasure_(std::move(right.erasure_)) {
   }
 
   /// Construction from a callable object which overloads the `()` operator
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>,
             std::enable_if_t<can_accept_all<T>::value>* = nullptr>
-  function(T callable, Allocator&& allocator = Allocator{})
+  constexpr function(T callable, Allocator&& allocator = Allocator{})
       : erasure_(type_erasure::make_box(std::forward<T>(callable),
                                         std::forward<Allocator>(allocator))) {
   }
 
   /// Empty constructs the function
-  function(std::nullptr_t np) : erasure_(np) {
+  constexpr function(std::nullptr_t np) : erasure_(np) {
   }
 
   function& operator=(function const& /*right*/) = default;
@@ -886,8 +886,9 @@ public:
 
   /// Copy assigning from another copyable function
   template <typename RightConfig,
-            std::enable_if_t<RightConfig::is_copyable>* = nullptr>
-  function& operator=(function<RightConfig, Property> const& right) {
+            std::enable_if_t<RightConfig::is_copyable>* = nullptr,
+            enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
+  function& operator=(function<RightConfig, my_property> const& right) {
     erasure_ = right.erasure_;
     return *this;
   }
@@ -895,7 +896,7 @@ public:
   /// Move assigning from another function
   template <typename RightConfig,
             enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
-  function& operator=(function<RightConfig, Property>&& right) {
+  function& operator=(function<RightConfig, my_property>&& right) {
     erasure_ = std::move(right.erasure_);
     return *this;
   }
@@ -954,7 +955,7 @@ public:
   /// otherwise it throws a fu2::bad_function_call when exceptions are enabled.
   /// When exceptions are disabled std::abort is called.
   using type_erasure::invocation_table::operator_impl<
-      0U, function<Config, Property>, Args...>::operator();
+      0U, function<Config, my_property>, Args...>::operator();
 };
 
 template <typename Config, typename Property>
