@@ -53,6 +53,18 @@ struct deduce_to_void : std::common_type<void> {};
 template <typename... T>
 using void_t = typename deduce_to_void<T...>::type;
 
+// Copy enabler helper class
+template <bool /*Copyable*/>
+struct copyable {};
+template <>
+struct copyable<false> {
+  copyable() = default;
+  copyable(copyable const&) = delete;
+  copyable(copyable&&) = default;
+  copyable& operator=(copyable const&) = delete;
+  copyable& operator=(copyable&&) = default;
+};
+
 /// Configuration trait to configure the function_base class.
 template <bool Owning, bool Copyable, std::size_t Capacity /*,
           bool PartialApplyable*/>
@@ -433,6 +445,7 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
           auto box = static_cast<T const*>(retrieve<T>(
               std::integral_constant<bool, IsInplace>{}, from, from_capacity));
           assert(box && "The object must not be over aligned or null!");
+
           assert(std::is_copy_constructible<T>::value &&
                  "The box is required to be copyable here!");
 
@@ -714,6 +727,7 @@ public:
       Property::is_strong_exception_guaranteed) {
     right.vtable_.move(vtable_, right.opaque_ptr(), right.capacity(),
                        this->opaque_ptr(), capacity());
+    right.vtable_.destroy(right.opaque_ptr(), right.capacity());
   }
 
   constexpr erasure(erasure const& right) {
@@ -750,6 +764,7 @@ public:
     vtable_.weak_destroy(this->opaque_ptr(), capacity());
     right.vtable_.move(vtable_, right.opaque_ptr(), right.capacity(),
                        this->opaque_ptr(), capacity());
+    right.vtable_.destroy(right.opaque_ptr(), right.capacity());
     return *this;
   }
 
@@ -805,7 +820,7 @@ struct accepts_all<
 /// SFINAES out if the given callable is not copyable correct to the left one.
 template <typename LeftConfig, typename RightConfig>
 using enable_if_copyable_correct_t =
-    std::enable_if_t<!LeftConfig::is_copyable || RightConfig::is_copyable>;
+    std::enable_if_t<(!LeftConfig::is_copyable || RightConfig::is_copyable)>;
 
 template <typename Config, typename Property>
 class function;
@@ -816,7 +831,8 @@ class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
           0U,
           function<Config,
                    property<IsThrowing, HasStrongExceptGuarantee, Args...>>,
-          Args...> {
+          Args...>,
+      public copyable<Config::is_copyable> {
 
   template <typename, typename>
   friend class function;
@@ -835,10 +851,13 @@ public:
   /// Default constructor which constructs the function empty
   function() = default;
 
+  explicit function(function const& /*right*/) = default;
+  explicit function(function&& /*right*/) = default;
+
   /// Copy construction from another copyable function
   /// Move construction from another function
   template <typename RightConfig,
-            enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
+            std::enable_if_t<RightConfig::is_copyable>* = nullptr>
   function(function<RightConfig, Property> const& right)
       : erasure_(right.erasure_) {
   }
@@ -862,9 +881,12 @@ public:
   function(std::nullptr_t np) : erasure_(np) {
   }
 
+  function& operator=(function const& /*right*/) = default;
+  function& operator=(function&& /*right*/) = default;
+
   /// Copy assigning from another copyable function
   template <typename RightConfig,
-            enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
+            std::enable_if_t<RightConfig::is_copyable>* = nullptr>
   function& operator=(function<RightConfig, Property> const& right) {
     erasure_ = right.erasure_;
     return *this;
@@ -872,7 +894,7 @@ public:
 
   /// Move assigning from another function
   template <typename RightConfig,
-            enable_if_copyable_correct_t<Config, RightConfig>>
+            enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
   function& operator=(function<RightConfig, Property>&& right) {
     erasure_ = std::move(right.erasure_);
     return *this;
