@@ -1,4 +1,5 @@
 sudo: false
+dist: trusty
 language: cpp
 cache: apt
 
@@ -11,18 +12,13 @@ matrix:
       compiler: gcc
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports']
-          packages: ['g++-4.9', 'valgrind', 'cmake', 'cmake-data']
-      env:
-        - COMPILER=g++-4.9
-        - NO_EXCEPTIONS=OFF
-
-    - os: linux
-      compiler: gcc
-      addons:
-        apt:
-          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports']
-          packages: ['g++-5', 'valgrind', 'cmake', 'cmake-data']
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-5
+            - valgrind
+            - cmake
+            - cmake-data
       env:
         - COMPILER=g++-5
         - NO_EXCEPTIONS=OFF
@@ -31,18 +27,43 @@ matrix:
       compiler: gcc
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports']
-          packages: ['g++-5', 'valgrind', 'cmake', 'cmake-data']
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-6
+            - valgrind
+            - cmake
+            - cmake-data
       env:
-        - COMPILER=g++-5
+        - COMPILER=g++-6
+        - NO_EXCEPTIONS=OFF
+
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-6
+            - valgrind
+            - cmake
+            - cmake-data
+      env:
+        - COMPILER=g++-6
         - NO_EXCEPTIONS=ON
 
     - os: linux
+      compiler: clang
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports']
-          packages: ['g++-4.9', 'valgrind', 'cmake', 'cmake-data']
-      compiler: clang
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-6
+            - valgrind
+            - cmake
+            - cmake-data
       env:
         - COMPILER=clang++
         - NO_EXCEPTIONS=OFF
@@ -51,20 +72,32 @@ matrix:
       compiler: clang
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports', 'llvm-toolchain-precise-3.8']
-          packages: ['clang-3.8', 'valgrind', 'cmake', 'cmake-data']
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-6
+            - clang-5.0
+            - valgrind
+            - cmake
+            - cmake-data
       env:
-        - COMPILER=clang++-3.8
+        - COMPILER=clang++-5.0
         - NO_EXCEPTIONS=OFF
 
     - os: linux
       compiler: clang
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test', 'george-edison55-precise-backports', 'llvm-toolchain-precise-3.8']
-          packages: ['clang-3.8', 'valgrind', 'cmake', 'cmake-data']
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-6
+            - clang-5.0
+            - valgrind
+            - cmake
+            - cmake-data
       env:
-        - COMPILER=clang++-3.8
+        - COMPILER=clang++-5.0
         - NO_EXCEPTIONS=ON
 
 install:
