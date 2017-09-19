@@ -577,7 +577,7 @@ public:
   constexpr auto invoke(Args&&... args) const {
     return std::get<Index>(*vtable_)(std::forward<Args>(args)...);
   }
-    /// Invoke the function at the given index
+  /// Invoke the function at the given index
   template <std::size_t Index, typename... Args>
   constexpr auto invoke(Args&&... args) const volatile {
     return std::get<Index>(*vtable_)(std::forward<Args>(args)...);
@@ -640,59 +640,53 @@ private:
 /// The storage type is distinguished by multiple versions of the
 /// control and vtable.
 template <std::size_t Capacity, typename = void>
-class internal_capacity {
+struct internal_capacity {
   /// We extend the union through a technique similar to the tail object hack
-  union {
+  typedef union {
     /// Tag to access the structure in a type-safe way
     data_accessor accessor_;
     /// The internal capacity we use to allocate in-place
     std::aligned_storage_t<Capacity> capacity_;
-  };
-
-public:
-  constexpr internal_capacity() = default;
-
-  constexpr data_accessor* opaque_ptr() noexcept {
-    return &accessor_;
-  }
-  constexpr data_accessor const* opaque_ptr() const noexcept {
-    return &accessor_;
-  }
-  constexpr data_accessor volatile* opaque_ptr() volatile noexcept {
-    return &accessor_;
-  }
-  constexpr data_accessor const volatile* opaque_ptr() const volatile noexcept {
-    return &accessor_;
-  }
-
-  static constexpr std::size_t capacity() noexcept {
-    return Capacity;
-  }
+  } type;
 };
 template <std::size_t Capacity>
-class internal_capacity<Capacity,
-                        std::enable_if_t<(Capacity < sizeof(void*))>> {
+struct internal_capacity<Capacity,
+                         std::enable_if_t<(Capacity < sizeof(void*))>> {
+  typedef struct {
+    /// Tag to access the structure in a type-safe way
+    data_accessor accessor_;
+  } type;
+};
+
+template <std::size_t Capacity>
+class internal_capacity_holder {
   // Tag to access the structure in a type-safe way
-  data_accessor accessor_;
+  typename internal_capacity<Capacity>::type storage_;
 
 public:
-  constexpr internal_capacity() = default;
+  constexpr internal_capacity_holder() = default;
 
   constexpr data_accessor* opaque_ptr() noexcept {
-    return &accessor_;
+    return &storage_.accessor_;
   }
   constexpr data_accessor const* opaque_ptr() const noexcept {
-    return &accessor_;
+    return &storage_.accessor_;
+  }
+  constexpr data_accessor volatile* opaque_ptr() volatile noexcept {
+    return &storage_.accessor_;
+  }
+  constexpr data_accessor const volatile* opaque_ptr() const volatile noexcept {
+    return &storage_.accessor_;
   }
 
   static constexpr std::size_t capacity() noexcept {
-    return sizeof(accessor_.inplace_storage_);
+    return sizeof(storage_);
   }
 };
 
 /// A copyable owning erasure
 template <typename Config, typename Property>
-class erasure : internal_capacity<Config::capacity> {
+class erasure : internal_capacity_holder<Config::capacity> {
   friend struct erasure_attorney;
 
   template <typename, typename>
@@ -705,7 +699,7 @@ class erasure : internal_capacity<Config::capacity> {
 public:
   /// Returns the capacity of this erasure
   static constexpr std::size_t capacity() noexcept {
-    return internal_capacity<Config::capacity>::capacity();
+    return internal_capacity_holder<Config::capacity>::capacity();
   }
 
   constexpr erasure() noexcept {
