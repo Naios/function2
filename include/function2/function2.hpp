@@ -233,10 +233,7 @@ struct erasure_attorney {
   static constexpr auto invoke(Erasure&& erasure, Args&&... args) noexcept(
       noexcept(std::forward<Erasure>(erasure).vtable_.template invoke<Index>(
           erasure.opaque_ptr(), erasure.capacity(),
-          std::forward<Args>(args)...)))
-      -> decltype(erasure.vtable_.template invoke<Index>(
-          erasure.opaque_ptr(), erasure.capacity(),
-          std::forward<Args>(args)...)) {
+          std::forward<Args>(args)...))) {
     // Add data pointer and the capacity to the arguments
     return erasure.vtable_.template invoke<Index>(
         erasure.opaque_ptr(), erasure.capacity(), std::forward<Args>(args)...);
@@ -577,9 +574,12 @@ public:
 
   /// Invoke the function at the given index
   template <std::size_t Index, typename... Args>
-  constexpr auto invoke(Args&&... args) const noexcept(
-      noexcept(std::get<Index> (*vtable_)(std::forward<Args>(args)...)))
-      -> decltype(std::get<Index>(*vtable_)(std::forward<Args>(args)...)) {
+  constexpr auto invoke(Args&&... args) const {
+    return std::get<Index>(*vtable_)(std::forward<Args>(args)...);
+  }
+    /// Invoke the function at the given index
+  template <std::size_t Index, typename... Args>
+  constexpr auto invoke(Args&&... args) const volatile {
     return std::get<Index>(*vtable_)(std::forward<Args>(args)...);
   }
 
