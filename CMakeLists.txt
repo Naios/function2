@@ -13,12 +13,18 @@ target_compile_features(function2
   INTERFACE
     cxx_alias_templates
     cxx_auto_type
+    cxx_constexpr
     cxx_decltype
+    cxx_decltype_auto
     cxx_final
     cxx_lambdas
+    cxx_lambda_init_captures
+    cxx_generic_lambdas
     cxx_variadic_templates
     cxx_defaulted_functions
-    cxx_nullptr)
+    cxx_nullptr
+    cxx_trailing_return_types
+    cxx_return_type_deduction)
 
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
   if (MSVC)
