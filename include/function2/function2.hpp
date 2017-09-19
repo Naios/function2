@@ -205,15 +205,13 @@ using transfer_volatile_t =
 /// The retriever when the object is allocated inplace
 template <typename T, typename Accessor>
 constexpr auto retrieve(std::true_type /*is_inplace*/, Accessor from,
-                        std::size_t from_capacity)
-    -> transfer_const_t<Accessor, transfer_volatile_t<Accessor, void*>>
+                        std::size_t from_capacity) {
+  using Type = transfer_const_t<Accessor, transfer_volatile_t<Accessor, void>>*;
 
-{
-  /// Process the command by using the data on the internal capacity
+  /// Process the command by using the data inside the internal capacity
   auto storage = &(from->inplace_storage_);
-  using Type = transfer_const_t<Accessor, transfer_volatile_t<Accessor, void>>;
-  auto inplace = const_cast<void*>(static_cast<Type*>(storage));
-  return std::align(alignof(T), sizeof(T), inplace, from_capacity);
+  auto inplace = const_cast<void*>(static_cast<Type>(storage));
+  return Type(std::align(alignof(T), sizeof(T), inplace, from_capacity));
 }
 
 /// The retriever which is used when the object is allocated

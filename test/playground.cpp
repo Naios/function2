@@ -36,7 +36,7 @@ int main(int, char**) {
     fu2::unique_function<bool() const volatile> f2 = std::move(f);
     fu2::unique_function<bool() const volatile> f3(std::move(f2));
 
-    // f3();
+    f3();
   }
 
   {
