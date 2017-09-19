@@ -9,7 +9,7 @@
 using namespace fu2::detail;
 
 struct RValueProvider {
-  bool operator()() const&& {
+  bool operator()() const volatile {
     return true;
   }
 };
@@ -29,26 +29,14 @@ struct My {
 };
 
 int main(int, char**) {
-
   {
-    using trait =
-        type_erasure::invocation_table::function_trait<bool() const&&>;
-
-    using callable = trait::callable<RValueProvider>;
-    using args = trait::arguments;
-
-    std::true_type tt = invocation::can_invoke<callable, args>{};
-
-    std::true_type tt2 =
-        accepts_all<RValueProvider, identity<bool() const&&>>{};
-  }
-
-  {
-    fu2::unique_function<bool() const&&> f;
+    fu2::unique_function<bool() const volatile> f;
     f.assign(RValueProvider{});
 
-    fu2::unique_function<bool() const&&> f2 = std::move(f);
-    fu2::unique_function<bool() const&&> f3(std::move(f2));
+    fu2::unique_function<bool() const volatile> f2 = std::move(f);
+    fu2::unique_function<bool() const volatile> f3(std::move(f2));
+
+    // f3();
   }
 
   {

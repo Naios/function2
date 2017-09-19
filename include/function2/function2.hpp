@@ -51,7 +51,7 @@ template <typename...>
 struct deduce_to_void : std::common_type<void> {};
 
 template <typename... T>
-using always_void_t = typename deduce_to_void<T...>::type;
+using void_t = typename deduce_to_void<T...>::type;
 
 /// Configuration trait to configure the function_base class.
 template <bool Owning, bool Copyable, std::size_t Capacity /*,
@@ -211,7 +211,8 @@ constexpr auto retrieve(std::true_type /*is_inplace*/, Accessor from,
 {
   /// Process the command by using the data on the internal capacity
   auto storage = &(from->inplace_storage_);
-  auto inplace = const_cast<void*>(static_cast<void const*>(storage));
+  using Type = transfer_const_t<Accessor, transfer_volatile_t<Accessor, void>>;
+  auto inplace = const_cast<void*>(static_cast<Type*>(storage));
   return std::align(alignof(T), sizeof(T), inplace, from_capacity);
 }
 
@@ -344,11 +345,11 @@ struct operator_impl;
                                                                                \
     using operator_impl<Index + 1, Function, Next, Signatures...>::operator(); \
                                                                                \
-    Ret operator()(Args... args) CONST VOLATILE REF {                          \
+    Ret operator()(Args... args) CONST VOLATILE OVL_REF {                      \
       auto function = static_cast<Function CONST VOLATILE*>(this);             \
       return erasure_attorney::invoke<Index>(                                  \
-          static_cast<decltype(function->erasure_) CONST VOLATILE REF>(        \
-              function->erasure_),                                             \
+          static_cast<std::decay_t<decltype(function->erasure_)> CONST         \
+                          VOLATILE REF>(function->erasure_),                   \
           std::move(args)...);                                                 \
     }                                                                          \
   };                                                                           \
@@ -356,11 +357,11 @@ struct operator_impl;
             typename... Args>                                                  \
   struct operator_impl<Index, Function, Ret(Args...) CONST VOLATILE OVL_REF> { \
                                                                                \
-    Ret operator()(Args... args) CONST VOLATILE REF {                          \
+    Ret operator()(Args... args) CONST VOLATILE OVL_REF {                      \
       auto function = static_cast<Function CONST VOLATILE*>(this);             \
       return erasure_attorney::invoke<Index>(                                  \
-          static_cast<decltype(function->erasure_) CONST VOLATILE REF>(        \
-              function->erasure_),                                             \
+          static_cast<std::decay_t<decltype(function->erasure_)> CONST         \
+                          VOLATILE REF>(function->erasure_),                   \
           std::move(args)...);                                                 \
     }                                                                          \
   };
@@ -407,10 +408,9 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
 
     /// The command table
     template <bool IsInplace>
-    constexpr static void
-    process_cmd(vtable* to_table, opcode op, data_accessor* from,
-                std::size_t from_capacity, data_accessor* to,
-                std::size_t to_capacity) {
+    static void process_cmd(vtable* to_table, opcode op, data_accessor* from,
+                            std::size_t from_capacity, data_accessor* to,
+                            std::size_t to_capacity) {
 
       switch (op) {
         case opcode::op_move: {
@@ -476,7 +476,7 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
     }
 
     template <typename Box>
-    static constexpr void
+    static void
     construct(std::true_type /*apply*/, Box&& box, vtable* to_table,
               data_accessor* to,
               std::size_t to_capacity) noexcept(HasStrongExceptGuarantee) {
@@ -493,7 +493,7 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
     }
 
     template <typename Box>
-    static constexpr void
+    static void
     construct(std::false_type /*apply*/, Box&& /*box*/, vtable* /*to_table*/,
               data_accessor* /*to*/,
               std::size_t /*to_capacity*/) noexcept(HasStrongExceptGuarantee) {
@@ -501,11 +501,9 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
   };
 
   /// The command table
-  constexpr static void empty_cmd(vtable* to_table, opcode op,
-                                  data_accessor* /*from*/,
-                                  std::size_t /*from_capacity*/,
-                                  data_accessor* to,
-                                  std::size_t /*to_capacity*/) {
+  static void empty_cmd(vtable* to_table, opcode op, data_accessor* /*from*/,
+                        std::size_t /*from_capacity*/, data_accessor* to,
+                        std::size_t /*to_capacity*/) {
 
     switch (op) {
       case opcode::op_move:
@@ -526,56 +524,54 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
   }
 
 public:
-  constexpr vtable() noexcept = default;
+  vtable() noexcept = default;
 
   /// Initialize an object at the given position
   template <typename T>
-  static constexpr void init(vtable& table, T&& object, data_accessor* to,
-                             std::size_t to_capacity) {
+  static void init(vtable& table, T&& object, data_accessor* to,
+                   std::size_t to_capacity) {
 
     trait<std::decay_t<T>>::construct(std::true_type{}, std::forward<T>(object),
                                       &table, to, to_capacity);
   }
 
   /// Initializes the vtable object
-  constexpr void init_empty() noexcept {
+  void init_empty() noexcept {
     // Initialize the new command function
     set_empty();
   }
 
   /// Moves the object at the given position
-  constexpr void move(vtable& to_table, data_accessor* from,
-                      std::size_t from_capacity, data_accessor* to,
-                      std::size_t to_capacity) const
+  void move(vtable& to_table, data_accessor* from, std::size_t from_capacity,
+            data_accessor* to, std::size_t to_capacity) const
       noexcept(HasStrongExceptGuarantee) {
     cmd_(&to_table, opcode::op_move, from, from_capacity, to, to_capacity);
   }
 
   /// Destroys the object at the given position
-  constexpr void copy(vtable& to_table, data_accessor const* from,
-                      std::size_t from_capacity, data_accessor* to,
-                      std::size_t to_capacity) const {
+  void copy(vtable& to_table, data_accessor const* from,
+            std::size_t from_capacity, data_accessor* to,
+            std::size_t to_capacity) const {
     cmd_(&to_table, opcode::op_copy, const_cast<data_accessor*>(from),
          from_capacity, to, to_capacity);
   }
 
   /// Destroys the object at the given position
-  constexpr void
-  destroy(data_accessor* from,
-          std::size_t from_capacity) noexcept(HasStrongExceptGuarantee) {
+  void destroy(data_accessor* from,
+               std::size_t from_capacity) noexcept(HasStrongExceptGuarantee) {
     cmd_(this, opcode::op_destroy, from, from_capacity, nullptr, 0U);
   }
 
   /// Destroys the object at the given position without invalidating the
   /// vtable
-  constexpr void
+  void
   weak_destroy(data_accessor* from,
                std::size_t from_capacity) noexcept(HasStrongExceptGuarantee) {
     cmd_(this, opcode::op_weak_destroy, from, from_capacity, nullptr, 0U);
   }
 
   /// Returns true when the vtable doesn't hold any erased object
-  constexpr bool empty() const noexcept {
+  bool empty() const noexcept {
     data_accessor data;
     cmd_(nullptr, opcode::op_fetch_empty, nullptr, 0U, &data, 0U);
     return bool(data.inplace_storage_);
@@ -590,45 +586,52 @@ public:
   }
 
 private:
-  template <typename T>
-  class tables {
-    template <bool IsInplace>
-    struct vtable_type : invoke_table_t {
-      constexpr vtable_type() noexcept
-          : invoke_table_t(std::make_tuple(
-                &invocation_table::function_trait<FormalArgs>::
-                    template internal_invoker<T, IsInplace>::invoke...)) {
-      }
-    };
-
-  public:
-    constexpr static vtable_type<true> const inplace_table{};
-    constexpr static vtable_type<true> const allocated_table{};
+  template <typename T, bool IsInplace>
+  struct vtable_type : invoke_table_t {
+    vtable_type() noexcept
+        : invoke_table_t(std::make_tuple(
+              &invocation_table::function_trait<FormalArgs>::
+                  template internal_invoker<T, IsInplace>::invoke...)) {
+    }
   };
 
   template <typename T>
-  constexpr void set_inplace() noexcept {
-    vtable_ = &tables<T>::inplace_table;
-    cmd_ = &trait<std::decay_t<T>>::template process_cmd<true>;
+  invoke_table_t const* get_inplace_table() const noexcept {
+    static vtable_type<T, true> const inplace_table;
+    return &inplace_table;
   }
   template <typename T>
-  constexpr void set_allocated() noexcept {
-    vtable_ = &tables<T>::allocated_table;
+  void set_inplace() noexcept {
+    vtable_ = get_inplace_table<T>();
+    cmd_ = &trait<std::decay_t<T>>::template process_cmd<true>;
+  }
+
+  template <typename T>
+  invoke_table_t const* get_allocated_table() const noexcept {
+    static vtable_type<T, false> const allocated_table;
+    return &allocated_table;
+  }
+  template <typename T>
+  void set_allocated() noexcept {
+    vtable_ = get_allocated_table<T>();
     cmd_ = &trait<std::decay_t<T>>::template process_cmd<false>;
   }
 
   struct empty_type : invoke_table_t {
-    constexpr empty_type() noexcept
+    empty_type() noexcept
         : invoke_table_t(std::make_tuple(
               &invocation_table::function_trait<
                   FormalArgs>::template empty_invoker<IsThrowing>::invoke...)) {
     }
   };
 
-  constexpr static empty_type const empty_table{};
+  invoke_table_t const* get_empty_table() const noexcept {
+    static empty_type const empty_table;
+    return &empty_table;
+  }
 
-  constexpr void set_empty() noexcept {
-    vtable_ = &empty_table;
+  void set_empty() noexcept {
+    vtable_ = get_empty_table();
     cmd_ = &empty_cmd;
   }
 };
@@ -655,6 +658,12 @@ public:
     return &accessor_;
   }
   constexpr data_accessor const* opaque_ptr() const noexcept {
+    return &accessor_;
+  }
+  constexpr data_accessor volatile* opaque_ptr() volatile noexcept {
+    return &accessor_;
+  }
+  constexpr data_accessor const volatile* opaque_ptr() const volatile noexcept {
     return &accessor_;
   }
 
@@ -798,7 +807,7 @@ struct accepts_all : std::false_type {};
 template <typename T, typename... Signatures>
 struct accepts_all<
     T, identity<Signatures...>,
-    always_void_t<std::enable_if_t<accepts_one<T, Signatures>::value>...>>
+    void_t<std::enable_if_t<accepts_one<T, Signatures>::value>...>>
     : std::true_type {};
 
 /// SFINAES out if the given callable is not copyable correct to the left one.
