@@ -877,6 +877,15 @@ struct accepts_all<
     void_t<std::enable_if_t<accepts_one<T, Signatures>::value>...>>
     : std::true_type {};
 
+template <typename Config, typename T>
+struct assert_wrong_copy_assign {
+  static_assert(!Config::is_copyable ||
+                    std::is_copy_constructible<std::decay_t<T>>::value,
+                "Can't wrap a non copyable object into a unique function!");
+
+  using type = void;
+};
+
 /// SFINAES out if the given callable is not copyable correct to the left one.
 template <typename LeftConfig, typename RightConfig>
 using enable_if_copyable_correct_t =
@@ -904,13 +913,22 @@ class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
   using my_property = property<IsThrowing, HasStrongExceptGuarantee, Args...>;
 
   template <typename T>
-  using can_accept_all = accepts_all<std::decay_t<T>, identity<Args...>>;
+  using enable_if_can_accept_all_t =
+      std::enable_if_t<accepts_all<std::decay_t<T>, identity<Args...>>::value>;
 
   template <typename Function>
   struct is_convertible_to_this : std::false_type {};
   template <typename RightConfig>
   struct is_convertible_to_this<function<RightConfig, my_property>>
       : std::true_type {};
+
+  template <typename T>
+  using enable_if_not_convertible_to_this =
+      std::enable_if_t<!is_convertible_to_this<std::decay_t<T>>::value>;
+
+  template <typename T>
+  using assert_wrong_copy_assign_t =
+      typename assert_wrong_copy_assign<Config, std::decay_t<T>>::type;
 
   type_erasure::erasure<Config, my_property> erasure_;
 
@@ -938,8 +956,9 @@ public:
 
   /// Construction from a callable object which overloads the `()` operator
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>,
-            std::enable_if_t<!is_convertible_to_this<std::decay_t<T>>::value &&
-                             can_accept_all<T>::value>* = nullptr>
+            enable_if_not_convertible_to_this<T>* = nullptr,
+            enable_if_can_accept_all_t<T>* = nullptr,
+            assert_wrong_copy_assign_t<T>* = nullptr>
   constexpr function(T callable, Allocator&& allocator = Allocator{})
       : erasure_(type_erasure::make_box(std::forward<T>(callable),
                                         std::forward<Allocator>(allocator))) {
@@ -970,9 +989,10 @@ public:
   }
 
   /// Move assigning from a callable object
-  template <typename T,
-            std::enable_if_t<!is_convertible_to_this<std::decay_t<T>>::value &&
-                             can_accept_all<T>::value>* = nullptr>
+  template <typename T, // ...
+            enable_if_not_convertible_to_this<T>* = nullptr,
+            enable_if_can_accept_all_t<T>* = nullptr,
+            assert_wrong_copy_assign_t<T>* = nullptr>
   function& operator=(T&& callable) {
     erasure_ = type_erasure::make_box(std::forward<T>(callable));
     return *this;
@@ -996,7 +1016,9 @@ public:
 
   /// Assigns a new target with an optional allocator
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>,
-            std::enable_if_t<can_accept_all<T>::value>* = nullptr>
+            enable_if_not_convertible_to_this<T>* = nullptr,
+            enable_if_can_accept_all_t<T>* = nullptr,
+            assert_wrong_copy_assign_t<T>* = nullptr>
   void assign(T&& callable, Allocator&& allocator = Allocator{}) {
     erasure_ = type_erasure::make_box(std::forward<T>(callable),
                                       std::forward<Allocator>(allocator));
