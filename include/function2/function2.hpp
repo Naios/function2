@@ -142,6 +142,34 @@ struct can_invoke<Pointer, identity<T*, Args...>,
                           std::declval<Args>()...)))> : std::true_type {};
 } // end namespace invocation
 
+namespace overloading {
+template <typename... Args>
+struct overload_impl;
+template <typename Current, typename Next, typename... Rest>
+struct overload_impl<Current, Next, Rest...> : Current,
+                                               overload_impl<Next, Rest...> {
+  explicit overload_impl(Current current, Next next, Rest... rest)
+      : Current(std::move(current)), overload_impl<Next, Rest...>(
+                                         std::move(next), std::move(rest)...) {
+  }
+
+  using Current::operator();
+  using overload_impl<Next, Rest...>::operator();
+};
+template <typename Current>
+struct overload_impl<Current> : Current {
+  explicit overload_impl(Current current) : Current(std::move(current)) {
+  }
+
+  using Current::operator();
+};
+
+template <typename... T>
+constexpr auto overload(T&&... callables) {
+  return overload_impl<std::decay_t<T>...>{std::forward<T>(callables)...};
+}
+} // namespace overloading
+
 /// Declares the namespace which provides the functionality to work with a
 /// type-erased object.
 namespace type_erasure {
@@ -1124,6 +1152,9 @@ using unique_function =
 #if !defined(FU2_MACRO_DISABLE_EXCEPTIONS)
 using detail::type_erasure::invocation_table::bad_function_call;
 #endif
+
+// TODO Add doc
+using detail::overloading::overload;
 } // namespace fu2
 
 #undef FU2_MACRO_DISABLE_EXCEPTIONS
