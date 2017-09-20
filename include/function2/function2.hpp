@@ -66,8 +66,7 @@ struct copyable<false> {
 };
 
 /// Configuration trait to configure the function_base class.
-template <bool Owning, bool Copyable, std::size_t Capacity /*,
-          bool PartialApplyable*/>
+template <bool Owning, bool Copyable, std::size_t Capacity>
 struct config {
   // Is true if the function is copyable.
   static constexpr auto const is_owning = Owning;
@@ -78,9 +77,6 @@ struct config {
   // The internal capacity of the function
   // used in small functor optimization.
   static constexpr auto const capacity = Capacity;
-
-  // Is true when the function is assignable with less arguments.
-  // static constexpr auto const is_partial_applyable = PartialApplyable;
 };
 
 /// A config which isn't compatible to other configs
@@ -824,6 +820,7 @@ using enable_if_copyable_correct_t =
 
 template <typename Config, typename Property>
 class function;
+
 template <typename Config, bool IsThrowing, bool HasStrongExceptGuarantee,
           typename... Args>
 class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
@@ -844,6 +841,12 @@ class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
 
   template <typename T>
   using can_accept_all = accepts_all<std::decay_t<T>, identity<Args...>>;
+
+  template <typename Function>
+  struct is_convertible_to_this : std::false_type {};
+  template <typename RightConfig>
+  struct is_convertible_to_this<function<RightConfig, my_property>>
+      : std::true_type {};
 
   type_erasure::erasure<Config, my_property> erasure_;
 
@@ -871,7 +874,8 @@ public:
 
   /// Construction from a callable object which overloads the `()` operator
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>,
-            std::enable_if_t<can_accept_all<T>::value>* = nullptr>
+            std::enable_if_t<!is_convertible_to_this<std::decay_t<T>>::value &&
+                             can_accept_all<T>::value>* = nullptr>
   constexpr function(T callable, Allocator&& allocator = Allocator{})
       : erasure_(type_erasure::make_box(std::forward<T>(callable),
                                         std::forward<Allocator>(allocator))) {
@@ -902,7 +906,9 @@ public:
   }
 
   /// Move assigning from a callable object
-  template <typename T, std::enable_if_t<can_accept_all<T>::value>* = nullptr>
+  template <typename T,
+            std::enable_if_t<!is_convertible_to_this<std::decay_t<T>>::value &&
+                             can_accept_all<T>::value>* = nullptr>
   function& operator=(T&& callable) {
     erasure_ = type_erasure::make_box(std::forward<T>(callable));
     return *this;
@@ -1005,10 +1011,6 @@ template <
     bool IsThrowing,
     /// TODO
     bool HasStrongExceptGuarantee,
-    /// Defines whether the function allows assignments from a
-    /// function with less arguments.
-    /// Reserved
-    bool PartialApplyable,
     /// Defines the signature of the function wrapper
     typename... Signatures>
 using function_base = detail::function<
@@ -1018,13 +1020,13 @@ using function_base = detail::function<
 /// Copyable function wrapper for arbitrary functional types.
 template <typename... Signatures>
 using function = function_base<true, true, detail::default_capacity::value,
-                               true, false, false, Signatures...>;
+                               true, false, Signatures...>;
 
 /// Non copyable function wrapper for arbitrary functional types.
 template <typename... Signatures>
 using unique_function =
     function_base<true, false, detail::default_capacity::value, true, false,
-                  false, Signatures...>;
+                  Signatures...>;
 
 /// Exception type when invoking empty functional wrappers.
 ///

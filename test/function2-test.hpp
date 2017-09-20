@@ -26,7 +26,7 @@ constexpr bool returnFalse() noexcept {
 
 template <typename Fn, bool Copyable, std::size_t Capacity, bool Throwing>
 using short_def =
-    fu2::function_base<true, Copyable, Capacity, Throwing, false, false, Fn>;
+    fu2::function_base<true, Copyable, Capacity, Throwing, false, Fn>;
 
 /// NonCopyable functions with several SFO capacities
 template <typename Fn, bool Throwing = true>
