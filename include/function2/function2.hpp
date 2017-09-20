@@ -914,6 +914,18 @@ struct assert_wrong_copy_assign {
   using type = void;
 };
 
+template <bool IsStrongExceptGuaranteed, typename T>
+struct assert_no_strong_except_guarantee {
+  static_assert(
+      !IsStrongExceptGuaranteed ||
+          (std::is_nothrow_move_constructible<T>::value &&
+           std::is_nothrow_destructible<T>::value),
+      "Can't wrap a object an object that has no strong exception guarantees "
+      "if this is required by the wrapper!");
+
+  using type = void;
+};
+
 /// SFINAES out if the given callable is not copyable correct to the left one.
 template <typename LeftConfig, typename RightConfig>
 using enable_if_copyable_correct_t =
@@ -958,6 +970,11 @@ class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
   using assert_wrong_copy_assign_t =
       typename assert_wrong_copy_assign<Config, std::decay_t<T>>::type;
 
+  template <typename T>
+  using assert_no_strong_except_guarantee_t =
+      typename assert_no_strong_except_guarantee<HasStrongExceptGuarantee,
+                                                 std::decay_t<T>>::type;
+
   type_erasure::erasure<Config, my_property> erasure_;
 
 public:
@@ -986,7 +1003,8 @@ public:
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>,
             enable_if_not_convertible_to_this<T>* = nullptr,
             enable_if_can_accept_all_t<T>* = nullptr,
-            assert_wrong_copy_assign_t<T>* = nullptr>
+            assert_wrong_copy_assign_t<T>* = nullptr,
+            assert_no_strong_except_guarantee_t<T>* = nullptr>
   constexpr function(T callable, Allocator&& allocator = Allocator{})
       : erasure_(type_erasure::make_box(std::forward<T>(callable),
                                         std::forward<Allocator>(allocator))) {
@@ -1020,7 +1038,8 @@ public:
   template <typename T, // ...
             enable_if_not_convertible_to_this<T>* = nullptr,
             enable_if_can_accept_all_t<T>* = nullptr,
-            assert_wrong_copy_assign_t<T>* = nullptr>
+            assert_wrong_copy_assign_t<T>* = nullptr,
+            assert_no_strong_except_guarantee_t<T>* = nullptr>
   function& operator=(T&& callable) {
     erasure_ = type_erasure::make_box(std::forward<T>(callable));
     return *this;
@@ -1046,7 +1065,8 @@ public:
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>,
             enable_if_not_convertible_to_this<T>* = nullptr,
             enable_if_can_accept_all_t<T>* = nullptr,
-            assert_wrong_copy_assign_t<T>* = nullptr>
+            assert_wrong_copy_assign_t<T>* = nullptr,
+            assert_no_strong_except_guarantee_t<T>* = nullptr>
   void assign(T&& callable, Allocator&& allocator = Allocator{}) {
     erasure_ = type_erasure::make_box(std::forward<T>(callable),
                                       std::forward<Allocator>(allocator));
@@ -1154,7 +1174,10 @@ using detail::type_erasure::invocation_table::bad_function_call;
 #endif
 
 // TODO Add doc
-using detail::overloading::overload;
+template <typename... T>
+constexpr auto overload(T&&... callables) {
+  return detail::overloading::overload(std::forward<T>(callables)...);
+}
 } // namespace fu2
 
 #undef FU2_MACRO_DISABLE_EXCEPTIONS
