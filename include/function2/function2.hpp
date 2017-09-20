@@ -385,10 +385,6 @@ struct invoke_table<First> {
   static constexpr type get_empty_invocation_table() noexcept {
     return &function_trait<First>::template empty_invoker<IsThrowing>::invoke;
   }
-
-  static constexpr type default_value() noexcept {
-    return nullptr;
-  }
 };
 /// We generate a table in case of multiple function overloads
 template <typename First, typename Second, typename... Args>
@@ -408,7 +404,7 @@ struct invoke_table<First, Second, Args...> {
   struct invocation_vtable : public std::tuple<function_pointer_of<First>,
                                                function_pointer_of<Second>,
                                                function_pointer_of<Args>...> {
-    invocation_vtable() noexcept
+    constexpr invocation_vtable() noexcept
         : std::tuple<function_pointer_of<First>, function_pointer_of<Second>,
                      function_pointer_of<Args>...>(std::make_tuple(
               &function_trait<First>::template internal_invoker<
@@ -432,7 +428,7 @@ struct invoke_table<First, Second, Args...> {
   struct empty_vtable : public std::tuple<function_pointer_of<First>,
                                           function_pointer_of<Second>,
                                           function_pointer_of<Args>...> {
-    empty_vtable() noexcept
+    constexpr empty_vtable() noexcept
         : std::tuple<function_pointer_of<First>, function_pointer_of<Second>,
                      function_pointer_of<Args>...>(
               std::make_tuple(&function_trait<First>::template empty_invoker<
@@ -449,10 +445,6 @@ struct invoke_table<First, Second, Args...> {
   static type get_empty_invocation_table() noexcept {
     static empty_vtable<IsThrowing> const table;
     return &table;
-  }
-
-  static constexpr type default_value() noexcept {
-    return type{};
   }
 };
 
