@@ -69,6 +69,9 @@ struct LeftType {
   /// The left type isn't assignable to the right type!
   template <typename Fn, bool Throwing = true, typename... Additional>
   using left_t = Left<Fn, Throwing, Additional...>;
+
+  template <typename Fn, typename... Additional>
+  using left_multi_t = Left<Fn, false, Additional...>;
 };
 
 /// Provides the left and right type which is used in this test case
@@ -79,6 +82,9 @@ struct LeftRightType : LeftType<Left> {
   /// The right type is assignable to the left type.
   template <typename Fn, bool Throwing = true, typename... Additional>
   using right_t = Right<Fn, Throwing, Additional...>;
+
+  template <typename Fn, typename... Additional>
+  using right_multi_t = Right<Fn, false, Additional...>;
 };
 
 /// Base class for typed function tests
