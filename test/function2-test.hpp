@@ -24,26 +24,27 @@ constexpr bool returnFalse() noexcept {
   return false;
 }
 
-template <typename Fn, bool Copyable, std::size_t Capacity, bool Throwing>
-using short_def =
-    fu2::function_base<true, Copyable, Capacity, Throwing, false, Fn>;
+template <typename Fn, bool Copyable, std::size_t Capacity, bool Throwing,
+          typename... Additional>
+using short_def = fu2::function_base<true, Copyable, Capacity, Throwing, false,
+                                     Fn, Additional...>;
 
 /// NonCopyable functions with several SFO capacities
-template <typename Fn, bool Throwing = true>
-using unique_no_sfo = short_def<Fn, false, 0, Throwing>;
-template <typename Fn, bool Throwing = true>
-using unique_256_sfo = short_def<Fn, false, 256, Throwing>;
-template <typename Fn, bool Throwing = true>
-using unique_512_sfo = short_def<Fn, false, 512, Throwing>;
+template <typename Fn, bool Throwing = true, typename... Additional>
+using unique_no_sfo = short_def<Fn, false, 0, Throwing, Additional...>;
+template <typename Fn, bool Throwing = true, typename... Additional>
+using unique_256_sfo = short_def<Fn, false, 256, Throwing, Additional...>;
+template <typename Fn, bool Throwing = true, typename... Additional>
+using unique_512_sfo = short_def<Fn, false, 512, Throwing, Additional...>;
 /// Copyable functions with several SFO capacities
-template <typename Fn, bool Throwing = true>
-using copyable_no_sfo = short_def<Fn, true, 0, Throwing>;
-template <typename Fn, bool Throwing = true>
-using copyable_256_sfo = short_def<Fn, true, 256, Throwing>;
-template <typename Fn, bool Throwing = true>
-using copyable_512_sfo = short_def<Fn, true, 512, Throwing>;
+template <typename Fn, bool Throwing = true, typename... Additional>
+using copyable_no_sfo = short_def<Fn, true, 0, Throwing, Additional...>;
+template <typename Fn, bool Throwing = true, typename... Additional>
+using copyable_256_sfo = short_def<Fn, true, 256, Throwing, Additional...>;
+template <typename Fn, bool Throwing = true, typename... Additional>
+using copyable_512_sfo = short_def<Fn, true, 512, Throwing, Additional...>;
 /// std::function
-template <typename Fn, bool Throwing = true>
+template <typename Fn, bool Throwing = true, typename...>
 using std_function = std::function<Fn>;
 
 /// Adds given types to the type list
@@ -62,22 +63,22 @@ struct TupleToTypes<std::tuple<Args...>>
     : std::common_type<testing::Types<Args...>> {};
 
 /// Provides the left type which is used in this test case
-template <template <typename, bool> class Left>
+template <template <typename, bool, typename...> class Left>
 struct LeftType {
   /// Left function type which is provided by this test case.
   /// The left type isn't assignable to the right type!
-  template <typename Fn, bool Throwing = true>
-  using left_t = Left<Fn, Throwing>;
+  template <typename Fn, bool Throwing = true, typename... Additional>
+  using left_t = Left<Fn, Throwing, Additional...>;
 };
 
 /// Provides the left and right type which is used in this test case
-template <template <typename, bool> class Left,
-          template <typename, bool> class Right>
+template <template <typename, bool, typename...> class Left,
+          template <typename, bool, typename...> class Right>
 struct LeftRightType : LeftType<Left> {
   /// Right function type which is provided by this test case.
   /// The right type is assignable to the left type.
-  template <typename Fn, bool Throwing = true>
-  using right_t = Right<Fn, Throwing>;
+  template <typename Fn, bool Throwing = true, typename... Additional>
+  using right_t = Right<Fn, Throwing, Additional...>;
 };
 
 /// Base class for typed function tests
