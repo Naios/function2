@@ -1,0 +1,19 @@
+image:
+  - Visual Studio 2017
+
+configuration:
+  - Debug
+
+platform:
+  - x64
+
+shallow_clone: true
+
+before_build:
+  - cmd: cmake -H. -Bbuild -A%PLATFORM% -DCMAKE_BUILD_TYPE=%CONFIGURATION%
+
+build_script:
+  - cmd: cmake --build build --config %CONFIGURATION% --target ALL_BUILD -- /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll" /verbosity:minimal /maxcpucount:2 /nologo
+  
+test_script:
+  - cmd: ctest -C %CONFIGURATION% -V build
