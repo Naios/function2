@@ -156,19 +156,18 @@ struct box : public Allocator {
 
   /// Allocates space through the boxed allocator
   box* box_allocate() const {
-    // TODO find a solution for this circular issue
-    using RealAllocator = typename std::allocator_traits<
+    using real_allocator = typename std::allocator_traits<
         std::decay_t<Allocator>>::template rebind_alloc<box<T, Allocator>>;
-    RealAllocator allocator(*static_cast<Allocator const*>(this));
+    real_allocator allocator(*static_cast<Allocator const*>(this));
 
     return static_cast<box*>(allocator.allocate(1U));
   }
 
   /// Destroys the box through the given allocator
   static void box_deallocate(box* me) {
-    using RealAllocator = typename std::allocator_traits<
+    using real_allocator = typename std::allocator_traits<
         std::decay_t<Allocator>>::template rebind_alloc<box<T, Allocator>>;
-    RealAllocator allocator(*static_cast<Allocator const*>(me));
+    real_allocator allocator(*static_cast<Allocator const*>(me));
 
     me->~box();
     allocator.deallocate(me, 1U);
@@ -332,9 +331,102 @@ FU2_EXPAND_QUALIFIERS(FU2_DEFINE_FUNCTION_TRAIT)
 template <typename Signature>
 using function_pointer_of = typename function_trait<Signature>::pointer_type;
 
-/// A packed tuple of signatures
 template <typename... Args>
-using invoke_table_of_t = std::tuple<function_pointer_of<Args>...>;
+struct invoke_table;
+
+/// We optimize the VTable in case there is a single function overload
+template <typename First>
+struct invoke_table<First> {
+  using type = function_pointer_of<First>;
+
+  /// Return the function pointer itself
+  template <std::size_t Index>
+  static constexpr auto fetch(type pointer) noexcept {
+    static_assert(Index == 0U, "The index should be 0 here!");
+    return pointer;
+  }
+
+  /// Returns the thunk of an single overloaded callable
+  template <typename T, bool IsInplace>
+  static constexpr type get_invocation_table_of() noexcept {
+    return &function_trait<First>::template internal_invoker<T,
+                                                             IsInplace>::invoke;
+  }
+  /// Returns the thunk of an empty single overloaded callable
+  template <bool IsThrowing>
+  static constexpr type get_empty_invocation_table() noexcept {
+    return &function_trait<First>::template empty_invoker<IsThrowing>::invoke;
+  }
+
+  static constexpr type default_value() noexcept {
+    return nullptr;
+  }
+};
+/// We generate a table in case of multiple function overloads
+template <typename First, typename Second, typename... Args>
+struct invoke_table<First, Second, Args...> {
+  using type =
+      std::tuple<function_pointer_of<First>, function_pointer_of<Second>,
+                 function_pointer_of<Args>...> const*;
+
+  /// Return the function pointer at the particular index
+  template <std::size_t Index>
+  static constexpr auto fetch(type table) noexcept {
+    return std::get<Index>(*table);
+  }
+
+  /// The invocation vtable for a present object
+  template <typename T, bool IsInplace>
+  struct invocation_vtable : public std::tuple<function_pointer_of<First>,
+                                               function_pointer_of<Second>,
+                                               function_pointer_of<Args>...> {
+    invocation_vtable() noexcept
+        : std::tuple<function_pointer_of<First>, function_pointer_of<Second>,
+                     function_pointer_of<Args>...>(std::make_tuple(
+              &function_trait<First>::template internal_invoker<
+                  T, IsInplace>::invoke,
+              &function_trait<Second>::template internal_invoker<
+                  T, IsInplace>::invoke,
+              &function_trait<Args>::template internal_invoker<
+                  T, IsInplace>::invoke...)) {
+    }
+  };
+
+  /// Returns the thunk of an multi overloaded callable
+  template <typename T, bool IsInplace>
+  static type get_invocation_table_of() noexcept {
+    static invocation_vtable<T, IsInplace> const table;
+    return &table;
+  }
+
+  /// The invocation table for an empty wrapper
+  template <bool IsThrowing>
+  struct empty_vtable : public std::tuple<function_pointer_of<First>,
+                                          function_pointer_of<Second>,
+                                          function_pointer_of<Args>...> {
+    empty_vtable() noexcept
+        : std::tuple<function_pointer_of<First>, function_pointer_of<Second>,
+                     function_pointer_of<Args>...>(
+              std::make_tuple(&function_trait<First>::template empty_invoker<
+                                  IsThrowing>::invoke,
+                              &function_trait<Second>::template empty_invoker<
+                                  IsThrowing>::invoke,
+                              &function_trait<Args>::template empty_invoker<
+                                  IsThrowing>::invoke...)) {
+    }
+  };
+
+  /// Returns the thunk of an multi single overloaded callable
+  template <bool IsThrowing>
+  static type get_empty_invocation_table() noexcept {
+    static empty_vtable<IsThrowing> const table;
+    return &table;
+  }
+
+  static constexpr type default_value() noexcept {
+    return type{};
+  }
+};
 
 template <std::size_t Index, typename Function, typename... Signatures>
 struct operator_impl;
@@ -399,10 +491,10 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
                                       data_accessor* /*to*/,
                                       std::size_t /*to_capacity*/);
 
-  using invoke_table_t = invocation_table::invoke_table_of_t<FormalArgs...>;
+  using invoke_table_t = invocation_table::invoke_table<FormalArgs...>;
 
   command_function_t cmd_;
-  invoke_table_t const* vtable_;
+  typename invoke_table_t::type vtable_;
 
   template <typename T>
   struct trait {
@@ -528,7 +620,8 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
   }
 
 public:
-  vtable() noexcept = default;
+  vtable() noexcept : cmd_(nullptr), vtable_(invoke_table_t::default_value()) {
+  }
 
   /// Initialize an object at the given position
   template <typename T>
@@ -584,61 +677,33 @@ public:
   /// Invoke the function at the given index
   template <std::size_t Index, typename... Args>
   constexpr auto invoke(Args&&... args) const {
-    return std::get<Index>(*vtable_)(std::forward<Args>(args)...);
+    auto thunk = invoke_table_t::template fetch<Index>(vtable_);
+    return thunk(std::forward<Args>(args)...);
   }
   /// Invoke the function at the given index
   template <std::size_t Index, typename... Args>
   constexpr auto invoke(Args&&... args) const volatile {
-    return std::get<Index>(*vtable_)(std::forward<Args>(args)...);
+    auto thunk = invoke_table_t::template fetch<Index>(vtable_);
+    return thunk(std::forward<Args>(args)...);
   }
 
 private:
-  template <typename T, bool IsInplace>
-  struct vtable_type : invoke_table_t {
-    vtable_type() noexcept
-        : invoke_table_t(std::make_tuple(
-              &invocation_table::function_trait<FormalArgs>::
-                  template internal_invoker<T, IsInplace>::invoke...)) {
-    }
-  };
-
-  template <typename T>
-  invoke_table_t const* get_inplace_table() const noexcept {
-    static vtable_type<T, true> const inplace_table;
-    return &inplace_table;
-  }
   template <typename T>
   void set_inplace() noexcept {
-    vtable_ = get_inplace_table<T>();
-    cmd_ = &trait<std::decay_t<T>>::template process_cmd<true>;
+    using type = std::decay_t<T>;
+    vtable_ = invoke_table_t::template get_invocation_table_of<type, true>();
+    cmd_ = &trait<type>::template process_cmd<true>;
   }
 
-  template <typename T>
-  invoke_table_t const* get_allocated_table() const noexcept {
-    static vtable_type<T, false> const allocated_table;
-    return &allocated_table;
-  }
   template <typename T>
   void set_allocated() noexcept {
-    vtable_ = get_allocated_table<T>();
-    cmd_ = &trait<std::decay_t<T>>::template process_cmd<false>;
-  }
-
-  struct empty_type : invoke_table_t {
-    empty_type() noexcept
-        : invoke_table_t(std::make_tuple(
-              &invocation_table::function_trait<
-                  FormalArgs>::template empty_invoker<IsThrowing>::invoke...)) {
-    }
-  };
-
-  invoke_table_t const* get_empty_table() const noexcept {
-    static empty_type const empty_table;
-    return &empty_table;
+    using type = std::decay_t<T>;
+    vtable_ = invoke_table_t::template get_invocation_table_of<type, false>();
+    cmd_ = &trait<type>::template process_cmd<false>;
   }
 
   void set_empty() noexcept {
-    vtable_ = get_empty_table();
+    vtable_ = invoke_table_t::template get_empty_invocation_table<IsThrowing>();
     cmd_ = &empty_cmd;
   }
 };
