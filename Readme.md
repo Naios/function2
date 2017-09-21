@@ -200,8 +200,6 @@ It's possible to disable small functor optimization through setting the internal
 
 Function2 is checked with unit tests and valgrind (for memory leaks), where the unit tests provide coverage for all possible template parameter assignments.
 
-```
-
 ## Compatibility
 
 Tested with:
