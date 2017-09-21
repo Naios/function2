@@ -1081,11 +1081,7 @@ public:
     left.swap(right);
   }
 
-  /// TODO Fix the doc
-  /// Calls the stored callable object,
-  /// returns the result when the function exists
-  /// otherwise it throws a fu2::bad_function_call when exceptions are enabled.
-  /// When exceptions are disabled std::abort is called.
+  /// Calls the wrapped callable object
   using type_erasure::invocation_table::operator_impl<
       0U, function<Config, my_property>, Args...>::operator();
 };
@@ -1125,7 +1121,7 @@ using default_capacity = std::integral_constant<
 
 /// Adaptable function wrapper base for arbitrary functional types.
 template <
-    /// TODO
+    /// This is a placeholder for future non owning support
     bool IsOwning,
     /// Defines whether the function is copyable or not
     bool IsCopyable,
@@ -1135,7 +1131,9 @@ template <
     /// Defines whether the function throws an exception on empty function call,
     /// `std::abort` is called otherwise.
     bool IsThrowing,
-    /// TODO
+    /// Defines whether all objects satisfy the strong exception guarantees,
+    /// which means the function type will satisfy the strong exception
+    /// guarantees too.
     bool HasStrongExceptGuarantee,
     /// Defines the signature of the function wrapper
     typename... Signatures>
@@ -1154,18 +1152,34 @@ using unique_function =
     function_base<true, false, detail::default_capacity::value, true, false,
                   Signatures...>;
 
-/// Exception type when invoking empty functional wrappers.
+#if !defined(FU2_MACRO_DISABLE_EXCEPTIONS)
+/// Exception type that is thrown when invoking empty function objects
+/// and exception support isn't disabled.
 ///
-/// The exception type thrown through empty function calls
-/// when the template parameter 'Throwing' is set to true (default).
+/// Exception suport is enabled if
+/// the template parameter 'Throwing' is set to true (default).
 ///
 /// This type will default to std::bad_function_call if the
-/// functional header is used, otherwise the library provide its own type.
-#if !defined(FU2_MACRO_DISABLE_EXCEPTIONS)
+/// functional header is used, otherwise the library provides its own type.
+///
+/// You may disable the inclusion of the functionl header
+/// through defining `FU2_NO_FUNCTIONAL_HEADER`.
+///
 using detail::type_erasure::invocation_table::bad_function_call;
 #endif
 
-// TODO Add doc
+/// Returns a callable object, which unifies all callable objects
+/// that were passed to this function.
+///
+///   ```cpp
+///   auto overloaded = fu2::overload([](std::true_type) { return true; },
+///                                   [](std::false_type) { return false; });
+///   ```
+///
+/// \param  callables A pack of callable objects with arbitrary signatures.
+///
+/// \returns          A callable object which exposes the
+///
 template <typename... T>
 constexpr auto overload(T&&... callables) {
   return detail::overloading::overload(std::forward<T>(callables)...);
