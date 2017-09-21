@@ -1,23 +1,26 @@
 
-# C++11 Function 2 - fu2::
+# fu2::function<void() const>
 
 [![Build Status](https://travis-ci.org/Naios/function2.svg?branch=master)](https://travis-ci.org/Naios/function2) [![Build status](https://ci.appveyor.com/api/projects/status/1tl0vqpg8ndccats?svg=true)](https://ci.appveyor.com/project/Naios/function2)  ![](https://img.shields.io/badge/License-Boost-blue.svg)
 
 Provides two improved implementations of `std::function`:
 
 - **copyable** `fu2::function`
-- **move-only** `fu2::unique_function`
+- **move-only** `fu2::unique_function` (capable of holding move only types)
 
-which are:
+that provide many benefits and improvements over `std::function`:
 
-- **const**, **volatile** and **reference** correct (qualifiers are part of the `operator()` signature).
-- **convertible** to and from `std::function`.
-- **adaptable** through `fu2::function_base` (internal capacity, copyable).
-- **covered** by unit tests and continuous integration.
-- **header only**, just copy and include `function.hpp` in your project.
+- [x] **const**, **volatile** and **reference** correct (qualifiers are part of the `operator()` signature).
+- [x] **convertible** to and from `std::function` as well as other callable types.
+- [x] **adaptable** through `fu2::function_base` (internal capacity, copyable and exception guarantees)
+- [x] **overloadable** with an arbitrary count of signatures (`fu2::function<bool(int), bool(float)>`)
+- [x] **full allocator support** in contrast of `std::function` which doesn't provide support anymore
+- [x] **covered** by unit tests and continuous integration (*GCC*, *Clang* and *MSVC*).
+- [x] **header only**, just copy and include `function.hpp` in your project, **permissive licensed** under **boost**.
 
 
 ## Table of Contents
+
 * **[Documentation](#documentation)**
   * **[How to use](#how-to-use)**
   * **[Constructing a function](#constructing-a-function)**
@@ -57,7 +60,7 @@ target_link_libraries(my_project function2)
 Use `fu2::function` as a wrapper for copyable function wrappers and `fu2::unique_function` for move only types.
 The standard implementation `std::function` and `fu2::function` are convertible to each other, see [the chapter converbility of functions](#converbility-of-functions) for details.
 
-A function wrapper is declared as followed:
+A function wrapper is declared as following:
 ```c++
 fu2::function<void(int, float) const>
 // Return type ~^   ^     ^     ^
@@ -79,26 +82,21 @@ fu2::function<void(int, float) const>
     - Same as const and volatile together.
   - Also there is support for **r-value functions** `ReturnType operator() (Args...) &&`
     - one-shot functions which are invalidated after the first call.
-
-To build the function2 unit tests you need to pull the submodules (gtest) and build function2 as CMake standalone project:
-
-```sh
-git submodule init
-git submodule update
-mkdir build
-cd build
-cmake ..
-make test
-```
+* **Multiple overloads**: The library is capable of providing multiple overloads:
+  ```cpp
+  fu2::function<int(std::vector<int> const&),
+                int(std::set<int> const&) const> fn = [] (auto const& container) {
+                  return container.size());
+                };
+  ```
 
 ### Constructing a function
 
 `fu2::function` and `fu2::unique_function` (non copyable) are easy to use:
 
 ```c++
-fu2::function<void() const> fun = []
-{
-	// ...
+fu2::function<void() const> fun = [] {
+  // ...
 };
 
 // fun provides void operator()() const now
@@ -110,9 +108,8 @@ fun();
 `fu2::unique_function` also works with non copyable functors/ lambdas.
 
 ```c++
-fu2::unique_function<bool() const> fun = [ptr = std::make_unique<bool>(true)]
-{
-    return *ptr;
+fu2::unique_function<bool() const> fun = [ptr = std::make_unique<bool>(true)] {
+  return *ptr;
 };
 
 // unique functions are move only
@@ -141,7 +138,7 @@ otherfun();
   - `rvalue = rvalue`
 
 | Cobvertible from \ to | fu2::function | fu2::unique_function | std::function |
-|-----------------------|---------------|----------------------|---------------|
+| --------------------- | ------------- | -------------------- | ------------- |
 | fu2::function         | Yes           | Yes                  | Yes           |
 | fu2::unique_function  | No            | Yes                  | No            |
 | std::function         | Yes           | Yes                  | Yes           |
@@ -198,70 +195,10 @@ Smart heap allocation moves the inplace allocated functor automatically to the h
 
 It's possible to disable small functor optimization through setting the internal capacity to 0.
 
-### Compiler optimization
-
-Functions are heavily optimized by compilers see below:
-
-```c++
-int main(int argc, char**)
-{
-    fu2::function<int()> fun([=]
-    {
-        return argc + 20;
-    });
-    return fun();
-}
-```
-
-[Clang 3.4+ and GCC 4.8+ with -O3 compile the following short x86 asm code](https://goo.gl/S3YC98):
-
-```asm
-main: # @main
-	lea	eax, [rdi + 20]
-	ret
-```
-
-(`std::function` [compiles into ~70 instructions](https://goo.gl/GO4G4b)).
-
-### std::function vs fu2::function
-
-```
-Benchmark: Construct and copy function wrapper
-    std::function:         172535130ns
-    fu2::(unique)function: 112452593ns       +53%
-
-Benchmark: Move function wrapper around
-    std::function:         313446044ns
-    fu2::(unique)function: 110743394ns       +183%
-
-Benchmark: Invoke function wrapper
-    std::function:         38555121ns
-    fu2::(unique)function: 28355481ns        +35%
-```
 
 ## Coverage and runtime checks
 
-Function2 is checked with unit tests and valgrind (for memory leaks), where the unit tests provide coverage for all possible template parameter assignments:
-
-```
-[----------] Global test environment tear-down
-[==========] 419 tests from 105 test cases ran. (1349 ms total)
-[  PASSED  ] 419 tests.
-==20005==
-==20005== HEAP SUMMARY:
-==20005==     in use at exit: 72,704 bytes in 1 blocks
-==20005==   total heap usage: 15,475 allocs, 15,474 frees, 1,807,616 bytes allocated
-==20005==
-==20005== LEAK SUMMARY:
-==20005==    definitely lost: 0 bytes in 0 blocks
-==20005==    indirectly lost: 0 bytes in 0 blocks
-==20005==      possibly lost: 0 bytes in 0 blocks
-==20005==    still reachable: 72,704 bytes in 1 blocks
-==20005==         suppressed: 0 bytes in 0 blocks
-==20005==
-==20005== For counts of detected and suppressed errors, rerun with: -v
-==20005== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
-
+Function2 is checked with unit tests and valgrind (for memory leaks), where the unit tests provide coverage for all possible template parameter assignments.
 
 ```
 
@@ -269,15 +206,15 @@ Function2 is checked with unit tests and valgrind (for memory leaks), where the 
 
 Tested with:
 
-- Visual Studio 2015+ Update 2
-- Clang 3.4+
-- GCC 4.9+
+- Visual Studio 2017+ Update 3
+- Clang 3.8+
+- GCC 5.4+
 
-Every compiler with modern C++11 support should work.
-Function2 only depends on the standard library.
+Every compiler with modern C++14 support should work.
+*function2* only depends on the standard library.
 
 ## License
-Function2 is licensed under the very permissive Boost 1.0 License.
+*function2* is licensed under the very permissive Boost 1.0 License.
 
 ## Similar implementations
 

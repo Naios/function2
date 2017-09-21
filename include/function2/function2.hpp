@@ -1165,7 +1165,55 @@ using unique_function =
 using detail::type_erasure::invocation_table::bad_function_call;
 #endif
 
-// TODO Add doc
+/// Traverses the pack with the given visitor in an asynchronous way.
+///
+/// This function works in the same way as `traverse_pack`,
+/// however, we are able to suspend and continue the traversal at
+/// later time.
+/// Thus we require a visitor callable object which provides three
+/// `operator()` overloads as depicted by the code sample below:
+///    ```cpp
+///    struct my_async_visitor
+///    {
+///        /// The synchronous overload is called for each object,
+///        /// it may return false to suspend the current control.
+///        /// In that case the overload below is called.
+///        template <typename T>
+///        bool operator()(async_traverse_visit_tag, T&& element)
+///        {
+///            return true;
+///        }
+///
+///        /// The asynchronous overload this is called when the
+///        /// synchronous overload returned false.
+///        /// In addition to the current visited element the overload is
+///        /// called with a contnuation callable object which resumes the
+///        /// traversal when it's called later.
+///        /// The continuation next may be stored and called later or
+///        /// dropped completely to abort the traversal early.
+///        template <typename T, typename N>
+///        void operator()(async_traverse_detach_tag, T&& element, N&& next)
+///        {
+///        }
+///
+///        /// The overload is called when the traversal was finished.
+///        /// As argument the whole pack is passed over which we
+///        /// traversed asynchrnously.
+///        template <typename T>
+///        void operator()(async_traverse_complete_tag, T&& pack)
+///        {
+///        }
+///    };
+///    ```
+///
+/// \param  callables A pack of callable objects which 
+///
+/// \returns         A boost::intrusive_ptr that references an instance of
+///                  the given visitor object.
+///
+/// See `traverse_pack` for a detailed description about the
+/// traversal behaviour and capabilities.
+///
 template <typename... T>
 constexpr auto overload(T&&... callables) {
   return detail::overloading::overload(std::forward<T>(callables)...);
