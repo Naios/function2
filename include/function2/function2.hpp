@@ -880,6 +880,27 @@ public:
 };
 } // namespace type_erasure
 
+/// Exposes the functionality to deal with non owned callable objects
+namespace non_owning {
+template <bool IsOwing /* = false*/, typename Function>
+struct view_base {
+  // TODO Doc
+  auto acquire() {
+    return 0;
+  }
+
+  // TODO Doc
+  auto acquire() const {
+    return 0;
+  }
+};
+
+template <typename Function>
+struct view_base<true, Function> {
+  // Empty
+};
+} // namespace non_owning
+
 /// Deduces to a true_type if the type T provides the given signature
 template <typename T, typename Signature,
           typename trait =
@@ -934,6 +955,10 @@ class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
           function<Config,
                    property<IsThrowing, HasStrongExceptGuarantee, Args...>>,
           Args...>,
+      public non_owning::view_base<
+          Config::is_owning,
+          function<Config,
+                   property<IsThrowing, HasStrongExceptGuarantee, Args...>>>,
       public copyable<Config::is_copyable> {
 
   template <typename, typename>
@@ -1152,6 +1177,18 @@ using function = function_base<true, true, detail::default_capacity::value,
 template <typename... Signatures>
 using unique_function =
     function_base<true, false, detail::default_capacity::value, true, false,
+                  Signatures...>;
+
+/// Copyable and non owning function wrapper for arbitrary functional types.
+template <typename... Signatures>
+using function_view =
+    function_base<false, true, detail::default_capacity::value, true, false,
+                  Signatures...>;
+
+/// Non copyable and non owning function wrapper for arbitrary functional types.
+template <typename... Signatures>
+using unique_function_view =
+    function_base<false, false, detail::default_capacity::value, true, false,
                   Signatures...>;
 
 /// Exception type when invoking empty functional wrappers.

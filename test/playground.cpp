@@ -6,6 +6,13 @@
 
 #include "function2/function2.hpp"
 
+void here() {
+}
+
 int main(int, char**) {
+  fu2::unique_function_view<void()> my_view = here;
+
+  auto fn = my_view.acquire();
+
   return 0;
 }
