@@ -1,0 +1,8 @@
+title: function2
+description: Improved alternative to std::function which supports move only types
+google_analytics: 
+show_downloads: true
+theme: jekyll-theme-architect
+
+gems:
+  - jekyll-mentions
