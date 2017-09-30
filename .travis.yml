@@ -61,7 +61,6 @@ matrix:
             - ubuntu-toolchain-r-test
           packages:
             - g++-6
-            - valgrind
             - cmake
             - cmake-data
       env:
@@ -78,7 +77,6 @@ matrix:
           packages:
             - g++-6
             - clang-5.0
-            - valgrind
             - cmake
             - cmake-data
       env:
@@ -95,7 +93,6 @@ matrix:
           packages:
             - g++-6
             - clang-5.0
-            - valgrind
             - cmake
             - cmake-data
       env:
@@ -106,10 +103,41 @@ install:
   - export CXX=$COMPILER
   - $CXX --version
 
-  - mkdir bin
-  - cd bin
-  - cmake .. -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_BUILD_TYPE=Release -DTESTS_NO_EXCEPTIONS=$NO_EXCEPTIONS -DTESTS_NO_DEATH_TESTS=ON
+  # Function for creating a new 'build' directory
+  - |
+    function renew_build {
+      echo "Renew build directory..."
+      cd $TRAVIS_BUILD_DIR
+
+      # Remove any existing build directory
+      [ -e build ] && rm -r -f build
+      mkdir build
+      cd build
+
+      # Configure the project and build it
+      cmake -DCMAKE_CXX_FLAGS="$CMAKE_CXX_FLAGS -Werror" -DCMAKE_BUILD_TYPE=Debug -DTESTS_NO_EXCEPTIONS=$NO_EXCEPTIONS -DTESTS_NO_DEATH_TESTS=ON ..
+    }
 
 script:
-  - make -j2
-  - valgrind --error-exitcode=1 --leak-check=full --show-reachable=yes ./test/function2_tests
+  - |
+    if [[ $COMPILER == *"clang"* ]]; then
+      # Build the test suite with various sanitizers:
+      # - ASan (LSan):
+      echo "Building with address sanitizer..."
+      CMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer"
+      renew_build
+      make -j2
+      ctest --verbose
+
+      # - UBSan:
+      echo "Building with undefined behaviour sanitizer..."
+      CMAKE_CXX_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer"
+      renew_build
+      make -j2
+      ctest --verbose
+    else
+      # Build an run the tests suite with valgrind
+      renew_build
+      make -j2
+      valgrind --error-exitcode=1 --leak-check=full --show-reachable=yes ctest --verbose
+    fi
