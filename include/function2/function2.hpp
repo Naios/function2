@@ -197,7 +197,6 @@ struct box : public Allocator {
         std::decay_t<Allocator>>::template rebind_alloc<box<T, Allocator>>;
     real_allocator allocator(*static_cast<Allocator const*>(me));
 
-    me->~box();
     allocator.deallocate(me, 1U);
   }
 };

@@ -35,6 +35,7 @@ add_executable(function2_tests
   ${CMAKE_CURRENT_LIST_DIR}/standard-compliant-test.cpp
   ${CMAKE_CURRENT_LIST_DIR}/type-test.cpp
   ${CMAKE_CURRENT_LIST_DIR}/multi-signature-test.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/regressions.cpp
   ${CMAKE_CURRENT_LIST_DIR}/overload-test.cpp)
 
 target_link_libraries(function2_tests
