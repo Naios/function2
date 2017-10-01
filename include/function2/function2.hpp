@@ -175,7 +175,7 @@ constexpr auto overload(T&&... callables) {
 namespace type_erasure {
 /// Store the allocator inside the box
 template <typename T, typename Allocator>
-struct box : public Allocator {
+struct box : Allocator {
   T value_;
 
   explicit box(T value, Allocator allocator)
@@ -197,6 +197,7 @@ struct box : public Allocator {
         std::decay_t<Allocator>>::template rebind_alloc<box<T, Allocator>>;
     real_allocator allocator(*static_cast<Allocator const*>(me));
 
+    me->~box();
     allocator.deallocate(me, 1U);
   }
 };
@@ -534,17 +535,24 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
           assert(box && "The object must not be over aligned or null!");
 
           if (!IsInplace) {
-            // Just reassign both pointers if we allocated on the heap
+            // Just swap both pointers if we allocated on the heap
             to->ptr_ = from->ptr_;
+
 #ifndef _NDEBUG
+            // We don't need to null the pointer since we know that
+            // we don't own the data anymore through the vtable
+            // which is set to empty.
             from->ptr_ = nullptr;
 #endif
+
             to_table->set_allocated<T>();
+
           }
-          // The object isn't allocate on the heap
+          // The object is allocated inplace
           else {
             construct(std::true_type{}, std::move(*box), to_table, to,
                       to_capacity);
+            box->~T();
           }
           return;
         }
@@ -658,9 +666,10 @@ public:
 
   /// Moves the object at the given position
   void move(vtable& to_table, data_accessor* from, std::size_t from_capacity,
-            data_accessor* to, std::size_t to_capacity) const
-      noexcept(HasStrongExceptGuarantee) {
+            data_accessor* to,
+            std::size_t to_capacity) noexcept(HasStrongExceptGuarantee) {
     cmd_(&to_table, opcode::op_move, from, from_capacity, to, to_capacity);
+    set_empty();
   }
 
   /// Destroys the object at the given position
@@ -806,7 +815,6 @@ public:
       Property::is_strong_exception_guaranteed) {
     right.vtable_.move(vtable_, right.opaque_ptr(), right.capacity(),
                        this->opaque_ptr(), capacity());
-    right.vtable_.destroy(right.opaque_ptr(), right.capacity());
   }
 
   constexpr erasure(erasure const& right) {
@@ -843,7 +851,6 @@ public:
     vtable_.weak_destroy(this->opaque_ptr(), capacity());
     right.vtable_.move(vtable_, right.opaque_ptr(), right.capacity(),
                        this->opaque_ptr(), capacity());
-    right.vtable_.destroy(right.opaque_ptr(), right.capacity());
     return *this;
   }
 

@@ -8,14 +8,19 @@
 
 #include "function2-test.hpp"
 
+struct stateful_callable {
+  std::string test;
+
+  void operator()() {
+  }
+};
+
 /// Iterator dereference (nullptr) crash in Visual Studio
 ///
-/// This was caused through the fact that std::allocator allocates
-/// uninitialized storage but calls operator::delete on the given
-/// object which caused a double destruction.
+/// This was caused through an issue with the allocated pointer swap on move
 TEST(regression_tests, move_iterator_dereference_nullptr) {
   std::string test = "hey";
-  fu2::function<void()> fn = [test = std::move(test)]{};
+  fu2::function<void()> fn = stateful_callable{std::move(test)};
 
   auto fn2 = std::move(fn);
   (void)fn2;

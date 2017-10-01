@@ -20,6 +20,7 @@ public:
           std::default_delete<std::reference_wrapper<std::size_t>>{}(ptr);
         });
   }
+
   std::size_t operator()() const {
     return checker_->get();
   }
@@ -87,14 +88,29 @@ TYPED_TEST(AllSingleMoveAssignConstructTests, AreEmptyAfterNullptrAssign) {
 
 TYPED_TEST(AllSingleMoveAssignConstructTests,
            AreFreeingResourcesOnDestruction) {
-  std::size_t deallocates = 0UL;
 
+  // Pre test
   {
-    typename TestFixture::template left_t<std::size_t() const> left(
-        DeallocatorChecker{deallocates});
-    EXPECT_EQ(deallocates, 0UL);
+    std::size_t deallocates = 0UL;
+
+    {
+      DeallocatorChecker checker{deallocates};
+      ASSERT_EQ(deallocates, 0UL);
+    }
+    ASSERT_EQ(deallocates, 1UL);
   }
-  EXPECT_EQ(deallocates, 1UL);
+
+  // Real test
+  {
+    std::size_t deallocates = 0UL;
+
+    {
+      typename TestFixture::template left_t<std::size_t() const> left(
+          DeallocatorChecker{deallocates});
+      EXPECT_EQ(deallocates, 0UL);
+    }
+    EXPECT_EQ(deallocates, 1UL);
+  }
 }
 
 TYPED_TEST(AllSingleMoveAssignConstructTests, AreConstructibleFromFunctors) {
