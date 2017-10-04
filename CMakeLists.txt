@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.0)
-project(function2 CXX)
-
-set(function2_VERSION_MAJOR 2)
+project(function2 VERSION 2.2.0 LANGUAGES CXX)
 
 add_library(function2 INTERFACE)
+add_library(function2::function2 ALIAS function2)
 
 target_include_directories(function2
   INTERFACE
-    "${CMAKE_CURRENT_LIST_DIR}/include")
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
 
 target_compile_features(function2
   INTERFACE
@@ -25,6 +25,36 @@ target_compile_features(function2
     cxx_nullptr
     cxx_trailing_return_types
     cxx_return_type_deduction)
+
+# Create an install target
+install(TARGETS function2
+        EXPORT Function2Config
+        INCLUDES DESTINATION include)
+
+install(EXPORT Function2Config
+        FILE Function2Config.cmake
+        NAMESPACE function2::
+        DESTINATION share/function2/cmake)
+
+install(DIRECTORY include/function2
+        DESTINATION include FILES_MATCHING PATTERN "*.hpp")
+
+install(FILES LICENSE.txt DESTINATION . RENAME function2-LICENSE.txt)
+install(FILES Readme.md DESTINATION . RENAME function2-Readme.md)
+
+# Setup CPack for bundling
+set(CPACK_GENERATOR "ZIP")
+set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+
+# Since the header only library is platform independent
+# we name the packages after the native line feed
+if(WIN32)
+  set(CPACK_SYSTEM_NAME "crlf")
+else()
+  set(CPACK_SYSTEM_NAME "lf")
+endif()
 
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
   if (MSVC)

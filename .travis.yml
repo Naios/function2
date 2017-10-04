@@ -141,3 +141,6 @@ script:
       make -j2
       valgrind --error-exitcode=1 --leak-check=full --show-reachable=yes ctest --verbose
     fi
+
+notifications:
+  email: false
