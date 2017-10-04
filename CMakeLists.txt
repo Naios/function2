@@ -28,11 +28,11 @@ target_compile_features(function2
 
 # Create an install target
 install(TARGETS function2
-        EXPORT Function2Config
+        EXPORT function2-config
         INCLUDES DESTINATION include)
 
-install(EXPORT Function2Config
-        FILE Function2Config.cmake
+install(EXPORT function2-config
+        FILE function2-config.cmake
         NAMESPACE function2::
         DESTINATION share/function2/cmake)
 
