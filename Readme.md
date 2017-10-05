@@ -1,7 +1,7 @@
 
 # fu2::function an improved drop-in replacement to std::function
 
-[![Build Status](https://travis-ci.org/Naios/function2.svg?branch=master)](https://travis-ci.org/Naios/function2) [![Build status](https://ci.appveyor.com/api/projects/status/1tl0vqpg8ndccats?svg=true)](https://ci.appveyor.com/project/Naios/function2)  ![](https://img.shields.io/badge/License-Boost-blue.svg)
+[![Build Status](https://travis-ci.org/Naios/function2.svg?branch=master)](https://travis-ci.org/Naios/function2) [![Build status](https://ci.appveyor.com/api/projects/status/1tl0vqpg8ndccats/branch/master?svg=true)](https://ci.appveyor.com/project/Naios/function2/branch/master) ![](https://img.shields.io/badge/License-Boost-blue.svg)
 
 Provides two improved implementations of `std::function`:
 
