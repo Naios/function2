@@ -25,7 +25,7 @@ that provide many benefits and improvements over `std::function`:
   * **[How to use](#how-to-use)**
   * **[Constructing a function](#constructing-a-function)**
   * **[Non copyable unique functions](#non-copyable-unique-functions)**
-  * **[Converbility of functions](#converbility-of-functions)**
+  * **[Convertibility of functions](#convertibility-of-functions)**
   * **[Adapt function2](#adapt-function2)**
 * **[Performance and optimization](#performance-and-optimization)**
   * **[Small functor optimization](#small-functor-optimization)**
@@ -118,7 +118,7 @@ fu2::unique_function<bool() const> otherfun = std::move(fun):
 otherfun();
 ```
 
-### Converbility of functions
+### Convertibility of functions
 
 `fu2::function`, `fu2::unique_function` and `std::function` are convertible to each other when:
 
@@ -137,11 +137,11 @@ otherfun();
   - `lvalue = rvalue`
   - `rvalue = rvalue`
 
-| Cobvertible from \ to | fu2::function | fu2::unique_function | std::function |
-| --------------------- | ------------- | -------------------- | ------------- |
-| fu2::function         | Yes           | Yes                  | Yes           |
-| fu2::unique_function  | No            | Yes                  | No            |
-| std::function         | Yes           | Yes                  | Yes           |
+| Convertibility from \ to | fu2::function | fu2::unique_function | std::function |
+| ------------------------ | ------------- | -------------------- | ------------- |
+| fu2::function            | Yes           | Yes                  | Yes           |
+| fu2::unique_function     | No            | Yes                  | No            |
+| std::function            | Yes           | Yes                  | Yes           |
 
 ```c++
 fu2::function<void()> fun = []{};
