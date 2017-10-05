@@ -787,15 +787,12 @@ public:
 
 /// A copyable owning erasure
 template <typename Config, typename Property>
-class erasure : internal_capacity_holder<Config::capacity> {
+class erasure : internal_capacity_holder<Config::capacity>,
+                tables::vtable<Property> {
   friend struct erasure_attorney;
 
   template <typename, typename>
   friend class erasure;
-
-  using VTable = tables::vtable<Property>;
-
-  VTable vtable_;
 
 public:
   /// Returns the capacity of this erasure
@@ -804,84 +801,92 @@ public:
   }
 
   constexpr erasure() noexcept {
-    vtable_.init_empty();
+    tables::vtable<Property>::init_empty();
   }
 
   constexpr erasure(std::nullptr_t) noexcept {
-    vtable_.init_empty();
+    tables::vtable<Property>::init_empty();
   }
 
   constexpr erasure(erasure&& right) noexcept(
       Property::is_strong_exception_guaranteed) {
-    right.vtable_.move(vtable_, right.opaque_ptr(), right.capacity(),
-                       this->opaque_ptr(), capacity());
+    static_cast<tables::vtable<Property>*>(&right)->move(
+        *static_cast<tables::vtable<Property>*>(this), right.opaque_ptr(),
+        right.capacity(), this->opaque_ptr(), capacity());
   }
 
   constexpr erasure(erasure const& right) {
-    right.vtable_.copy(vtable_, right.opaque_ptr(), right.capacity(),
-                       this->opaque_ptr(), capacity());
+    static_cast<tables::vtable<Property>*>(&right)->copy(
+        *static_cast<tables::vtable<Property>*>(this), right.opaque_ptr(),
+        right.capacity(), this->opaque_ptr(), capacity());
   }
 
   template <typename OtherConfig>
   constexpr erasure(erasure<OtherConfig, Property> right) noexcept(
       Property::is_strong_exception_guaranteed) {
-    right.vtable_.move(vtable_, right.opaque_ptr(), right.capacity(),
-                       this->opaque_ptr(), capacity());
+    static_cast<tables::vtable<Property>*>(&right)->move(
+        *static_cast<tables::vtable<Property>*>(this), right.opaque_ptr(),
+        right.capacity(), this->opaque_ptr(), capacity());
   }
 
   template <typename T,
             std::enable_if_t<is_box<std::decay_t<T>>::value>* = nullptr>
   constexpr erasure(T&& object) {
-    VTable::init(vtable_, std::forward<T>(object), this->opaque_ptr(),
-                 capacity());
+    tables::vtable<Property>::init(
+        *static_cast<tables::vtable<Property>*>(this), std::forward<T>(object),
+        this->opaque_ptr(), capacity());
   }
 
   ~erasure() {
-    vtable_.weak_destroy(this->opaque_ptr(), capacity());
+    tables::vtable<Property>::weak_destroy(this->opaque_ptr(), capacity());
   }
 
   constexpr erasure&
   operator=(std::nullptr_t) noexcept(Property::is_strong_exception_guaranteed) {
-    vtable_.destroy(this->opaque_ptr(), capacity());
+    tables::vtable<Property>::destroy(this->opaque_ptr(), capacity());
     return *this;
   }
 
   constexpr erasure& operator=(erasure&& right) noexcept(
       Property::is_strong_exception_guaranteed) {
-    vtable_.weak_destroy(this->opaque_ptr(), capacity());
-    right.vtable_.move(vtable_, right.opaque_ptr(), right.capacity(),
-                       this->opaque_ptr(), capacity());
+    tables::vtable<Property>::weak_destroy(this->opaque_ptr(), capacity());
+    static_cast<tables::vtable<Property>*>(&right)->move(
+        *static_cast<tables::vtable<Property>*>(this), right.opaque_ptr(),
+        right.capacity(), this->opaque_ptr(), capacity());
     return *this;
   }
 
   constexpr erasure& operator=(erasure const& right) {
-    vtable_.weak_destroy(this->opaque_ptr(), capacity());
-    right.vtable_.copy(vtable_, right.opaque_ptr(), right.capacity(),
-                       this->opaque_ptr(), capacity());
+    tables::vtable<Property>::weak_destroy(this->opaque_ptr(), capacity());
+    static_cast<tables::vtable<Property>*>(&right)->copy(
+        *static_cast<tables::vtable<Property>*>(this), right.opaque_ptr(),
+        right.capacity(), this->opaque_ptr(), capacity());
     return *this;
   }
 
   template <typename OtherConfig>
   constexpr erasure& operator=(erasure<OtherConfig, Property> right) noexcept(
       Property::is_strong_exception_guaranteed) {
-    vtable_.weak_destroy(this->opaque_ptr(), capacity());
-    right.vtable_.move(vtable_, right.opaque_ptr(), right.capacity(),
-                       this->opaque_ptr(), capacity());
+    tables::vtable<Property>::weak_destroy(this->opaque_ptr(), capacity());
+    static_cast<tables::vtable<Property>*>(&right)->move(
+        *static_cast<tables::vtable<Property>*>(this), right.opaque_ptr(),
+        right.capacity(), this->opaque_ptr(), capacity());
     return *this;
   }
 
   template <typename T,
             std::enable_if_t<is_box<std::decay_t<T>>::value>* = nullptr>
   constexpr erasure& operator=(T&& object) {
-    vtable_.weak_destroy(this->opaque_ptr(), capacity());
-    VTable::init(vtable_, std::forward<T>(object), this->opaque_ptr(),
-                 capacity());
+    tables::vtable<Property>::weak_destroy(this->opaque_ptr(), capacity());
+    tables::vtable<Property>::init(
+        *static_cast<tables::vtable<Property>*>(this), std::forward<T>(object),
+        this->opaque_ptr(), capacity());
     return *this;
   }
 
   /// Returns true when the erasure doesn't hold any erased object
   constexpr bool empty() const noexcept {
-    return vtable_.empty();
+    return tables::vtable<Property>::empty();
   }
 };
 } // namespace type_erasure
@@ -935,12 +940,12 @@ class function;
 template <typename Config, bool IsThrowing, bool HasStrongExceptGuarantee,
           typename... Args>
 class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
-    : public type_erasure::invocation_table::operator_impl<
+    : type_erasure::invocation_table::operator_impl<
           0U,
           function<Config,
                    property<IsThrowing, HasStrongExceptGuarantee, Args...>>,
           Args...>,
-      public copyable<Config::is_copyable> {
+      copyable<Config::is_copyable> {
 
   template <typename, typename>
   friend class function;
@@ -978,6 +983,10 @@ class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
 public:
   /// Default constructor which constructs the function empty
   function() = default;
+
+  auto er() {
+    return sizeof(erasure_);
+  }
 
   explicit constexpr function(function const& /*right*/) = default;
   explicit constexpr function(function&& /*right*/) = default;
@@ -1112,16 +1121,9 @@ bool operator!=(std::nullptr_t, function<Config, Property> const& f) {
   return bool(f);
 }
 
-// Internal size of an empty function object
-using empty_size = std::integral_constant<
-    std::size_t, sizeof(function<detail::config<true, true, 0UL>,
-                                 detail::property<true, false, void() const>>)>;
-
-// Default capacity for small functor optimization
-using default_capacity = std::integral_constant<
-    std::size_t,
-    // Aim to size the function object to 32UL
-    (empty_size::value < 32UL) ? (32UL - empty_size::value) : 16UL>;
+// Default capacity for small functor optimization (aiming to 32 byte)
+using default_capacity =
+    std::integral_constant<std::size_t, 32UL - sizeof(void*)>;
 } // namespace detail
 } // namespace v5
 
