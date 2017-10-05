@@ -5,7 +5,6 @@
 //             http://www.boost.org/LICENSE_1_0.txt)
 
 #include <string>
-
 #include "function2-test.hpp"
 
 struct stateful_callable {
@@ -24,4 +23,13 @@ TEST(regression_tests, move_iterator_dereference_nullptr) {
 
   auto fn2 = std::move(fn);
   (void)fn2;
+}
+
+TEST(regression_tests, size_32) {
+  fu2::function<void() const> fn;
+
+  int es = fn.er();
+  int fs = sizeof(fn);
+
+  EXPECT_EQ(sizeof(fu2::function<void() const>), 32UL);
 }
