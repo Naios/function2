@@ -58,7 +58,7 @@ target_link_libraries(my_project function2)
 ```
 
 Use `fu2::function` as a wrapper for copyable function wrappers and `fu2::unique_function` for move only types.
-The standard implementation `std::function` and `fu2::function` are convertible to each other, see [the chapter converbility of functions](#converbility-of-functions) for details.
+The standard implementation `std::function` and `fu2::function` are convertible to each other, see [the chapter convertibility of functions](#convertibility-of-functions) for details.
 
 A function wrapper is declared as following:
 ```c++
@@ -229,4 +229,3 @@ There are similar implementations of a function wrapper:
 - [cxx_function::function](https://github.com/potswa/cxx_function) - By David Krauss
 
 Also check out the amazing [**CxxFunctionBenchmark**](https://github.com/jamboree/CxxFunctionBenchmark) which compares several implementations.
-```
