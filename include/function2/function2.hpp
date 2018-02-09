@@ -545,7 +545,7 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
             from->ptr_ = nullptr;
 #endif
 
-            to_table->set_allocated<T>();
+            to_table->template set_allocated<T>();
 
           }
           // The object is allocated inplace
@@ -583,7 +583,7 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
           }
 
           if (op == opcode::op_destroy) {
-            to_table->set_empty();
+            to_table->template set_empty();
           }
           return;
         }
@@ -606,11 +606,11 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
       // Try to allocate the object inplace
       void* storage = retrieve<T>(std::true_type{}, to, to_capacity);
       if (storage) {
-        to_table->set_inplace<T>();
+        to_table->template set_inplace<T>();
       } else {
         // Allocate the object through the allocator
         to->ptr_ = storage = box.box_allocate();
-        to_table->set_allocated<T>();
+        to_table->template set_allocated<T>();
       }
       new (storage) T(std::forward<Box>(box));
     }
