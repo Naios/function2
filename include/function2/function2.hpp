@@ -583,7 +583,7 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
           }
 
           if (op == opcode::op_destroy) {
-            to_table->template set_empty();
+            to_table->set_empty();
           }
           return;
         }
