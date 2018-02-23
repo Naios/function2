@@ -334,7 +334,7 @@ struct function_trait;
         return invocation::invoke(                                             \
             static_cast<std::decay_t<decltype(box->value_)> CONST VOLATILE     \
                             REF>(box->value_),                                 \
-            std::move(args)...);                                               \
+            std::forward<Args>(args)...);                                      \
       }                                                                        \
     };                                                                         \
                                                                                \
@@ -465,7 +465,7 @@ struct operator_impl;
       return erasure_attorney::invoke<Index>(                                  \
           static_cast<std::decay_t<decltype(function->erasure_)> CONST         \
                           VOLATILE REF>(function->erasure_),                   \
-          std::move(args)...);                                                 \
+          std::forward<Args>(args)...);                                        \
     }                                                                          \
   };                                                                           \
   template <std::size_t Index, typename Function, typename Ret,                \
@@ -477,7 +477,7 @@ struct operator_impl;
       return erasure_attorney::invoke<Index>(                                  \
           static_cast<std::decay_t<decltype(function->erasure_)> CONST         \
                           VOLATILE REF>(function->erasure_),                   \
-          std::move(args)...);                                                 \
+          std::forward<Args>(args)...);                                        \
     }                                                                          \
   };
 

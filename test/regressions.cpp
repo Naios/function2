@@ -25,3 +25,17 @@ TEST(regression_tests, move_iterator_dereference_nullptr) {
   auto fn2 = std::move(fn);
   (void)fn2;
 }
+
+int function_issue_7_regression(int& i) {
+  return i;
+}
+
+/// The following code does not compile on
+/// MSVC version 19.12.25830.2 (Visual Studio 2017 15.5.1):
+///
+/// https://github.com/Naios/function2/issues/7
+TEST(regression_tests, reference_parameters_issue_7) {
+  fu2::function<int(int&)> f = function_issue_7_regression;
+  int i = 4384674;
+  ASSERT_EQ(f(i), 4384674);
+}
