@@ -188,7 +188,8 @@ struct box : Allocator {
         std::decay_t<Allocator>>::template rebind_alloc<box<T, Allocator>>;
     real_allocator allocator(*static_cast<Allocator const*>(this));
 
-    return static_cast<box*>(allocator.allocate(1U));
+    return static_cast<box*>(
+        std::allocator_traits<real_allocator>::allocate(allocator, 1U));
   }
 
   /// Destroys the box through the given allocator
@@ -198,7 +199,7 @@ struct box : Allocator {
     real_allocator allocator(*static_cast<Allocator const*>(me));
 
     me->~box();
-    allocator.deallocate(me, 1U);
+    std::allocator_traits<real_allocator>::deallocate(allocator, me, 1U);
   }
 };
 
