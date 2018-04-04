@@ -115,6 +115,22 @@ constexpr auto invoke(Type T::*member, Self&& self, Args&&... args) noexcept(
         (std::forward<Self>(self)->*member)(std::forward<Args>(args)...)) {
   return (std::forward<Self>(self)->*member)(std::forward<Args>(args)...);
 }
+/// Invokes the given pointer to a scalar member by reference
+template <typename T, typename Type, typename Self>
+constexpr auto
+invoke(Type T::*member,
+       Self&& self) noexcept(noexcept(std::forward<Self>(self).*member))
+    -> decltype(std::forward<Self>(self).*member) {
+  return (std::forward<Self>(self).*member);
+}
+/// Invokes the given pointer to a scalar member by pointer
+template <typename T, typename Type, typename Self>
+constexpr auto
+invoke(Type T::*member,
+       Self&& self) noexcept(noexcept(std::forward<Self>(self)->*member))
+    -> decltype(std::forward<Self>(self)->*member) {
+  return std::forward<Self>(self)->*member;
+}
 
 /// Deduces to a true type if the callable object can be invoked with
 /// the given arguments.
@@ -140,6 +156,20 @@ struct can_invoke<Pointer, identity<T*, Args...>,
                   decltype(
                       (void)((std::declval<T*>()->*std::declval<Pointer>())(
                           std::declval<Args>()...)))> : std::true_type {};
+template <typename Pointer, typename T>
+struct can_invoke<Pointer, identity<T&>,
+                  decltype((void)(std::declval<T&>().*std::declval<Pointer>()))>
+    : std::true_type {};
+template <typename Pointer, typename T>
+struct can_invoke<Pointer, identity<T&&>,
+                  decltype((void)(std::declval<T&&>().*
+                                  std::declval<Pointer>()))> : std::true_type {
+};
+template <typename Pointer, typename T>
+struct can_invoke<Pointer, identity<T*>,
+                  decltype(
+                      (void)(std::declval<T*>()->*std::declval<Pointer>()))>
+    : std::true_type {};
 } // end namespace invocation
 
 namespace overloading {
