@@ -293,23 +293,6 @@ constexpr auto retrieve(std::false_type /*is_inplace*/, Accessor from,
   return from->ptr_;
 }
 
-/// For allowing private access to erasure
-struct erasure_attorney {
-  /// Invoke the function of the erasure at the given index
-  ///
-  /// We define this out of class to be able to forward the qualified
-  /// erasure correctly.
-  template <std::size_t Index, typename Erasure, typename... Args>
-  static constexpr auto invoke(Erasure&& erasure, Args&&... args) noexcept(
-      noexcept(std::forward<Erasure>(erasure).vtable_.template invoke<Index>(
-          erasure.opaque_ptr(), erasure.capacity(),
-          std::forward<Args>(args)...))) {
-    // Add data pointer and the capacity to the arguments
-    return erasure.vtable_.template invoke<Index>(
-        erasure.opaque_ptr(), erasure.capacity(), std::forward<Args>(args)...);
-  }
-};
-
 namespace invocation_table {
 #if defined(FU2_NO_FUNCTIONAL_HEADER)
 struct bad_function_call : std::exception {
@@ -397,7 +380,7 @@ using function_pointer_of = typename function_trait<Signature>::pointer_type;
 template <typename... Args>
 struct invoke_table;
 
-/// We optimize the VTable in case there is a single function overload
+/// We optimize the vtable_t in case there is a single function overload
 template <typename First>
 struct invoke_table<First> {
   using type = function_pointer_of<First>;
@@ -508,9 +491,10 @@ class operator_impl;
                                                                                \
     Ret operator()(Args... args) CONST VOLATILE OVL_REF {                      \
       auto parent = static_cast<Function CONST VOLATILE*>(this);               \
-      return erasure_attorney::invoke<Index>(                                  \
-          static_cast<std::decay_t<decltype(parent->erasure_)> CONST VOLATILE  \
-                          REF>(parent->erasure_),                              \
+      using erasure_t = std::decay_t<decltype(parent->erasure_)>;              \
+                                                                               \
+      return erasure_t::template invoke<Index>(                                \
+          static_cast<erasure_t CONST VOLATILE REF>(parent->erasure_),         \
           std::forward<Args>(args)...);                                        \
     }                                                                          \
   };                                                                           \
@@ -534,9 +518,10 @@ class operator_impl;
     Ret operator()(Args... args) CONST VOLATILE OVL_REF {                      \
       auto parent =                                                            \
           static_cast<function<Config, Property> CONST VOLATILE*>(this);       \
-      return erasure_attorney::invoke<Index>(                                  \
-          static_cast<std::decay_t<decltype(parent->erasure_)> CONST VOLATILE  \
-                          REF>(parent->erasure_),                              \
+      using erasure_t = std::decay_t<decltype(parent->erasure_)>;              \
+                                                                               \
+      return erasure_t::template invoke<Index>(                                \
+          static_cast<erasure_t CONST VOLATILE REF>(parent->erasure_),         \
           std::forward<Args>(args)...);                                        \
     }                                                                          \
   };
@@ -847,16 +832,14 @@ public:
 /// A copyable owning erasure
 template <typename Config, typename Property>
 class erasure : internal_capacity_holder<Config::capacity> {
-  friend struct erasure_attorney;
-
   template <typename, typename>
   friend class erasure;
   template <std::size_t, typename, typename...>
   friend class operator_impl;
 
-  using VTable = tables::vtable<Property>;
+  using vtable_t = tables::vtable<Property>;
 
-  VTable vtable_;
+  vtable_t vtable_;
 
 public:
   /// Returns the capacity of this erasure
@@ -893,8 +876,8 @@ public:
   template <typename T,
             std::enable_if_t<is_box<std::decay_t<T>>::value>* = nullptr>
   constexpr erasure(T&& object) {
-    VTable::init(vtable_, std::forward<T>(object), this->opaque_ptr(),
-                 capacity());
+    vtable_t::init(vtable_, std::forward<T>(object), this->opaque_ptr(),
+                   capacity());
   }
 
   ~erasure() {
@@ -935,14 +918,26 @@ public:
             std::enable_if_t<is_box<std::decay_t<T>>::value>* = nullptr>
   constexpr erasure& operator=(T&& object) {
     vtable_.weak_destroy(this->opaque_ptr(), capacity());
-    VTable::init(vtable_, std::forward<T>(object), this->opaque_ptr(),
-                 capacity());
+    vtable_t::init(vtable_, std::forward<T>(object), this->opaque_ptr(),
+                   capacity());
     return *this;
   }
 
   /// Returns true when the erasure doesn't hold any erased object
   constexpr bool empty() const noexcept {
     return vtable_.empty();
+  }
+
+  /// Invoke the function of the erasure at the given index
+  ///
+  /// We define this out of class to be able to forward the qualified
+  /// erasure correctly.
+  template <std::size_t Index, typename Erasure, typename... Args>
+  static constexpr auto invoke(Erasure&& erasure, Args&&... args) {
+    auto const capacity = erasure.capacity();
+    return erasure.vtable_.template invoke<Index>(
+        std::forward<Erasure>(erasure).opaque_ptr(), capacity,
+        std::forward<Args>(args)...);
   }
 };
 } // namespace type_erasure
@@ -1006,6 +1001,7 @@ class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
   friend class type_erasure::invocation_table::operator_impl;
 
   using property_t = property<IsThrowing, HasStrongExceptGuarantee, Args...>;
+  using erasure_t = type_erasure::erasure<Config, property_t>;
 
   template <typename T>
   using enable_if_can_accept_all_t =
