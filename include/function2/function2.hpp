@@ -1,5 +1,5 @@
 
-//  Copyright 2015-2017 Denis Blank <denis.blank at outlook dot com>
+//  Copyright 2015-2018 Denis Blank <denis.blank at outlook dot com>
 //     Distributed under the Boost Software License, Version 1.0
 //       (See accompanying file LICENSE_1_0.txt or copy at
 //             http://www.boost.org/LICENSE_1_0.txt)
@@ -39,8 +39,11 @@
 #endif
 
 namespace fu2 {
-inline namespace v5 {
+inline namespace abi_300 {
 namespace detail {
+template <typename Config, typename Property>
+class function;
+
 template <typename...>
 struct identity {};
 
@@ -59,6 +62,7 @@ struct copyable {};
 template <>
 struct copyable<false> {
   copyable() = default;
+  ~copyable() = default;
   copyable(copyable const&) = delete;
   copyable(copyable&&) = default;
   copyable& operator=(copyable const&) = delete;
@@ -480,41 +484,65 @@ struct invoke_table<First, Second, Args...> {
 };
 
 template <std::size_t Index, typename Function, typename... Signatures>
-struct operator_impl;
+class operator_impl;
 
 #define FU2_DEFINE_FUNCTION_TRAIT(CONST, VOLATILE, OVL_REF, REF)               \
   template <std::size_t Index, typename Function, typename Ret,                \
             typename... Args, typename Next, typename... Signatures>           \
-  struct operator_impl<Index, Function, Ret(Args...) CONST VOLATILE OVL_REF,   \
-                       Next, Signatures...>                                    \
+  class operator_impl<Index, Function, Ret(Args...) CONST VOLATILE OVL_REF,    \
+                      Next, Signatures...>                                     \
       : operator_impl<Index + 1, Function, Next, Signatures...> {              \
+                                                                               \
+    template <std::size_t, typename, typename...>                              \
+    friend class operator_impl;                                                \
+                                                                               \
+  protected:                                                                   \
+    operator_impl() = default;                                                 \
+    ~operator_impl() = default;                                                \
+    operator_impl(operator_impl const&) = default;                             \
+    operator_impl(operator_impl&&) = default;                                  \
+    operator_impl& operator=(operator_impl const&) = default;                  \
+    operator_impl& operator=(operator_impl&&) = default;                       \
                                                                                \
     using operator_impl<Index + 1, Function, Next, Signatures...>::operator(); \
                                                                                \
     Ret operator()(Args... args) CONST VOLATILE OVL_REF {                      \
-      auto function = static_cast<Function CONST VOLATILE*>(this);             \
+      auto parent = static_cast<Function CONST VOLATILE*>(this);               \
       return erasure_attorney::invoke<Index>(                                  \
-          static_cast<std::decay_t<decltype(function->erasure_)> CONST         \
-                          VOLATILE REF>(function->erasure_),                   \
+          static_cast<std::decay_t<decltype(parent->erasure_)> CONST VOLATILE  \
+                          REF>(parent->erasure_),                              \
           std::forward<Args>(args)...);                                        \
     }                                                                          \
   };                                                                           \
-  template <std::size_t Index, typename Function, typename Ret,                \
-            typename... Args>                                                  \
-  struct operator_impl<Index, Function, Ret(Args...) CONST VOLATILE OVL_REF> { \
+  template <std::size_t Index, typename Config, typename Property,             \
+            typename Ret, typename... Args>                                    \
+  class operator_impl<Index, function<Config, Property>,                       \
+                      Ret(Args...) CONST VOLATILE OVL_REF>                     \
+      : copyable<Config::is_copyable> {                                        \
+                                                                               \
+    template <std::size_t, typename, typename...>                              \
+    friend class operator_impl;                                                \
+                                                                               \
+  protected:                                                                   \
+    operator_impl() = default;                                                 \
+    ~operator_impl() = default;                                                \
+    operator_impl(operator_impl const&) = default;                             \
+    operator_impl(operator_impl&&) = default;                                  \
+    operator_impl& operator=(operator_impl const&) = default;                  \
+    operator_impl& operator=(operator_impl&&) = default;                       \
                                                                                \
     Ret operator()(Args... args) CONST VOLATILE OVL_REF {                      \
-      auto function = static_cast<Function CONST VOLATILE*>(this);             \
+      auto parent =                                                            \
+          static_cast<function<Config, Property> CONST VOLATILE*>(this);       \
       return erasure_attorney::invoke<Index>(                                  \
-          static_cast<std::decay_t<decltype(function->erasure_)> CONST         \
-                          VOLATILE REF>(function->erasure_),                   \
+          static_cast<std::decay_t<decltype(parent->erasure_)> CONST VOLATILE  \
+                          REF>(parent->erasure_),                              \
           std::forward<Args>(args)...);                                        \
     }                                                                          \
   };
 
 FU2_EXPAND_QUALIFIERS(FU2_DEFINE_FUNCTION_TRAIT)
 #undef FU2_DEFINE_FUNCTION_TRAIT
-#undef FU2_EXPAND_QUALIFIERS
 } // namespace invocation_table
 
 namespace tables {
@@ -823,6 +851,8 @@ class erasure : internal_capacity_holder<Config::capacity> {
 
   template <typename, typename>
   friend class erasure;
+  template <std::size_t, typename, typename...>
+  friend class operator_impl;
 
   using VTable = tables::vtable<Property>;
 
@@ -960,26 +990,22 @@ template <typename LeftConfig, typename RightConfig>
 using enable_if_copyable_correct_t =
     std::enable_if_t<(!LeftConfig::is_copyable || RightConfig::is_copyable)>;
 
-template <typename Config, typename Property>
-class function;
-
 template <typename Config, bool IsThrowing, bool HasStrongExceptGuarantee,
           typename... Args>
 class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
-    : public type_erasure::invocation_table::operator_impl<
+    : type_erasure::invocation_table::operator_impl<
           0U,
           function<Config,
                    property<IsThrowing, HasStrongExceptGuarantee, Args...>>,
-          Args...>,
-      public copyable<Config::is_copyable> {
+          Args...> {
 
   template <typename, typename>
   friend class function;
 
   template <std::size_t, typename, typename...>
-  friend struct type_erasure::invocation_table::operator_impl;
+  friend class type_erasure::invocation_table::operator_impl;
 
-  using my_property = property<IsThrowing, HasStrongExceptGuarantee, Args...>;
+  using property_t = property<IsThrowing, HasStrongExceptGuarantee, Args...>;
 
   template <typename T>
   using enable_if_can_accept_all_t =
@@ -988,7 +1014,7 @@ class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
   template <typename Function>
   struct is_convertible_to_this : std::false_type {};
   template <typename RightConfig>
-  struct is_convertible_to_this<function<RightConfig, my_property>>
+  struct is_convertible_to_this<function<RightConfig, property_t>>
       : std::true_type {};
 
   template <typename T>
@@ -1004,11 +1030,12 @@ class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
       typename assert_no_strong_except_guarantee<HasStrongExceptGuarantee,
                                                  std::decay_t<T>>::type;
 
-  type_erasure::erasure<Config, my_property> erasure_;
+  type_erasure::erasure<Config, property_t> erasure_;
 
 public:
-  /// Default constructor which constructs the function empty
+  /// Default constructor which empty constructs the function
   function() = default;
+  ~function() = default;
 
   explicit constexpr function(function const& /*right*/) = default;
   explicit constexpr function(function&& /*right*/) = default;
@@ -1017,14 +1044,14 @@ public:
   template <typename RightConfig,
             std::enable_if_t<RightConfig::is_copyable>* = nullptr,
             enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
-  constexpr function(function<RightConfig, my_property> const& right)
+  constexpr function(function<RightConfig, property_t> const& right)
       : erasure_(right.erasure_) {
   }
 
   /// Move construction from another function
   template <typename RightConfig,
             enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
-  constexpr function(function<RightConfig, my_property>&& right)
+  constexpr function(function<RightConfig, property_t>&& right)
       : erasure_(std::move(right.erasure_)) {
   }
 
@@ -1050,7 +1077,7 @@ public:
   template <typename RightConfig,
             std::enable_if_t<RightConfig::is_copyable>* = nullptr,
             enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
-  function& operator=(function<RightConfig, my_property> const& right) {
+  function& operator=(function<RightConfig, property_t> const& right) {
     erasure_ = right.erasure_;
     return *this;
   }
@@ -1058,7 +1085,7 @@ public:
   /// Move assigning from another function
   template <typename RightConfig,
             enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
-  function& operator=(function<RightConfig, my_property>&& right) {
+  function& operator=(function<RightConfig, property_t>&& right) {
     erasure_ = std::move(right.erasure_);
     return *this;
   }
@@ -1120,7 +1147,7 @@ public:
 
   /// Calls the wrapped callable object
   using type_erasure::invocation_table::operator_impl<
-      0U, function<Config, my_property>, Args...>::operator();
+      0U, function<Config, property_t>, Args...>::operator();
 };
 
 template <typename Config, typename Property>
@@ -1143,18 +1170,15 @@ bool operator!=(std::nullptr_t, function<Config, Property> const& f) {
   return bool(f);
 }
 
-// Internal size of an empty function object
-using empty_size = std::integral_constant<
-    std::size_t, sizeof(function<detail::config<true, true, 0UL>,
-                                 detail::property<true, false, void() const>>)>;
+// Default object size of the function
+using object_size = std::integral_constant<std::size_t, 32U>;
 
 // Default capacity for small functor optimization
-using default_capacity = std::integral_constant<
-    std::size_t,
-    // Aim to size the function object to 32UL
-    (empty_size::value < 32UL) ? (32UL - empty_size::value) : 16UL>;
+using default_capacity =
+    std::integral_constant<std::size_t,
+                           object_size::value - (2 * sizeof(void*))>;
 } // namespace detail
-} // namespace v5
+} // namespace abi_300
 
 /// Adaptable function wrapper base for arbitrary functional types.
 template <
@@ -1164,6 +1188,10 @@ template <
     bool IsCopyable,
     /// Defines the internal capacity of the function
     /// for small functor optimization.
+    /// The size of the whole function object will be the capacity plus
+    /// the size of two pointers.
+    /// If the capacity is zero, the size will increase through one additional
+    /// pointer so the whole object has the size of 3 * sizeof(void*).
     std::size_t Capacity,
     /// Defines whether the function throws an exception on empty function call,
     /// `std::abort` is called otherwise.
@@ -1224,5 +1252,6 @@ constexpr auto overload(T&&... callables) {
 } // namespace fu2
 
 #undef FU2_MACRO_DISABLE_EXCEPTIONS
+#undef FU2_EXPAND_QUALIFIERS
 
 #endif // FU2_INCLUDED_FUNCTION2_HPP__

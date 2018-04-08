@@ -53,3 +53,9 @@ TEST(regression_tests, scalar_members_issue_10) {
   fu2::function<int(scalar_member const&)> fn = &scalar_member::num_;
   ASSERT_EQ(fn(obj), 4384674);
 }
+
+TEST(regression_tests, size_match_layout) {
+  fu2::function<void() const> fn;
+
+  ASSERT_EQ(sizeof(fn), fu2::detail::object_size::value);
+}
