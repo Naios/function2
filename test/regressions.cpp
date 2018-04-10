@@ -59,3 +59,9 @@ TEST(regression_tests, size_match_layout) {
 
   ASSERT_EQ(sizeof(fn), fu2::detail::object_size::value);
 }
+
+TEST(regression_tests, view_size_match_layout) {
+  // fu2::function_view<void() const> fn;
+
+  // ASSERT_EQ(sizeof(fn), sizeof(void*) * 3);
+}

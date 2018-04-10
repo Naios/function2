@@ -25,26 +25,36 @@ constexpr bool returnFalse() noexcept {
 }
 
 template <typename Fn, bool Copyable, std::size_t Capacity, bool Throwing,
-          typename... Additional>
-using short_def = fu2::function_base<true, Copyable, Capacity, Throwing, false,
-                                     Fn, Additional...>;
+          bool Owning, typename... Additional>
+using short_def = fu2::function_base<Owning, Copyable, Capacity, Throwing,
+                                     false, Fn, Additional...>;
 
 /// NonCopyable functions with several SFO capacities
-template <typename Fn, bool Throwing = true, typename... Additional>
-using unique_no_sfo = short_def<Fn, false, 0, Throwing, Additional...>;
-template <typename Fn, bool Throwing = true, typename... Additional>
-using unique_256_sfo = short_def<Fn, false, 256, Throwing, Additional...>;
-template <typename Fn, bool Throwing = true, typename... Additional>
-using unique_512_sfo = short_def<Fn, false, 512, Throwing, Additional...>;
+template <typename Fn, bool Throwing = true, bool Owning = true,
+          typename... Additional>
+using unique_no_sfo = short_def<Fn, false, 0, Throwing, Owning, Additional...>;
+template <typename Fn, bool Throwing = true, bool Owning = true,
+          typename... Additional>
+using unique_256_sfo =
+    short_def<Fn, false, 256, Throwing, Owning, Additional...>;
+template <typename Fn, bool Throwing = true, bool Owning = true,
+          typename... Additional>
+using unique_512_sfo =
+    short_def<Fn, false, 512, Throwing, Owning, Additional...>;
 /// Copyable functions with several SFO capacities
-template <typename Fn, bool Throwing = true, typename... Additional>
-using copyable_no_sfo = short_def<Fn, true, 0, Throwing, Additional...>;
-template <typename Fn, bool Throwing = true, typename... Additional>
-using copyable_256_sfo = short_def<Fn, true, 256, Throwing, Additional...>;
-template <typename Fn, bool Throwing = true, typename... Additional>
-using copyable_512_sfo = short_def<Fn, true, 512, Throwing, Additional...>;
+template <typename Fn, bool Throwing = true, bool Owning = true,
+          typename... Additional>
+using copyable_no_sfo = short_def<Fn, true, 0, Throwing, Owning, Additional...>;
+template <typename Fn, bool Throwing = true, bool Owning = true,
+          typename... Additional>
+using copyable_256_sfo =
+    short_def<Fn, true, 256, Throwing, Owning, Additional...>;
+template <typename Fn, bool Throwing = true, bool Owning = true,
+          typename... Additional>
+using copyable_512_sfo =
+    short_def<Fn, true, 512, Throwing, Owning, Additional...>;
 /// std::function
-template <typename Fn, bool Throwing = true, typename...>
+template <typename Fn, bool Throwing = true, bool Owning = true, typename...>
 using std_function = std::function<Fn>;
 
 /// Adds given types to the type list
@@ -63,28 +73,31 @@ struct TupleToTypes<std::tuple<Args...>>
     : std::common_type<testing::Types<Args...>> {};
 
 /// Provides the left type which is used in this test case
-template <template <typename, bool, typename...> class Left>
+template <template <typename, bool, bool, typename...> class Left>
 struct LeftType {
   /// Left function type which is provided by this test case.
   /// The left type isn't assignable to the right type!
   template <typename Fn, bool Throwing = true, typename... Additional>
-  using left_t = Left<Fn, Throwing, Additional...>;
+  using left_t = Left<Fn, Throwing, true, Additional...>;
 
   template <typename Fn, typename... Additional>
-  using left_multi_t = Left<Fn, false, Additional...>;
+  using left_multi_t = Left<Fn, false, true, Additional...>;
+
+  template <typename Fn, typename... Additional>
+  using left_view_t = Left<Fn, false, false, Additional...>;
 };
 
 /// Provides the left and right type which is used in this test case
-template <template <typename, bool, typename...> class Left,
-          template <typename, bool, typename...> class Right>
+template <template <typename, bool, bool, typename...> class Left,
+          template <typename, bool, bool, typename...> class Right>
 struct LeftRightType : LeftType<Left> {
   /// Right function type which is provided by this test case.
   /// The right type is assignable to the left type.
   template <typename Fn, bool Throwing = true, typename... Additional>
-  using right_t = Right<Fn, Throwing, Additional...>;
+  using right_t = Right<Fn, Throwing, true, Additional...>;
 
   template <typename Fn, typename... Additional>
-  using right_multi_t = Right<Fn, false, Additional...>;
+  using right_multi_t = Right<Fn, false, true, Additional...>;
 };
 
 /// Base class for typed function tests
