@@ -209,7 +209,7 @@ constexpr auto overload(T&&... callables) {
 namespace type_erasure {
 /// Store the allocator inside the box
 template <typename T, typename Allocator>
-struct box : Allocator {
+struct box : private Allocator {
   T value_;
 
   explicit box(T value, Allocator allocator)
