@@ -1,4 +1,4 @@
-sudo: false
+sudo: true
 dist: trusty
 language: cpp
 cache: apt
@@ -19,6 +19,7 @@ matrix:
             - valgrind
             - cmake
             - cmake-data
+            - ninja-build
       env:
         - COMPILER=g++-5
         - NO_EXCEPTIONS=OFF
@@ -34,6 +35,7 @@ matrix:
             - valgrind
             - cmake
             - cmake-data
+            - ninja-build
       env:
         - COMPILER=g++-6
         - NO_EXCEPTIONS=OFF
@@ -49,6 +51,7 @@ matrix:
             - valgrind
             - cmake
             - cmake-data
+            - ninja-build
       env:
         - COMPILER=g++-6
         - NO_EXCEPTIONS=ON
@@ -59,26 +62,13 @@ matrix:
         apt:
           sources:
             - ubuntu-toolchain-r-test
-          packages:
-            - g++-6
-            - cmake
-            - cmake-data
-      env:
-        - COMPILER=clang++
-        - NO_EXCEPTIONS=OFF
-
-    - os: linux
-      compiler: clang
-      addons:
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
             - llvm-toolchain-trusty-5.0
           packages:
             - g++-6
             - clang-5.0
             - cmake
             - cmake-data
+            - ninja-build
       env:
         - COMPILER=clang++-5.0
         - NO_EXCEPTIONS=OFF
@@ -95,52 +85,19 @@ matrix:
             - clang-5.0
             - cmake
             - cmake-data
+            - ninja-build
       env:
         - COMPILER=clang++-5.0
         - NO_EXCEPTIONS=ON
 
+
 install:
   - export CXX=$COMPILER
   - $CXX --version
-
-  # Function for creating a new 'build' directory
-  - |
-    function renew_build {
-      echo "Renew build directory..."
-      cd $TRAVIS_BUILD_DIR
-
-      # Remove any existing build directory
-      [ -e build ] && rm -r -f build
-      mkdir build
-      cd build
-
-      # Configure the project and build it
-      cmake -DCMAKE_CXX_FLAGS="$CMAKE_CXX_FLAGS -Werror" -DCMAKE_BUILD_TYPE=Debug -DTESTS_NO_EXCEPTIONS=$NO_EXCEPTIONS -DTESTS_NO_DEATH_TESTS=ON ..
-    }
+  - chmod +x tools/travis-ci.sh
 
 script:
-  - |
-    if [[ $COMPILER == *"clang"* ]]; then
-      # Build the test suite with various sanitizers:
-      # - ASan (LSan):
-      echo "Building with address sanitizer..."
-      CMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer"
-      renew_build
-      make -j2
-      ctest --verbose
-
-      # - UBSan:
-      echo "Building with undefined behaviour sanitizer..."
-      CMAKE_CXX_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer"
-      renew_build
-      make -j2
-      ctest --verbose
-    else
-      # Build an run the tests suite with valgrind
-      renew_build
-      make -j2
-      valgrind --error-exitcode=1 --leak-check=full --show-reachable=yes ctest --verbose
-    fi
+  - ./tools/travis-ci.sh
 
 notifications:
   email: false
