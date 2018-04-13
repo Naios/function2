@@ -1,7 +1,7 @@
 
 # fu2::function an improved drop-in replacement to std::function
 
-[![Build Status](https://travis-ci.org/Naios/function2.svg?branch=master)](https://travis-ci.org/Naios/function2) [![Build status](https://ci.appveyor.com/api/projects/status/1tl0vqpg8ndccats/branch/master?svg=true)](https://ci.appveyor.com/project/Naios/function2/branch/master) ![](https://img.shields.io/badge/License-Boost-blue.svg)
+![](https://img.shields.io/badge/Version-3.0.0-0091EA.svg) ![](https://img.shields.io/badge/License-Boost-blue.svg) [![Build Status](https://travis-ci.org/Naios/function2.svg?branch=master)](https://travis-ci.org/Naios/function2) [![Build status](https://ci.appveyor.com/api/projects/status/1tl0vqpg8ndccats/branch/master?svg=true)](https://ci.appveyor.com/project/Naios/function2/branch/master)
 
 Provides two improved implementations of `std::function`:
 
@@ -116,6 +116,19 @@ fu2::unique_function<bool() const> fun = [ptr = std::make_unique<bool>(true)] {
 fu2::unique_function<bool() const> otherfun = std::move(fun):
 
 otherfun();
+```
+
+
+### Non owning functions
+
+A `fu2::function_view` can be used to create a non owning view on a persistent object. Note that the view is only valid as long as the object lives.
+
+```c++
+auto callable = [ptr = std::make_unique<bool>(true)] {
+  return *ptr;
+};
+
+fu2::function_view<bool() const> view(callable);
 ```
 
 ### Convertibility of functions
