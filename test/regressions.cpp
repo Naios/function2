@@ -60,8 +60,45 @@ TEST(regression_tests, size_match_layout) {
   ASSERT_EQ(sizeof(fn), fu2::detail::object_size::value);
 }
 
-TEST(regression_tests, view_size_match_layout) {
-  // fu2::function_view<void() const> fn;
+struct trash_obj {
+  int raw[3];
 
-  // ASSERT_EQ(sizeof(fn), sizeof(void*) * 3);
+  int operator()() {
+    return 12345;
+  }
+};
+
+template <typename T>
+struct no_allocate_allocator {
+  using value_type = T;
+  using size_type = size_t;
+  using pointer = value_type*;
+  using const_pointer = const value_type*;
+
+  no_allocate_allocator() = default;
+  template <typename O>
+  no_allocate_allocator(no_allocate_allocator<O>) {
+  }
+
+  template <typename M>
+  struct rebind {
+    typedef no_allocate_allocator<M> other;
+  };
+
+  pointer allocate(size_type, void const* = nullptr) {
+    EXPECT_TRUE(false);
+    return nullptr;
+  }
+
+  void deallocate(pointer, size_type) {
+    FAIL();
+  }
+};
+
+TEST(regression_tests, can_take_capacity_obj) {
+  fu2::function_base<true, true, sizeof(trash_obj), false, true, int()> fn;
+
+  fn.assign(trash_obj{}, no_allocate_allocator<trash_obj>{});
+
+  ASSERT_EQ(fn(), 12345);
 }
