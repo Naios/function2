@@ -4,7 +4,9 @@
 //       (See accompanying file LICENSE_1_0.txt or copy at
 //             http://www.boost.org/LICENSE_1_0.txt)
 
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "function2-test.hpp"
 
@@ -101,4 +103,32 @@ TEST(regression_tests, can_take_capacity_obj) {
   fn.assign(trash_obj{}, no_allocate_allocator<trash_obj>{});
 
   ASSERT_EQ(fn(), 12345);
+}
+
+// static int call(fu2::function_view<int()> fun) {
+//   return fun();
+// }
+
+// https://github.com/Naios/function2/issues/13
+TEST(regression_tests, can_convert_nonowning_noncopyable_view) {
+  // fu2::unique_function<int()> fun = [] { return 12345; };
+  // int result = call(fun);
+  // ASSERT_EQ(result, 12345);
+}
+
+static fu2::unique_function<void()> issue_14_create() {
+  // remove the commented dummy capture to be compilable
+  fu2::unique_function<void()> func =
+      [i = std::vector<std::vector<std::unique_ptr<int>>>{}
+       // ,dummy = std::unique_ptr<int>()
+  ]() {
+        // ...
+      };
+
+  return std::move(func);
+}
+
+// https://github.com/Naios/function2/issues/14
+TEST(regression_tests, issue_14) {
+  issue_14_create()();
 }
