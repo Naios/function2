@@ -240,9 +240,13 @@ struct address_taker<T, std::enable_if_t<std::is_pointer<T>::value>> {
   }
 };
 
+template <typename Box>
+struct box_factory;
 /// Store the allocator inside the box
 template <bool IsCopyable, typename T, typename Allocator>
 struct box : private Allocator {
+  friend box_factory<box>;
+
   T value_;
 
   explicit box(T value, Allocator allocator)
@@ -254,31 +258,11 @@ struct box : private Allocator {
   box& operator=(box&&) = default;
   box& operator=(box const&) = default;
   ~box() = default;
-
-  /// Allocates space through the boxed allocator
-  box* box_allocate() const {
-    using real_allocator =
-        typename std::allocator_traits<std::decay_t<Allocator>>::
-            template rebind_alloc<box<IsCopyable, T, Allocator>>;
-    real_allocator allocator(*static_cast<Allocator const*>(this));
-
-    return static_cast<box*>(
-        std::allocator_traits<real_allocator>::allocate(allocator, 1U));
-  }
-
-  /// Destroys the box through the given allocator
-  static void box_deallocate(box* me) {
-    using real_allocator =
-        typename std::allocator_traits<std::decay_t<Allocator>>::
-            template rebind_alloc<box<IsCopyable, T, Allocator>>;
-    real_allocator allocator(*static_cast<Allocator const*>(me));
-
-    me->~box();
-    std::allocator_traits<real_allocator>::deallocate(allocator, me, 1U);
-  }
 };
 template <typename T, typename Allocator>
 struct box<false, T, Allocator> : private Allocator {
+  friend box_factory<box>;
+
   T value_;
 
   explicit box(T value, Allocator allocator)
@@ -290,23 +274,25 @@ struct box<false, T, Allocator> : private Allocator {
   box& operator=(box&&) = default;
   box& operator=(box const&) = delete;
   ~box() = default;
+};
+
+template <bool IsCopyable, typename T, typename Allocator>
+struct box_factory<box<IsCopyable, T, Allocator>> {
+  using real_allocator =
+      typename std::allocator_traits<std::decay_t<Allocator>>::
+          template rebind_alloc<box<IsCopyable, T, Allocator>>;
 
   /// Allocates space through the boxed allocator
-  box* box_allocate() const {
-    using real_allocator =
-        typename std::allocator_traits<std::decay_t<Allocator>>::
-            template rebind_alloc<box<false, T, Allocator>>;
-    real_allocator allocator(*static_cast<Allocator const*>(this));
+  static box<IsCopyable, T, Allocator>*
+  box_allocate(box<IsCopyable, T, Allocator> const* me) {
+    real_allocator allocator(*static_cast<Allocator const*>(me));
 
-    return static_cast<box*>(
+    return static_cast<box<IsCopyable, T, Allocator>*>(
         std::allocator_traits<real_allocator>::allocate(allocator, 1U));
   }
 
   /// Destroys the box through the given allocator
-  static void box_deallocate(box* me) {
-    using real_allocator =
-        typename std::allocator_traits<std::decay_t<Allocator>>::
-            template rebind_alloc<box<false, T, Allocator>>;
+  static void box_deallocate(box<IsCopyable, T, Allocator>* me) {
     real_allocator allocator(*static_cast<Allocator const*>(me));
 
     me->~box();
@@ -746,7 +732,7 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
           if (IsInplace) {
             box->~T();
           } else {
-            T::box_deallocate(box);
+            box_factory<T>::box_deallocate(box);
           }
 
           if (op == opcode::op_destroy) {
@@ -776,7 +762,8 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
         to_table->template set_inplace<T>();
       } else {
         // Allocate the object through the allocator
-        to->ptr_ = storage = box.box_allocate();
+        to->ptr_ = storage =
+            box_factory<std::decay_t<Box>>::box_allocate(std::addressof(box));
         to_table->template set_allocated<T>();
       }
       new (storage) T(std::forward<Box>(box));
