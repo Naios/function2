@@ -1206,6 +1206,16 @@ template <typename LeftConfig, typename RightConfig>
 using enable_if_copyable_correct_t =
     std::enable_if_t<(!LeftConfig::is_copyable || RightConfig::is_copyable)>;
 
+template <typename LeftConfig, typename RightConfig>
+using is_owning_correct =
+    std::integral_constant<bool,
+                           (LeftConfig::is_owning == RightConfig::is_owning)>;
+
+/// SFINAES out if the given function2 is not owning correct to this one
+template <typename LeftConfig, typename RightConfig>
+using enable_if_owning_correct_t =
+    std::enable_if_t<is_owning_correct<LeftConfig, RightConfig>::value>;
+
 template <typename Config, bool IsThrowing, bool HasStrongExceptGuarantee,
           typename... Args>
 class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
@@ -1229,10 +1239,13 @@ class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
   using enable_if_can_accept_all_t =
       std::enable_if_t<accepts_all<std::decay_t<T>, identity<Args...>>::value>;
 
-  template <typename Function>
+  template <typename Function, typename = void>
   struct is_convertible_to_this : std::false_type {};
   template <typename RightConfig>
-  struct is_convertible_to_this<function<RightConfig, property_t>>
+  struct is_convertible_to_this<
+      function<RightConfig, property_t>,
+      void_t<enable_if_copyable_correct_t<Config, RightConfig>,
+             enable_if_owning_correct_t<Config, RightConfig>>>
       : std::true_type {};
 
   template <typename T>
@@ -1265,14 +1278,16 @@ public:
   /// Copy construction from another copyable function
   template <typename RightConfig,
             std::enable_if_t<RightConfig::is_copyable>* = nullptr,
-            enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
+            enable_if_copyable_correct_t<Config, RightConfig>* = nullptr,
+            enable_if_owning_correct_t<Config, RightConfig>* = nullptr>
   constexpr function(function<RightConfig, property_t> const& right)
       : erasure_(right.erasure_) {
   }
 
   /// Move construction from another function
   template <typename RightConfig,
-            enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
+            enable_if_copyable_correct_t<Config, RightConfig>* = nullptr,
+            enable_if_owning_correct_t<Config, RightConfig>* = nullptr>
   constexpr function(function<RightConfig, property_t>&& right)
       : erasure_(std::move(right.erasure_)) {
   }
@@ -1306,7 +1321,8 @@ public:
   /// Copy assigning from another copyable function
   template <typename RightConfig,
             std::enable_if_t<RightConfig::is_copyable>* = nullptr,
-            enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
+            enable_if_copyable_correct_t<Config, RightConfig>* = nullptr,
+            enable_if_owning_correct_t<Config, RightConfig>* = nullptr>
   function& operator=(function<RightConfig, property_t> const& right) {
     erasure_ = right.erasure_;
     return *this;
@@ -1314,7 +1330,8 @@ public:
 
   /// Move assigning from another function
   template <typename RightConfig,
-            enable_if_copyable_correct_t<Config, RightConfig>* = nullptr>
+            enable_if_copyable_correct_t<Config, RightConfig>* = nullptr,
+            enable_if_owning_correct_t<Config, RightConfig>* = nullptr>
   function& operator=(function<RightConfig, property_t>&& right) {
     erasure_ = std::move(right.erasure_);
     return *this;
