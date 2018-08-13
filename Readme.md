@@ -64,7 +64,7 @@ A function wrapper is declared as following:
 ```c++
 fu2::function<void(int, float) const>
 // Return type ~^   ^     ^     ^
-// Arguments ~~~~~~~|~~~~~|     ^
+// Parameters  ~~~~~|~~~~~|     ^
 // Qualifier ~~~~~~~~~~~~~~~~~~~|
 ```
 
