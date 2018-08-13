@@ -241,7 +241,7 @@ struct address_taker<T, std::enable_if_t<std::is_pointer<T>::value>> {
 };
 
 /// Store the allocator inside the box
-template <typename T, typename Allocator>
+template <bool IsCopyable, typename T, typename Allocator>
 struct box : private Allocator {
   T value_;
 
@@ -249,10 +249,17 @@ struct box : private Allocator {
       : Allocator(std::move(allocator)), value_(std::move(value)) {
   }
 
+  box(box&&) = default;
+  box(box const&) = default;
+  box& operator=(box&&) = default;
+  box& operator=(box const&) = default;
+  ~box() = default;
+
   /// Allocates space through the boxed allocator
   box* box_allocate() const {
-    using real_allocator = typename std::allocator_traits<
-        std::decay_t<Allocator>>::template rebind_alloc<box<T, Allocator>>;
+    using real_allocator =
+        typename std::allocator_traits<std::decay_t<Allocator>>::
+            template rebind_alloc<box<IsCopyable, T, Allocator>>;
     real_allocator allocator(*static_cast<Allocator const*>(this));
 
     return static_cast<box*>(
@@ -261,8 +268,45 @@ struct box : private Allocator {
 
   /// Destroys the box through the given allocator
   static void box_deallocate(box* me) {
-    using real_allocator = typename std::allocator_traits<
-        std::decay_t<Allocator>>::template rebind_alloc<box<T, Allocator>>;
+    using real_allocator =
+        typename std::allocator_traits<std::decay_t<Allocator>>::
+            template rebind_alloc<box<IsCopyable, T, Allocator>>;
+    real_allocator allocator(*static_cast<Allocator const*>(me));
+
+    me->~box();
+    std::allocator_traits<real_allocator>::deallocate(allocator, me, 1U);
+  }
+};
+template <typename T, typename Allocator>
+struct box<false, T, Allocator> : private Allocator {
+  T value_;
+
+  explicit box(T value, Allocator allocator)
+      : Allocator(std::move(allocator)), value_(std::move(value)) {
+  }
+
+  box(box&&) = default;
+  box(box const&) = delete;
+  box& operator=(box&&) = default;
+  box& operator=(box const&) = delete;
+  ~box() = default;
+
+  /// Allocates space through the boxed allocator
+  box* box_allocate() const {
+    using real_allocator =
+        typename std::allocator_traits<std::decay_t<Allocator>>::
+            template rebind_alloc<box<false, T, Allocator>>;
+    real_allocator allocator(*static_cast<Allocator const*>(this));
+
+    return static_cast<box*>(
+        std::allocator_traits<real_allocator>::allocate(allocator, 1U));
+  }
+
+  /// Destroys the box through the given allocator
+  static void box_deallocate(box* me) {
+    using real_allocator =
+        typename std::allocator_traits<std::decay_t<Allocator>>::
+            template rebind_alloc<box<false, T, Allocator>>;
     real_allocator allocator(*static_cast<Allocator const*>(me));
 
     me->~box();
@@ -271,16 +315,18 @@ struct box : private Allocator {
 };
 
 /// Creates a box containing the given value and allocator
-template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
-auto make_box(T&& value, Allocator&& allocator = Allocator{}) {
-  return box<std::decay_t<T>, std::decay_t<Allocator>>{
+template <bool IsCopyable, typename T,
+          typename Allocator = std::allocator<std::decay_t<T>>>
+auto make_box(std::integral_constant<bool, IsCopyable>, T&& value,
+              Allocator&& allocator = Allocator{}) {
+  return box<IsCopyable, std::decay_t<T>, std::decay_t<Allocator>>{
       std::forward<T>(value), std::forward<Allocator>(allocator)};
 }
 
 template <typename T>
 struct is_box : std::false_type {};
-template <typename T, typename Allocator>
-struct is_box<box<T, Allocator>> : std::true_type {};
+template <bool IsCopyable, typename T, typename Allocator>
+struct is_box<box<IsCopyable, T, Allocator>> : std::true_type {};
 
 /// Provides access to the pointer to a heal allocated erased object
 /// as well to the inplace storage.
@@ -946,8 +992,10 @@ public:
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
   constexpr erasure(T&& callable, Allocator&& allocator = Allocator{}) {
     vtable_t::init(vtable_,
-                   type_erasure::make_box(std::forward<T>(callable),
-                                          std::forward<Allocator>(allocator)),
+                   type_erasure::make_box(
+                       std::integral_constant<bool, Config::is_copyable>{},
+                       std::forward<T>(callable),
+                       std::forward<Allocator>(allocator)),
                    this->opaque_ptr(), capacity());
   }
 
@@ -989,7 +1037,10 @@ public:
   template <typename T>
   constexpr erasure& operator=(T&& callable) {
     vtable_.weak_destroy(this->opaque_ptr(), capacity());
-    vtable_t::init(vtable_, type_erasure::make_box(std::forward<T>(callable)),
+    vtable_t::init(vtable_,
+                   type_erasure::make_box(
+                       std::integral_constant<bool, Config::is_copyable>{},
+                       std::forward<T>(callable)),
                    this->opaque_ptr(), capacity());
     return *this;
   }
@@ -998,8 +1049,10 @@ public:
   void assign(T&& callable, Allocator&& allocator) {
     vtable_.weak_destroy(this->opaque_ptr(), capacity());
     vtable_t::init(vtable_,
-                   type_erasure::make_box(std::forward<T>(callable),
-                                          std::forward<Allocator>(allocator)),
+                   type_erasure::make_box(
+                       std::integral_constant<bool, Config::is_copyable>{},
+                       std::forward<T>(callable),
+                       std::forward<Allocator>(allocator)),
                    this->opaque_ptr(), capacity());
   }
 
