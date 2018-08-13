@@ -15,26 +15,50 @@
 #include <utility>
 
 // Defines:
-// - FU2_MACRO_DISABLE_EXCEPTIONS
+// - FU2_HAS_DISABLED_EXCEPTIONS
+#if defined(FU2_WITH_DISABLED_EXCEPTIONS) ||                                   \
+    defined(FU2_MACRO_DISABLE_EXCEPTIONS)
+#define FU2_HAS_DISABLED_EXCEPTIONS
+#else // FU2_WITH_DISABLED_EXCEPTIONS
 #if defined(_MSC_VER)
 #if !defined(_HAS_EXCEPTIONS) || (_HAS_EXCEPTIONS == 0)
-#define FU2_MACRO_DISABLE_EXCEPTIONS
+#define FU2_HAS_DISABLED_EXCEPTIONS
 #endif
 #elif defined(__clang__)
 #if !(__EXCEPTIONS && __has_feature(cxx_exceptions))
-#define FU2_MACRO_DISABLE_EXCEPTIONS
+#define FU2_HAS_DISABLED_EXCEPTIONS
 #endif
 #elif defined(__GNUC__)
 #if !__EXCEPTIONS
-#define FU2_MACRO_DISABLE_EXCEPTIONS
+#define FU2_HAS_DISABLED_EXCEPTIONS
 #endif
 #endif
-
-#if !defined(FU2_NO_FUNCTIONAL_HEADER) || !defined(FU2_MACRO_DISABLE_EXCEPTIONS)
+#endif // FU2_WITH_DISABLED_EXCEPTIONS
+// - FU2_HAS_NO_FUNCTIONAL_HEADER
+#if !defined(FU2_WITH_NO_FUNCTIONAL_HEADER) ||                                 \
+    !defined(FU2_NO_FUNCTIONAL_HEADER) ||                                      \
+    !defined(FU2_HAS_DISABLED_EXCEPTIONS)
+#define FU2_HAS_NO_FUNCTIONAL_HEADER
 #include <functional>
 #endif
+// - FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
+#if defined(FU2_WITH_CXX17_NOEXCEPT_FUNCTION_TYPE)
+#define FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
+// __cpp_noexcept_function_type
 
-#if !defined(FU2_MACRO_DISABLE_EXCEPTIONS)
+#else // FU2_WITH_CXX17_NOEXCEPT_FUNCTION_TYPE
+#if defined(_MSC_VER)
+#if defined(_HAS_CXX17) && _HAS_CXX17
+#define FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
+#endif
+#elif defined(__cpp_noexcept_function_type)
+#define FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
+#elif defined(__cplusplus) && (__cplusplus >= 201703L)
+#define FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
+#endif
+#endif // FU2_WITH_CXX17_NOEXCEPT_FUNCTION_TYPE
+
+#if !defined(FU2_HAS_DISABLED_EXCEPTIONS)
 #include <exception>
 #endif
 
@@ -365,7 +389,7 @@ constexpr auto retrieve(std::false_type /*is_inplace*/, Accessor from,
 }
 
 namespace invocation_table {
-#if defined(FU2_NO_FUNCTIONAL_HEADER)
+#if defined(FU2_HAS_NO_FUNCTIONAL_HEADER)
 struct bad_function_call : std::exception {
   bad_function_call() noexcept {
   }
@@ -374,7 +398,7 @@ struct bad_function_call : std::exception {
     return "bad function call";
   }
 };
-#elif !defined(FU2_MACRO_DISABLE_EXCEPTIONS)
+#elif !defined(FU2_HAS_DISABLED_EXCEPTIONS)
 using std::bad_function_call;
 #endif
 
@@ -398,7 +422,7 @@ using std::bad_function_call;
 }
 /// Throws bad_function_call on empty funciton calls
 [[noreturn]] inline void throw_or_abort(std::true_type /*is_throwing*/) {
-#ifdef FU2_MACRO_DISABLE_EXCEPTIONS
+#ifdef FU2_HAS_DISABLED_EXCEPTIONS
   throw_or_abort(std::false_type{});
 #else
   throw bad_function_call{};
@@ -1470,7 +1494,7 @@ using function_view =
     function_base<false, true, detail::default_capacity::value, true, false,
                   Signatures...>;
 
-#if !defined(FU2_MACRO_DISABLE_EXCEPTIONS)
+#if !defined(FU2_HAS_DISABLED_EXCEPTIONS)
 /// Exception type that is thrown when invoking empty function objects
 /// and exception support isn't disabled.
 ///
@@ -1481,7 +1505,7 @@ using function_view =
 /// functional header is used, otherwise the library provides its own type.
 ///
 /// You may disable the inclusion of the functionl header
-/// through defining `FU2_NO_FUNCTIONAL_HEADER`.
+/// through defining `FU2_WITH_NO_FUNCTIONAL_HEADER`.
 ///
 using detail::type_erasure::invocation_table::bad_function_call;
 #endif
@@ -1504,7 +1528,9 @@ constexpr auto overload(T&&... callables) {
 }
 } // namespace fu2
 
-#undef FU2_MACRO_DISABLE_EXCEPTIONS
 #undef FU2_EXPAND_QUALIFIERS
+#undef FU2_HAS_NO_FUNCTIONAL_HEADER
+#undef FU2_HAS_DISABLED_EXCEPTIONS
+#undef FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
 
 #endif // FU2_INCLUDED_FUNCTION2_HPP__
