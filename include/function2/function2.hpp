@@ -196,6 +196,14 @@ struct can_invoke<Pointer, identity<T*>,
                   decltype(
                       (void)(std::declval<T*>()->*std::declval<Pointer>()))>
     : std::true_type {};
+
+template <bool RequiresNoexcept, typename T, typename Args>
+struct is_noexcept_correct : std::true_type {};
+template <typename T, typename... Args>
+struct is_noexcept_correct<true, T, identity<Args...>>
+    : std::integral_constant<bool, noexcept(invoke(std::declval<T>(),
+                                                   std::declval<Args>()...))> {
+};
 } // end namespace invocation
 
 namespace overloading {
@@ -456,6 +464,9 @@ throw_or_abort(std::false_type /*is_throwing*/) noexcept {
 template <typename T>
 struct function_trait;
 
+using is_noexcept_ = std::false_type;
+using is_noexcept_noexcept = std::true_type;
+
 #define FU2_DEFINE_FUNCTION_TRAIT(CONST, VOLATILE, NOEXCEPT, OVL_REF, REF)     \
   template <typename Ret, typename... Args>                                    \
   struct function_trait<Ret(Args...) CONST VOLATILE OVL_REF NOEXCEPT> {        \
@@ -490,6 +501,8 @@ struct function_trait;
     using callable = T CONST VOLATILE REF;                                     \
                                                                                \
     using arguments = identity<Args...>;                                       \
+                                                                               \
+    using is_noexcept = is_noexcept_##NOEXCEPT;                                \
                                                                                \
     template <bool Throws>                                                     \
     struct empty_invoker {                                                     \
@@ -1212,13 +1225,19 @@ public:
 };
 } // namespace type_erasure
 
-/// Deduces to a true_type if the type T provides the given signature
+/// Deduces to a true_type if the type T provides the given signature and the
+/// signature is noexcept correct callable.
 template <typename T, typename Signature,
           typename Trait =
               type_erasure::invocation_table::function_trait<Signature>>
 struct accepts_one
-    : invocation::can_invoke<typename Trait::template callable<T>,
-                             typename Trait::arguments> {};
+    : std::integral_constant<
+          bool, invocation::can_invoke<typename Trait::template callable<T>,
+                                       typename Trait::arguments>::value &&
+                    invocation::is_noexcept_correct<
+                        Trait::is_noexcept::value,
+                        typename Trait::template callable<T>,
+                        typename Trait::arguments>::value> {};
 
 /// Deduces to a true_type if the type T provides all signatures
 template <typename T, typename Signatures, typename = void>
