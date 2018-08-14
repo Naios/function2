@@ -44,8 +44,6 @@
 // - FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
 #if defined(FU2_WITH_CXX17_NOEXCEPT_FUNCTION_TYPE)
 #define FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
-// __cpp_noexcept_function_type
-
 #else // FU2_WITH_CXX17_NOEXCEPT_FUNCTION_TYPE
 #if defined(_MSC_VER)
 #if defined(_HAS_CXX17) && _HAS_CXX17
@@ -63,7 +61,7 @@
 #endif
 
 namespace fu2 {
-inline namespace abi_300 {
+inline namespace abi_310 {
 namespace detail {
 template <typename Config, typename Property>
 class function;
@@ -402,19 +400,38 @@ struct bad_function_call : std::exception {
 using std::bad_function_call;
 #endif
 
+#ifdef FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
+#define FU2_EXPAND_QUALIFIERS_NOEXCEPT(F)                                      \
+  F(, , noexcept, , &)                                                         \
+  F(const, , noexcept, , &)                                                    \
+  F(, volatile, noexcept, , &)                                                 \
+  F(const, volatile, noexcept, , &)                                            \
+  F(, , noexcept, &, &)                                                        \
+  F(const, , noexcept, &, &)                                                   \
+  F(, volatile, noexcept, &, &)                                                \
+  F(const, volatile, noexcept, &, &)                                           \
+  F(, , noexcept, &&, &&)                                                      \
+  F(const, , noexcept, &&, &&)                                                 \
+  F(, volatile, noexcept, &&, &&)                                              \
+  F(const, volatile, noexcept, &&, &&)
+#else // FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
+#define FU2_EXPAND_QUALIFIERS_NOEXCEPT(F)
+#endif // FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
+
 #define FU2_EXPAND_QUALIFIERS(F)                                               \
-  F(, , , &)                                                                   \
-  F(const, , , &)                                                              \
-  F(, volatile, , &)                                                           \
-  F(const, volatile, , &)                                                      \
-  F(, , &, &)                                                                  \
-  F(const, , &, &)                                                             \
-  F(, volatile, &, &)                                                          \
-  F(const, volatile, &, &)                                                     \
-  F(, , &&, &&)                                                                \
-  F(const, , &&, &&)                                                           \
-  F(, volatile, &&, &&)                                                        \
-  F(const, volatile, &&, &&)
+  F(, , , , &)                                                                 \
+  F(const, , , , &)                                                            \
+  F(, volatile, , , &)                                                         \
+  F(const, volatile, , , &)                                                    \
+  F(, , , &, &)                                                                \
+  F(const, , , &, &)                                                           \
+  F(, volatile, , &, &)                                                        \
+  F(const, volatile, , &, &)                                                   \
+  F(, , , &&, &&)                                                              \
+  F(const, , , &&, &&)                                                         \
+  F(, volatile, , &&, &&)                                                      \
+  F(const, volatile, , &&, &&)                                                 \
+  FU2_EXPAND_QUALIFIERS_NOEXCEPT(F)
 
 /// Calls std::abort on empty function calls
 [[noreturn]] inline void throw_or_abort(std::false_type /*is_throwing*/) {
@@ -432,9 +449,9 @@ using std::bad_function_call;
 template <typename T>
 struct function_trait;
 
-#define FU2_DEFINE_FUNCTION_TRAIT(CONST, VOLATILE, OVL_REF, REF)               \
+#define FU2_DEFINE_FUNCTION_TRAIT(CONST, VOLATILE, NOEXCEPT, OVL_REF, REF)     \
   template <typename Ret, typename... Args>                                    \
-  struct function_trait<Ret(Args...) CONST VOLATILE OVL_REF> {                 \
+  struct function_trait<Ret(Args...) CONST VOLATILE OVL_REF NOEXCEPT> {        \
     using pointer_type = Ret (*)(data_accessor CONST VOLATILE*,                \
                                  std::size_t capacity, Args...);               \
     template <typename T, bool IsInplace>                                      \
@@ -602,11 +619,12 @@ struct invoke_table<First, Second, Args...> {
 template <std::size_t Index, typename Function, typename... Signatures>
 class operator_impl;
 
-#define FU2_DEFINE_FUNCTION_TRAIT(CONST, VOLATILE, OVL_REF, REF)               \
+#define FU2_DEFINE_FUNCTION_TRAIT(CONST, VOLATILE, NOEXCEPT, OVL_REF, REF)     \
   template <std::size_t Index, typename Function, typename Ret,                \
             typename... Args, typename Next, typename... Signatures>           \
-  class operator_impl<Index, Function, Ret(Args...) CONST VOLATILE OVL_REF,    \
-                      Next, Signatures...>                                     \
+  class operator_impl<Index, Function,                                         \
+                      Ret(Args...) CONST VOLATILE OVL_REF NOEXCEPT, Next,      \
+                      Signatures...>                                           \
       : operator_impl<Index + 1, Function, Next, Signatures...> {              \
                                                                                \
     template <std::size_t, typename, typename...>                              \
@@ -634,7 +652,7 @@ class operator_impl;
   template <std::size_t Index, typename Config, typename Property,             \
             typename Ret, typename... Args>                                    \
   class operator_impl<Index, function<Config, Property>,                       \
-                      Ret(Args...) CONST VOLATILE OVL_REF>                     \
+                      Ret(Args...) CONST VOLATILE OVL_REF NOEXCEPT>            \
       : copyable<Config::is_owning || Config::is_copyable> {                   \
                                                                                \
     template <std::size_t, typename, typename...>                              \
@@ -1449,7 +1467,7 @@ using default_capacity =
     std::integral_constant<std::size_t,
                            object_size::value - (2 * sizeof(void*))>;
 } // namespace detail
-} // namespace abi_300
+} // namespace abi_310
 
 /// Adaptable function wrapper base for arbitrary functional types.
 template <
@@ -1529,6 +1547,7 @@ constexpr auto overload(T&&... callables) {
 } // namespace fu2
 
 #undef FU2_EXPAND_QUALIFIERS
+#undef FU2_EXPAND_QUALIFIERS_NOEXCEPT
 #undef FU2_HAS_NO_FUNCTIONAL_HEADER
 #undef FU2_HAS_DISABLED_EXCEPTIONS
 #undef FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
