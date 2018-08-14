@@ -433,8 +433,15 @@ using std::bad_function_call;
   F(const, volatile, , &&, &&)                                                 \
   FU2_EXPAND_QUALIFIERS_NOEXCEPT(F)
 
+/// If the function is qualified as noexcept, the call will never throw
+template <bool IsNoexcept>
+[[noreturn]] void throw_or_abortnoexcept(
+    std::integral_constant<bool, IsNoexcept> /*is_throwing*/) noexcept {
+  std::abort();
+}
 /// Calls std::abort on empty function calls
-[[noreturn]] inline void throw_or_abort(std::false_type /*is_throwing*/) {
+[[noreturn]] inline void
+throw_or_abort(std::false_type /*is_throwing*/) noexcept {
   std::abort();
 }
 /// Throws bad_function_call on empty funciton calls
@@ -457,7 +464,7 @@ struct function_trait;
     template <typename T, bool IsInplace>                                      \
     struct internal_invoker {                                                  \
       static Ret invoke(data_accessor CONST VOLATILE* data,                    \
-                        std::size_t capacity, Args... args) {                  \
+                        std::size_t capacity, Args... args) NOEXCEPT {         \
         auto obj = retrieve<T>(std::integral_constant<bool, IsInplace>{},      \
                                data, capacity);                                \
         auto box = static_cast<T CONST VOLATILE*>(obj);                        \
@@ -471,7 +478,7 @@ struct function_trait;
     template <typename T>                                                      \
     struct view_invoker {                                                      \
       static Ret invoke(data_accessor CONST VOLATILE* data, std::size_t,       \
-                        Args... args) {                                        \
+                        Args... args) NOEXCEPT {                               \
                                                                                \
         auto ptr = static_cast<void CONST VOLATILE*>(data->ptr_);              \
         return invocation::invoke(address_taker<T>::restore(ptr),              \
@@ -487,8 +494,8 @@ struct function_trait;
     template <bool Throws>                                                     \
     struct empty_invoker {                                                     \
       static Ret invoke(data_accessor CONST VOLATILE* /*data*/,                \
-                        std::size_t /*capacity*/, Args... /*args*/) {          \
-        throw_or_abort(std::integral_constant<bool, Throws>{});                \
+                        std::size_t /*capacity*/, Args... /*args*/) NOEXCEPT { \
+        throw_or_abort##NOEXCEPT(std::integral_constant<bool, Throws>{});      \
       }                                                                        \
     };                                                                         \
   };
@@ -640,7 +647,7 @@ class operator_impl;
                                                                                \
     using operator_impl<Index + 1, Function, Next, Signatures...>::operator(); \
                                                                                \
-    Ret operator()(Args... args) CONST VOLATILE OVL_REF {                      \
+    Ret operator()(Args... args) CONST VOLATILE OVL_REF NOEXCEPT {             \
       auto parent = static_cast<Function CONST VOLATILE*>(this);               \
       using erasure_t = std::decay_t<decltype(parent->erasure_)>;              \
                                                                                \
@@ -666,7 +673,7 @@ class operator_impl;
     operator_impl& operator=(operator_impl const&) = default;                  \
     operator_impl& operator=(operator_impl&&) = default;                       \
                                                                                \
-    Ret operator()(Args... args) CONST VOLATILE OVL_REF {                      \
+    Ret operator()(Args... args) CONST VOLATILE OVL_REF NOEXCEPT {             \
       auto parent =                                                            \
           static_cast<function<Config, Property> CONST VOLATILE*>(this);       \
       using erasure_t = std::decay_t<decltype(parent->erasure_)>;              \
