@@ -13,11 +13,11 @@ TYPED_TEST(AllEmptyFunctionCallTests, CallSucceedsIfNonEmpty) {
   EXPECT_TRUE(left());
 }
 
-#ifndef TESTS_NO_EXCEPTIONS
+#ifndef FU2_HAS_DISABLED_EXCEPTIONS
 
 TYPED_TEST(AllEmptyFunctionCallTests, CallThrowsIfEmpty) {
   typename TestFixture::template left_t<bool()> left;
   EXPECT_THROW(left(), fu2::bad_function_call);
 }
 
-#endif // TESTS_NO_EXCEPTIONS
+#endif // FU2_HAS_DISABLED_EXCEPTIONS
