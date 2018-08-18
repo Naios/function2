@@ -22,8 +22,7 @@ TYPED_TEST(AllNoExceptTests, CallAbortsIfEmpty) {
 }
 #endif // TESTS_NO_DEATH_TESTS
 
-#ifndef FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
-
+#ifdef FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
 TYPED_TEST(AllNoExceptTests, NoExceptCallSuceeds) {
   typename TestFixture::template left_t<int() noexcept> left = []() noexcept {
     return 12345;
@@ -37,5 +36,4 @@ TYPED_TEST(AllNoExceptTests, CallAbortsIfEmptyAndNoExcept) {
   EXPECT_DEATH(left(), "");
 }
 #endif // TESTS_NO_DEATH_TESTS
-
 #endif // FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
