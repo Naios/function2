@@ -395,6 +395,7 @@ constexpr auto retrieve(std::false_type /*is_inplace*/, Accessor from,
 }
 
 namespace invocation_table {
+#if !defined(FU2_HAS_DISABLED_EXCEPTIONS)
 #if defined(FU2_HAS_NO_FUNCTIONAL_HEADER)
 struct bad_function_call : std::exception {
   bad_function_call() noexcept {
@@ -404,8 +405,9 @@ struct bad_function_call : std::exception {
     return "bad function call";
   }
 };
-#elif !defined(FU2_HAS_DISABLED_EXCEPTIONS)
+#elif
 using std::bad_function_call;
+#endif
 #endif
 
 #ifdef FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
@@ -714,7 +716,8 @@ enum class opcode {
 
 /// Abstraction for a vtable together with a command table
 /// TODO Add optimization for a single formal argument
-/// TODO Add optimization to merge both tables if the function is size optimized
+/// TODO Add optimization to merge both tables if the function is size
+/// optimized
 template <typename Property>
 class vtable;
 template <bool IsThrowing, bool HasStrongExceptGuarantee,
@@ -1508,8 +1511,8 @@ template <
     /// If the capacity is zero, the size will increase through one additional
     /// pointer so the whole object has the size of 3 * sizeof(void*).
     std::size_t Capacity,
-    /// Defines whether the function throws an exception on empty function call,
-    /// `std::abort` is called otherwise.
+    /// Defines whether the function throws an exception on empty function
+    /// call, `std::abort` is called otherwise.
     bool IsThrowing,
     /// Defines whether all objects satisfy the strong exception guarantees,
     /// which means the function type will satisfy the strong exception
@@ -1574,11 +1577,5 @@ constexpr auto overload(T&&... callables) {
 
 #undef FU2_EXPAND_QUALIFIERS
 #undef FU2_EXPAND_QUALIFIERS_NOEXCEPT
-
-#ifdef FU2_WITH_NO_UNDEF
-#undef FU2_HAS_NO_FUNCTIONAL_HEADER
-#undef FU2_HAS_DISABLED_EXCEPTIONS
-#undef FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
-#endif // FU2_WITH_NO_UNDEF
 
 #endif // FU2_INCLUDED_FUNCTION2_HPP__

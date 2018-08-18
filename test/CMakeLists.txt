@@ -39,10 +39,6 @@ add_executable(function2_tests
   ${CMAKE_CURRENT_LIST_DIR}/view-test.cpp
   ${CMAKE_CURRENT_LIST_DIR}/overload-test.cpp)
 
-target_compile_definitions(function2_tests
-  PUBLIC
-    -DFU2_WITH_NO_UNDEF)
-
 target_link_libraries(function2_tests
   PRIVATE
     function2
