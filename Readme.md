@@ -80,8 +80,10 @@ fu2::function<void(int, float) const>
     - Can only be assigned from volatile qualified functors.
   - **const volatile** provides `ReturnType operator() (Args...) const volatile`
     - Same as const and volatile together.
-  - Also there is support for **r-value functions** `ReturnType operator() (Args...) &&`
-    - one-shot functions which are invalidated after the first call.
+  - **r-value (one-shot) functions** `ReturnType operator() (Args...) &&`
+    - one-shot functions which are invalidated after the first call (can be mixed with `const`, `volatile` and `noexcept`). Can only wrap callable objects which call operator is also qualified as `&&` (r-value callable). Normal (*C*) functions are considered to be r-value callable by default.
+  - **noexcept functions** `ReturnType operator() (Args...) noexcept`
+    - such functions are guaranteed not to throw an exception (can be mixed with `const`, `volatile` and `&&`). Can only wrap functions or callable objects which call operator is also qualified as `noexcept`. Requires enabled C++17  compilation to work (support is detected automatically).
 * **Multiple overloads**: The library is capable of providing multiple overloads:
   ```cpp
   fu2::function<int(std::vector<int> const&),
