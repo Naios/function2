@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.2)
 project(function2 VERSION 2.2.0 LANGUAGES CXX)
 
-if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+string(COMPARE EQUAL ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}
+                     IS_TOP_LEVEL_PROJECT)
+
+if (IS_TOP_LEVEL_PROJECT)
   add_library(function2 INTERFACE)
 else()
   add_library(function2 INTERFACE IMPORTED GLOBAL)
@@ -31,7 +34,7 @@ target_compile_features(function2
     cxx_trailing_return_types
     cxx_return_type_deduction)
 
-if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+if (IS_TOP_LEVEL_PROJECT)
   include(ExternalProject)
   include(GNUInstallDirs)
   include(CMakePackageConfigHelpers)
@@ -84,6 +87,8 @@ if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
   else()
     set(CPACK_SYSTEM_NAME "lf")
   endif()
+
+  include(CPack)
 
   if (MSVC)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
