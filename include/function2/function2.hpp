@@ -4,8 +4,8 @@
 //       (See accompanying file LICENSE_1_0.txt or copy at
 //             http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef FU2_INCLUDED_FUNCTION2_HPP__
-#define FU2_INCLUDED_FUNCTION2_HPP__
+#ifndef FU2_INCLUDED_FUNCTION2_HPP_
+#define FU2_INCLUDED_FUNCTION2_HPP_
 
 #include <cassert>
 #include <cstdlib>
