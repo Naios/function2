@@ -1,7 +1,12 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.2)
 project(function2 VERSION 2.2.0 LANGUAGES CXX)
 
-add_library(function2 INTERFACE)
+if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+  add_library(function2 INTERFACE)
+else()
+  add_library(function2 INTERFACE IMPORTED GLOBAL)
+endif()
+
 add_library(function2::function2 ALIAS function2)
 
 target_include_directories(function2
@@ -26,37 +31,60 @@ target_compile_features(function2
     cxx_trailing_return_types
     cxx_return_type_deduction)
 
-# Create an install target
-install(TARGETS function2
-        EXPORT function2-config
-        INCLUDES DESTINATION include)
-
-install(EXPORT function2-config
-        FILE function2-config.cmake
-        NAMESPACE function2::
-        DESTINATION share/function2/cmake)
-
-install(DIRECTORY include/function2
-        DESTINATION include FILES_MATCHING PATTERN "*.hpp")
-
-install(FILES LICENSE.txt DESTINATION . RENAME function2-LICENSE.txt)
-install(FILES Readme.md DESTINATION . RENAME function2-Readme.md)
-
-# Setup CPack for bundling
-set(CPACK_GENERATOR "ZIP")
-set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
-set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
-set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
-
-# Since the header only library is platform independent
-# we name the packages after the native line feed
-if(WIN32)
-  set(CPACK_SYSTEM_NAME "crlf")
-else()
-  set(CPACK_SYSTEM_NAME "lf")
-endif()
-
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+  include(ExternalProject)
+  include(GNUInstallDirs)
+  include(CMakePackageConfigHelpers)
+
+  # Create an install target:
+  # Headers and license files
+  install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/function2"
+          DESTINATION "include")
+  install(FILES "LICENSE.txt" DESTINATION .)
+  install(FILES "Readme.md" DESTINATION .)
+
+  # Config.cmake
+  write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion)
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+          DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+
+  # ConfigVersion.cmake
+  configure_package_config_file("cmake/config.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
+    # PATH_VARS INCLUDE_INSTALL_DIR SYSCONFIG_INSTALL_DIR
+  )
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+          DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+
+  # Targets.cmake
+  export(TARGETS ${PROJECT_NAME}
+         NAMESPACE ${PROJECT_NAME}::
+         FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake")
+  install(TARGETS ${PROJECT_NAME}
+          EXPORT "${PROJECT_NAME}Targets"
+          INCLUDES DESTINATION "include")
+  install(EXPORT "${PROJECT_NAME}Targets"
+          NAMESPACE ${PROJECT_NAME}::
+          DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+
+  # Setup CPack for bundling
+  set(CPACK_GENERATOR "ZIP")
+  set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+  set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+  set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+
+  # Since the header only library is platform independent
+  # we name the packages after the native line feed
+  if(WIN32)
+    set(CPACK_SYSTEM_NAME "crlf")
+  else()
+    set(CPACK_SYSTEM_NAME "lf")
+  endif()
+
   if (MSVC)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
     string(REGEX REPLACE "/W[0-4]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
