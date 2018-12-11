@@ -6,4 +6,5 @@
 # list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/function2")
 # ```
 
+set(FU2_IS_FIND_INCLUDED ON)
 include("${CMAKE_CURRENT_LIST_DIR}/CMakeLists.txt")
