@@ -17,8 +17,6 @@ matrix:
           packages:
             - g++-5
             - valgrind
-            - cmake
-            - cmake-data
             - ninja-build
       env:
         - COMPILER=g++-5
@@ -33,8 +31,6 @@ matrix:
           packages:
             - g++-6
             - valgrind
-            - cmake
-            - cmake-data
             - ninja-build
       env:
         - COMPILER=g++-6
@@ -49,8 +45,6 @@ matrix:
           packages:
             - g++-6
             - valgrind
-            - cmake
-            - cmake-data
             - ninja-build
       env:
         - COMPILER=g++-6
@@ -66,8 +60,6 @@ matrix:
           packages:
             - g++-6
             - clang-5.0
-            - cmake
-            - cmake-data
             - ninja-build
       env:
         - COMPILER=clang++-5.0
@@ -83,8 +75,6 @@ matrix:
           packages:
             - g++-6
             - clang-5.0
-            - cmake
-            - cmake-data
             - ninja-build
       env:
         - COMPILER=clang++-5.0

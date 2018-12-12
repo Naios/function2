@@ -1578,4 +1578,4 @@ constexpr auto overload(T&&... callables) {
 #undef FU2_EXPAND_QUALIFIERS
 #undef FU2_EXPAND_QUALIFIERS_NOEXCEPT
 
-#endif // FU2_INCLUDED_FUNCTION2_HPP__
+#endif // FU2_INCLUDED_FUNCTION2_HPP_
