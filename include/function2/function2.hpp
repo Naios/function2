@@ -94,7 +94,7 @@ struct copyable<false> {
 /// Configuration trait to configure the function_base class.
 template <bool Owning, bool Copyable, std::size_t Capacity>
 struct config {
-  // Is true if the function is copyable.
+  // Is true if the function is owning.
   static constexpr auto const is_owning = Owning;
 
   // Is true if the function is copyable.
