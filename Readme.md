@@ -1,7 +1,7 @@
 
 # fu2::function an improved drop-in replacement to std::function
 
-![](https://img.shields.io/badge/Version-3.1.0-0091EA.svg) ![](https://img.shields.io/badge/License-Boost-blue.svg) [![Build Status](https://travis-ci.org/Naios/function2.svg?branch=master)](https://travis-ci.org/Naios/function2) [![Build status](https://ci.appveyor.com/api/projects/status/1tl0vqpg8ndccats/branch/master?svg=true)](https://ci.appveyor.com/project/Naios/function2/branch/master)
+![](https://img.shields.io/badge/Version-4.0.0-0091EA.svg) ![](https://img.shields.io/badge/License-Boost-blue.svg) [![Build Status](https://travis-ci.org/Naios/function2.svg?branch=master)](https://travis-ci.org/Naios/function2) [![Build status](https://ci.appveyor.com/api/projects/status/1tl0vqpg8ndccats/branch/master?svg=true)](https://ci.appveyor.com/project/Naios/function2/branch/master)
 
 Provides improved implementations of `std::function`:
 
@@ -182,24 +182,32 @@ fun = un_fun;
 
 function2 is adaptable through `fu2::function_base` which allows you to set:
 
-- **Signature:** defines the signature of the function.
+- **IsOwning**: defines whether the function owns its contained object
 - **Copyable:** defines if the function is copyable or not.
-- **Capacity:** defines the internal capacity used for [sfo optimization](#small-functor-optimization).
-- **Throwing** defines if empty function calls throw an `fu2::bad_function_call` exception, otherwise `std::abort` is called.
+- **Capacity:** defines the internal capacity used for [sfo optimization](#small-functor-optimization):
+```cpp
+struct my_capacity {
+  static constexpr std::size_t capacity = sizeof(my_type);
+  static constexpr std::size_t alignment = alignof(my_type);
+};
+```
+- **IsThrowing** defines if empty function calls throw an `fu2::bad_function_call` exception, otherwise `std::abort` is called.
+- **HasStrongExceptGuarantee** defines whether the strong exception guarantees shall be met.
+- **Signatures:** defines the signatures of the function.
 
-The following code defines a function with a variadic signature which is copyable and sfo optimization is disabled:
+The following code defines an owning  function with a variadic signature which is copyable and sfo optimization is disabled:
 
 ```c++
 template<typename Signature>
-using my_function = fu2::function_base<Signature, 0UL, true>;
+using my_function = fu2::function_base<true, true, fu2::capacity_none, true, false, Signature>;
 ```
 
-The following code defines a non copyable function which just takes 1 argument, and has a huge capacity for internal sfo optimization.
-Also it must be called as r-value.
+The following code defines a non copyable function which just takes 1 argument, and has a huge capacity for internal sfo optimization. Also it must be called as r-value.
 
 ```c++
 template<typename Arg>
-using my_consumer = fu2::function_base<void(Arg)&&, 100UL, false>;
+using my_consumer = fu2::function_base<true, false, fu2::capacity_fixed<100U>,
+                                       true, false, void(Arg)&&>;
 
 // Example
 my_consumer<int, float> consumer = [](int, float) { }
