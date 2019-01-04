@@ -1,5 +1,5 @@
 
-//  Copyright 2015-2018 Denis Blank <denis.blank at outlook dot com>
+//  Copyright 2015-2019 Denis Blank <denis.blank at outlook dot com>
 //     Distributed under the Boost Software License, Version 1.0
 //       (See accompanying file LICENSE_1_0.txt or copy at
 //             http://www.boost.org/LICENSE_1_0.txt)
@@ -8,6 +8,7 @@
 #define FU2_INCLUDED_FUNCTION2_HPP_
 
 #include <cassert>
+#include <cstddef>
 #include <cstdlib>
 #include <memory>
 #include <tuple>
@@ -61,7 +62,7 @@
 #endif
 
 namespace fu2 {
-inline namespace abi_310 {
+inline namespace abi_400 {
 namespace detail {
 template <typename Config, typename Property>
 class function;
@@ -92,7 +93,7 @@ struct copyable<false> {
 };
 
 /// Configuration trait to configure the function_base class.
-template <bool Owning, bool Copyable, std::size_t Capacity>
+template <bool Owning, bool Copyable, typename Capacity>
 struct config {
   // Is true if the function is owning.
   static constexpr auto const is_owning = Owning;
@@ -102,7 +103,9 @@ struct config {
 
   // The internal capacity of the function
   // used in small functor optimization.
-  static constexpr auto const capacity = Capacity;
+  // The object shall expose the real capacity through Capacity::capacity
+  // and the intended alignment through Capacity::alignment.
+  using capacity = Capacity;
 };
 
 /// A config which isn't compatible to other configs
@@ -952,26 +955,26 @@ public:
 /// same space with the internal capacity.
 /// The storage type is distinguished by multiple versions of the
 /// control and vtable.
-template <std::size_t Capacity, typename = void>
+template <typename Capacity, typename = void>
 struct internal_capacity {
   /// We extend the union through a technique similar to the tail object hack
   typedef union {
     /// Tag to access the structure in a type-safe way
     data_accessor accessor_;
     /// The internal capacity we use to allocate in-place
-    std::aligned_storage_t<Capacity> capacity_;
+    std::aligned_storage_t<Capacity::capacity, Capacity::alignment> capacity_;
   } type;
 };
-template <std::size_t Capacity>
-struct internal_capacity<Capacity,
-                         std::enable_if_t<(Capacity < sizeof(void*))>> {
+template <typename Capacity>
+struct internal_capacity<
+    Capacity, std::enable_if_t<(Capacity::capacity < sizeof(void*))>> {
   typedef struct {
     /// Tag to access the structure in a type-safe way
     data_accessor accessor_;
   } type;
 };
 
-template <std::size_t Capacity>
+template <typename Capacity>
 class internal_capacity_holder {
   // Tag to access the structure in a type-safe way
   typename internal_capacity<Capacity>::type storage_;
@@ -999,7 +1002,7 @@ public:
 
 /// An owning erasure
 template <bool IsOwning /* = true*/, typename Config, typename Property>
-class erasure : internal_capacity_holder<Config::capacity> {
+class erasure : internal_capacity_holder<typename Config::capacity> {
   template <bool, typename, typename>
   friend class erasure;
   template <std::size_t, typename, typename...>
@@ -1012,7 +1015,7 @@ class erasure : internal_capacity_holder<Config::capacity> {
 public:
   /// Returns the capacity of this erasure
   static constexpr std::size_t capacity() noexcept {
-    return internal_capacity_holder<Config::capacity>::capacity();
+    return internal_capacity_holder<typename Config::capacity>::capacity();
   }
 
   constexpr erasure() noexcept {
@@ -1488,58 +1491,92 @@ bool operator!=(std::nullptr_t, function<Config, Property> const& f) {
   return bool(f);
 }
 
-// Default object size of the function
+// Default intended object size of the function
 using object_size = std::integral_constant<std::size_t, 32U>;
-
-// Default capacity for small functor optimization
-using default_capacity =
-    std::integral_constant<std::size_t,
-                           object_size::value - (2 * sizeof(void*))>;
 } // namespace detail
-} // namespace abi_310
+} // namespace abi_400
 
-/// Adaptable function wrapper base for arbitrary functional types.
-template <
-    /// This is a placeholder for future non owning support
-    bool IsOwning,
-    /// Defines whether the function is copyable or not
-    bool IsCopyable,
-    /// Defines the internal capacity of the function
-    /// for small functor optimization.
-    /// The size of the whole function object will be the capacity plus
-    /// the size of two pointers.
-    /// If the capacity is zero, the size will increase through one additional
-    /// pointer so the whole object has the size of 3 * sizeof(void*).
-    std::size_t Capacity,
-    /// Defines whether the function throws an exception on empty function
-    /// call, `std::abort` is called otherwise.
-    bool IsThrowing,
-    /// Defines whether all objects satisfy the strong exception guarantees,
-    /// which means the function type will satisfy the strong exception
-    /// guarantees too.
-    bool HasStrongExceptGuarantee,
-    /// Defines the signature of the function wrapper
-    typename... Signatures>
+/// Can be passed to function_base as template argument which causes
+/// the internal small buffer to be sized according to the given size,
+/// and aligned with the given alignment.
+template <std::size_t Capacity,
+          std::size_t Alignment = alignof(std::max_align_t)>
+struct capacity_fixed {
+  static constexpr std::size_t capacity = Capacity;
+  static constexpr std::size_t alignment = Alignment;
+};
+
+/// Default capacity for small functor optimization
+struct capacity_default
+    : capacity_fixed<detail::object_size::value - (2 * sizeof(void*))> {};
+
+/// Can be passed to function_base as template argument which causes
+/// the internal small buffer to be removed from the callable wrapper.
+/// The owning function_base will then allocate memory for every object
+/// it applies a type erasure on.
+struct capacity_none : capacity_fixed<0UL> {};
+
+/// Can be passed to function_base as template argument which causes
+/// the internal small buffer to be sized such that it can hold
+/// the given object without allocating memory for an applied type erasure.
+template <typename T>
+struct capacity_can_hold {
+  static constexpr std::size_t capacity = sizeof(T);
+  static constexpr std::size_t alignment = alignof(T);
+};
+
+/// An adaptable function wrapper base for arbitrary functional types.
+///
+/// \tparam IsOwning Is true when the type erasure shall be owning the object.
+///
+/// \tparam IsCopyable Defines whether the function is copyable or not
+///
+/// \tparam Capacity Defines the internal capacity of the function
+///                  for small functor optimization.
+///                  The size of the whole function object will be the capacity
+///                  plus the size of two pointers. If the capacity is zero,
+///                  the size will increase through one additional pointer
+///                  so the whole object has the size of 3 * sizeof(void*).
+///                  The type which is passed to the Capacity template parameter
+///                  shall provide a capacity and alignment member which
+///                  looks like the following example:
+/// ```cpp
+/// struct my_capacity {
+///   static constexpr std::size_t capacity = sizeof(my_type);
+///   static constexpr std::size_t alignment = alignof(my_type);
+/// };
+/// ```
+///
+/// \tparam IsThrowing Defines whether the function throws an exception on
+///                    empty function call, `std::abort` is called otherwise.
+///
+/// \tparam HasStrongExceptGuarantee Defines whether all objects satisfy the
+///                                  strong exception guarantees,
+///                                  which means the function type will satisfy
+///                                  the strong exception guarantees too.
+///
+/// \tparam Signatures Defines the signature of the callable wrapper
+///
+template <bool IsOwning, bool IsCopyable, typename Capacity, bool IsThrowing,
+          bool HasStrongExceptGuarantee, typename... Signatures>
 using function_base = detail::function<
     detail::config<IsOwning, IsCopyable, Capacity>,
     detail::property<IsThrowing, HasStrongExceptGuarantee, Signatures...>>;
 
 /// An owning copyable function wrapper for arbitrary callable types.
 template <typename... Signatures>
-using function = function_base<true, true, detail::default_capacity::value,
+using function = function_base<true, true, capacity_default, //
                                true, false, Signatures...>;
 
 /// An owning non copyable function wrapper for arbitrary callable types.
 template <typename... Signatures>
-using unique_function =
-    function_base<true, false, detail::default_capacity::value, true, false,
-                  Signatures...>;
+using unique_function = function_base<true, false, capacity_default, //
+                                      true, false, Signatures...>;
 
 /// A non owning copyable function wrapper for arbitrary callable types.
 template <typename... Signatures>
-using function_view =
-    function_base<false, true, detail::default_capacity::value, true, false,
-                  Signatures...>;
+using function_view = function_base<false, true, capacity_default, //
+                                    true, false, Signatures...>;
 
 #if !defined(FU2_HAS_DISABLED_EXCEPTIONS)
 /// Exception type that is thrown when invoking empty function objects

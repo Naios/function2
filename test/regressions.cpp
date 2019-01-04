@@ -98,7 +98,9 @@ struct no_allocate_allocator {
 };
 
 TEST(regression_tests, can_take_capacity_obj) {
-  fu2::function_base<true, true, sizeof(trash_obj), false, true, int()> fn;
+  fu2::function_base<true, true, fu2::capacity_can_hold<trash_obj>, false, true,
+                     int()>
+      fn;
 
   fn.assign(trash_obj{}, no_allocate_allocator<trash_obj>{});
 
