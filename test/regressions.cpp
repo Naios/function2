@@ -127,11 +127,11 @@ TEST(regression_tests, can_assign_nonowning_noncopyable_view) {
 
 static fu2::unique_function<void()> issue_14_create() {
   // remove the commented dummy capture to be compilable
-  fu2::unique_function<void()>
-      func = [i = std::vector<std::vector<std::unique_ptr<int>>>{}
-              // ,dummy = std::unique_ptr<int>()
-  ](){
-          // ...
+  fu2::unique_function<void()> func =
+      [i = std::vector<std::vector<std::unique_ptr<int>>>{}
+       // ,dummy = std::unique_ptr<int>()
+  ]() {
+        // ...
       };
 
   return std::move(func);
@@ -140,4 +140,31 @@ static fu2::unique_function<void()> issue_14_create() {
 // https://github.com/Naios/function2/issues/14
 TEST(regression_tests, issue_14) {
   issue_14_create()();
+}
+
+struct no_strong_except {
+  no_strong_except() = default;
+  ~no_strong_except() noexcept(false) {
+  }
+  no_strong_except(no_strong_except&&) noexcept(false) {
+  }
+  no_strong_except& operator=(no_strong_except&&) noexcept(false) {
+    return *this;
+  }
+
+  int operator()() const {
+    return 23383;
+  }
+};
+
+static_assert(!std::is_nothrow_move_constructible<no_strong_except>::value, "");
+static_assert(!std::is_nothrow_destructible<no_strong_except>::value, "");
+
+// https://github.com/Naios/function2/issues/20
+TEST(regression_tests, can_take_no_strong_except) {
+  fu2::function_base<true, false, fu2::capacity_none, true, false, int()> fn;
+
+  fn = no_strong_except{};
+
+  ASSERT_EQ(fn(), 23383);
 }

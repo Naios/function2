@@ -115,7 +115,8 @@ struct property {
   static constexpr auto const is_throwing = Throws;
 
   // Is true when the function throws an exception on empty invocation.
-  static constexpr auto const is_strong_exception_guaranteed = Throws;
+  static constexpr auto const is_strong_exception_guaranteed =
+      HasStrongExceptGuarantee;
 };
 
 /// Provides utilities for invocing callable objects
