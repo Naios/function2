@@ -5,12 +5,22 @@
 //             http://www.boost.org/LICENSE_1_0.txt)
 
 #include "function2-test.hpp"
+#include <type_traits>
 
 ALL_LEFT_TYPED_TEST_CASE(AllNoExceptTests)
 
 TYPED_TEST(AllNoExceptTests, CallSucceedsIfNonEmpty) {
   typename TestFixture::template left_t<bool(), false> left = returnTrue;
   EXPECT_TRUE(left());
+}
+
+TEST(StrongNoExceptTests, GuaranteedNoExceptOperations) {
+  using type = fu2::function_base<true, true, fu2::capacity_fixed<100U>, true,
+                                  true, void()>;
+
+  EXPECT_TRUE(std::is_nothrow_destructible<type>::value);
+  EXPECT_TRUE(std::is_nothrow_move_assignable<type>::value);
+  EXPECT_TRUE(std::is_nothrow_move_constructible<type>::value);
 }
 
 // Issue #5
