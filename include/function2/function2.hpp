@@ -679,7 +679,7 @@ class operator_impl;
             typename Ret, typename... Args>                                    \
   class operator_impl<Index, function<Config, Property>,                       \
                       Ret(Args...) CONST VOLATILE OVL_REF NOEXCEPT>            \
-      : copyable<Config::is_owning || Config::is_copyable> {                   \
+      : copyable<!Config::is_owning || Config::is_copyable> {                  \
                                                                                \
     template <std::size_t, typename, typename...>                              \
     friend class operator_impl;                                                \
@@ -1257,7 +1257,7 @@ struct accepts_all<
 
 template <typename Config, typename T>
 struct assert_wrong_copy_assign {
-  static_assert(!Config::is_copyable ||
+  static_assert(!Config::is_owning || !Config::is_copyable ||
                     std::is_copy_constructible<std::decay_t<T>>::value,
                 "Can't wrap a non copyable object into a unique function!");
 

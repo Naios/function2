@@ -127,11 +127,11 @@ TEST(regression_tests, can_assign_nonowning_noncopyable_view) {
 
 static fu2::unique_function<void()> issue_14_create() {
   // remove the commented dummy capture to be compilable
-  fu2::unique_function<void()> func =
-      [i = std::vector<std::vector<std::unique_ptr<int>>>{}
-       // ,dummy = std::unique_ptr<int>()
-  ]() {
-        // ...
+  fu2::unique_function<void()>
+      func = [i = std::vector<std::vector<std::unique_ptr<int>>>{}
+              // ,dummy = std::unique_ptr<int>()
+  ](){
+          // ...
       };
 
   return std::move(func);
@@ -168,3 +168,33 @@ TEST(regression_tests, can_take_no_strong_except) {
 
   ASSERT_EQ(fn(), 23383);
 }
+
+// https://github.com/Naios/function2/issues/23
+TEST(regression_tests, can_be_stored_in_vector) {
+  using fun_t = fu2::unique_function<int(int)>;
+
+  std::vector<fun_t> v;
+  v.reserve(1);
+  fun_t f{[](int i) { return 2 * i; }};
+  fun_t f2{[](int i) { return 2 * i; }};
+  v.emplace_back(std::move(f));
+  v.emplace_back(std::move(f2));
+
+  auto const res = v[0](7);
+  ASSERT_EQ(res, 14);
+}
+
+TEST(regression_tests, unique_non_copyable) {
+  using fun_t = fu2::unique_function<int(int)>;
+  ASSERT_FALSE(std::is_copy_assignable<fun_t>::value);
+  ASSERT_FALSE(std::is_copy_constructible<fun_t>::value);
+}
+
+// https://github.com/Naios/function2/issues/21
+/*TEST(regression_tests, can_bind_const_view) {
+  auto const callable = [] { return 5; };
+
+  fu2::function_view<int() const> view(callable);
+
+  ASSERT_EQ(view(), 5);
+}*/
