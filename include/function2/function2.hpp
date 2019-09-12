@@ -57,6 +57,11 @@
 #endif
 #endif // FU2_WITH_CXX17_NOEXCEPT_FUNCTION_TYPE
 
+// - FU2_HAS_NO_EMPTY_PROPAGATION
+#if defined(FU2_WITH_NO_EMPTY_PROPAGATION)
+#define FU2_HAS_NO_EMPTY_PROPAGATION
+#endif // FU2_WITH_NO_EMPTY_PROPAGATION
+
 #if !defined(FU2_HAS_DISABLED_EXCEPTIONS)
 #include <exception>
 #endif
@@ -192,9 +197,9 @@ struct can_invoke<Pointer, identity<T&>,
     : std::true_type {};
 template <typename Pointer, typename T>
 struct can_invoke<Pointer, identity<T&&>,
-                  decltype((void)(std::declval<T&&>().*
-                                  std::declval<Pointer>()))> : std::true_type {
-};
+                  decltype(
+                      (void)(std::declval<T&&>().*std::declval<Pointer>()))>
+    : std::true_type {};
 template <typename Pointer, typename T>
 struct can_invoke<Pointer, identity<T*>,
                   decltype(
@@ -335,12 +340,11 @@ struct box_factory<box<IsCopyable, T, Allocator>> {
 };
 
 /// Creates a box containing the given value and allocator
-template <bool IsCopyable, typename T,
-          typename Allocator = std::allocator<std::decay_t<T>>>
+template <bool IsCopyable, typename T, typename Allocator>
 auto make_box(std::integral_constant<bool, IsCopyable>, T&& value,
-              Allocator&& allocator = Allocator{}) {
-  return box<IsCopyable, std::decay_t<T>, std::decay_t<Allocator>>{
-      std::forward<T>(value), std::forward<Allocator>(allocator)};
+              Allocator&& allocator) {
+  return box<IsCopyable, std::decay_t<T>, std::decay_t<Allocator>>(
+      std::forward<T>(value), std::forward<Allocator>(allocator));
 }
 
 template <typename T>
@@ -1046,13 +1050,28 @@ public:
   }
 
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
-  constexpr erasure(T&& callable, Allocator&& allocator = Allocator{}) {
+  constexpr erasure(std::false_type /*has_op_bool*/, T&& callable,
+                    Allocator&& allocator = Allocator{}) {
     vtable_t::init(vtable_,
                    type_erasure::make_box(
                        std::integral_constant<bool, Config::is_copyable>{},
                        std::forward<T>(callable),
                        std::forward<Allocator>(allocator)),
                    this->opaque_ptr(), capacity());
+  }
+  template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
+  constexpr erasure(std::true_type /*has_op_bool*/, T&& callable,
+                    Allocator&& allocator = Allocator{}) {
+    if (bool(callable)) {
+      vtable_t::init(vtable_,
+                     type_erasure::make_box(
+                         std::integral_constant<bool, Config::is_copyable>{},
+                         std::forward<T>(callable),
+                         std::forward<Allocator>(allocator)),
+                     this->opaque_ptr(), capacity());
+    } else {
+      vtable_.set_empty();
+    }
   }
 
   ~erasure() {
@@ -1090,19 +1109,9 @@ public:
     return *this;
   }
 
-  template <typename T>
-  constexpr erasure& operator=(T&& callable) {
-    vtable_.weak_destroy(this->opaque_ptr(), capacity());
-    vtable_t::init(vtable_,
-                   type_erasure::make_box(
-                       std::integral_constant<bool, Config::is_copyable>{},
-                       std::forward<T>(callable)),
-                   this->opaque_ptr(), capacity());
-    return *this;
-  }
-
-  template <typename T, typename Allocator>
-  void assign(T&& callable, Allocator&& allocator) {
+  template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
+  void assign(std::false_type /*has_op_bool*/, T&& callable,
+              Allocator&& allocator = {}) {
     vtable_.weak_destroy(this->opaque_ptr(), capacity());
     vtable_t::init(vtable_,
                    type_erasure::make_box(
@@ -1110,6 +1119,17 @@ public:
                        std::forward<T>(callable),
                        std::forward<Allocator>(allocator)),
                    this->opaque_ptr(), capacity());
+  }
+
+  template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
+  void assign(std::true_type /*has_op_bool*/, T&& callable,
+              Allocator&& allocator = {}) {
+    if (bool(callable)) {
+      assign(std::false_type{}, std::forward<T>(callable),
+             std::forward<Allocator>(allocator));
+    } else {
+      operator=(nullptr);
+    }
   }
 
   /// Returns true when the erasure doesn't hold any erased object
@@ -1178,10 +1198,15 @@ public:
 
   template <typename T>
   // NOLINTNEXTLINE(cppcoreguidlines-pro-type-member-init)
-  constexpr erasure(T&& object)
+  constexpr erasure(std::false_type /*has_op_bool*/, T&& object)
       : invoke_table_(invoke_table_t::template get_invocation_view_table_of<
                       std::decay_t<T>>()),
         view_(address_taker<std::decay_t<T>>::take(std::forward<T>(object))) {
+  }
+  template <typename T>
+  // NOLINTNEXTLINE(cppcoreguidlines-pro-type-member-init)
+  constexpr erasure(std::true_type has_op_bool, T&& object) {
+    this->assign(has_op_bool, std::forward<T>(object));
   }
 
   ~erasure() = default;
@@ -1212,11 +1237,19 @@ public:
   }
 
   template <typename T>
-  constexpr erasure& operator=(T&& object) {
+  constexpr void assign(std::false_type /*has_op_bool*/, T&& callable) {
     invoke_table_ = invoke_table_t::template get_invocation_view_table_of<
         std::decay_t<T>>();
-    view_.ptr_ = address_taker<std::decay_t<T>>::take(std::forward<T>(object));
-    return *this;
+    view_.ptr_ =
+        address_taker<std::decay_t<T>>::take(std::forward<T>(callable));
+  }
+  template <typename T>
+  constexpr void assign(std::true_type /*has_op_bool*/, T&& callable) {
+    if (bool(callable)) {
+      assign(std::false_type{}, std::forward<T>(callable));
+    } else {
+      operator=(nullptr);
+    }
   }
 
   /// Returns true when the erasure doesn't hold any erased object
@@ -1254,6 +1287,17 @@ struct accepts_all<
     T, identity<Signatures...>,
     void_t<std::enable_if_t<accepts_one<T, Signatures>::value>...>>
     : std::true_type {};
+
+/// Deduces to a true_type if the type T is implementing operator bool()
+/// or if the type is convertible to bool directly.
+template <typename T, typename = void>
+struct has_op_bool : std::false_type {};
+
+#if !defined(FU2_HAS_NO_EMPTY_PROPAGATION)
+template <typename T>
+struct has_op_bool<T, void_t<decltype(bool(std::declval<T>()))>>
+    : std::true_type {};
+#endif // FU2_HAS_NO_EMPTY_PROPAGATION
 
 template <typename Config, typename T>
 struct assert_wrong_copy_assign {
@@ -1373,7 +1417,8 @@ public:
             enable_if_can_accept_all_t<T>* = nullptr,
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
-  constexpr function(T&& callable) : erasure_(std::forward<T>(callable)) {
+  constexpr function(T&& callable)
+      : erasure_(has_op_bool<std::decay_t<T>>{}, std::forward<T>(callable)) {
   }
   template <typename T, typename Allocator, //
             enable_if_not_convertible_to_this<T>* = nullptr,
@@ -1382,7 +1427,7 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   constexpr function(T&& callable, Allocator&& allocator)
-      : erasure_(std::forward<T>(callable),
+      : erasure_(has_op_bool<std::decay_t<T>>{}, std::forward<T>(callable),
                  std::forward<Allocator>(allocator)) {
   }
 
@@ -1419,7 +1464,7 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   function& operator=(T&& callable) {
-    erasure_ = std::forward<T>(callable);
+    erasure_.assign(has_op_bool<std::decay_t<T>>{}, std::forward<T>(callable));
     return *this;
   }
 
@@ -1446,7 +1491,7 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   void assign(T&& callable, Allocator&& allocator = Allocator{}) {
-    erasure_.assign(std::forward<T>(callable),
+    erasure_.assign(has_op_bool<std::decay_t<T>>{}, std::forward<T>(callable),
                     std::forward<Allocator>(allocator));
   }
 

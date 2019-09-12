@@ -6,6 +6,8 @@
 
 #include "function2-test.hpp"
 
+struct some_tag {};
+
 ALL_LEFT_TYPED_TEST_CASE(AllEmptyFunctionCallTests)
 
 TYPED_TEST(AllEmptyFunctionCallTests, CallSucceedsIfNonEmpty) {
@@ -19,3 +21,58 @@ TYPED_TEST(AllEmptyFunctionCallTests, CallThrowsIfEmpty) {
   EXPECT_THROW(left(), fu2::bad_function_call);
 }
 #endif // FU2_HAS_DISABLED_EXCEPTIONS
+
+#if !defined(FU2_HAS_NO_EMPTY_PROPAGATION)
+COPYABLE_LEFT_TYPED_TEST_CASE(AllEmptyFunctionViewCallTests)
+
+TYPED_TEST(AllEmptyFunctionViewCallTests, CallPropagatesEmpty) {
+  typename TestFixture::template left_t<void(some_tag const&)> emptyf{};
+  ASSERT_TRUE(emptyf.empty());
+
+  typename TestFixture::template left_t<void(some_tag)> emptyf2 =
+      std::move(emptyf);
+  ASSERT_TRUE(emptyf2.empty());
+
+  typename TestFixture::template left_view_t<void(some_tag const&)> emptyf3 =
+      std::move(emptyf2);
+  ASSERT_TRUE(emptyf3.empty());
+}
+
+TYPED_TEST(AllEmptyFunctionCallTests, CallPropagatesEmptyFnPtr) {
+  using fn_t = void (*)(some_tag);
+  fn_t const fn = nullptr;
+  typename TestFixture::template left_t<void(some_tag)> emptyf(fn);
+  ASSERT_TRUE(emptyf.empty());
+}
+
+struct my_callable {
+  void operator()(some_tag const&) {
+  }
+
+  explicit operator bool() {
+    return true;
+  }
+};
+
+struct my_callable_empty {
+  void operator()(some_tag const&) {
+  }
+
+  explicit operator bool() {
+    return false;
+  }
+};
+
+TYPED_TEST(AllEmptyFunctionCallTests, CallPropagatesEmptyCustom) {
+  {
+    typename TestFixture::template left_t<void(some_tag)> fn(my_callable{});
+    ASSERT_FALSE(fn.empty());
+  }
+
+  {
+    typename TestFixture::template left_t<void(some_tag)> fn(
+        my_callable_empty{});
+    ASSERT_TRUE(fn.empty());
+  }
+}
+#endif // FU2_HAS_NO_EMPTY_PROPAGATION
