@@ -10,9 +10,6 @@ struct some_tag {};
 
 ALL_LEFT_TYPED_TEST_CASE(AllEmptyFunctionCallTests)
 
-static_assert(!fu2::detail::use_bool_op<void (&)()>::value, "");
-static_assert(fu2::detail::use_bool_op<void (*)()>::value, "");
-
 TYPED_TEST(AllEmptyFunctionCallTests, CallSucceedsIfNonEmpty) {
   typename TestFixture::template left_t<bool()> left = returnTrue;
   EXPECT_TRUE(left());

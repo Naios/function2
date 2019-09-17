@@ -84,6 +84,9 @@ struct deduce_to_void : std::common_type<void> {};
 template <typename... T>
 using void_t = typename deduce_to_void<T...>::type;
 
+template <typename T>
+using unrefcv_t = std::remove_cv_t<std::remove_reference_t<T>>;
+
 // Copy enabler helper class
 template <bool /*Copyable*/>
 struct copyable {};
@@ -432,8 +435,14 @@ using std::bad_function_call;
   F(const, , noexcept, &&, &&)                                                 \
   F(, volatile, noexcept, &&, &&)                                              \
   F(const, volatile, noexcept, &&, &&)
+#define FU2_EXPAND_CV_NOEXCEPT(F)                                              \
+  F(, , noexcept)                                                              \
+  F(const, , noexcept)                                                         \
+  F(, volatile, noexcept)                                                      \
+  F(const, volatile, noexcept)
 #else // FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
 #define FU2_EXPAND_QUALIFIERS_NOEXCEPT(F)
+#define FU2_EXPAND_CV_NOEXCEPT(F)
 #endif // FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
 
 #define FU2_EXPAND_QUALIFIERS(F)                                               \
@@ -450,6 +459,12 @@ using std::bad_function_call;
   F(, volatile, , &&, &&)                                                      \
   F(const, volatile, , &&, &&)                                                 \
   FU2_EXPAND_QUALIFIERS_NOEXCEPT(F)
+#define FU2_EXPAND_CV(F)                                                       \
+  F(, , )                                                                      \
+  F(const, , )                                                                 \
+  F(, volatile, )                                                              \
+  F(const, volatile, )                                                         \
+  FU2_EXPAND_CV_NOEXCEPT(F)
 
 /// If the function is qualified as noexcept, the call will never throw
 template <bool IsNoexcept>
@@ -1309,16 +1324,21 @@ struct has_bool_op<T, void_t<decltype(bool(std::declval<T>()))>>
 
 template <typename T>
 struct use_bool_op : has_bool_op<T> {};
+
+#define FU2_DEFINE_USE_OP_TRAIT(CONST, VOLATILE, NOEXCEPT)                     \
+  template <typename Ret, typename... Args>                                    \
+  struct use_bool_op<Ret (*CONST VOLATILE)(Args...) NOEXCEPT>                  \
+      : std::true_type {};
+
+FU2_EXPAND_CV(FU2_DEFINE_USE_OP_TRAIT)
+#undef FU2_DEFINE_USE_OP_TRAIT
+
 template <typename Ret, typename... Args>
-struct use_bool_op<Ret (&)(Args...)> : std::false_type {};
-template <typename Ret, typename... Args>
-struct use_bool_op<Ret (*)(Args...)> : std::true_type {};
+struct use_bool_op<Ret(Args...)> : std::false_type {};
 
 #if defined(FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE)
 template <typename Ret, typename... Args>
-struct use_bool_op<Ret (&)(Args...) noexcept> : std::false_type {};
-template <typename Ret, typename... Args>
-struct use_bool_op<Ret (*)(Args...) noexcept> : std::true_type {};
+struct use_bool_op<Ret(Args...) noexcept> : std::false_type {};
 #endif
 #endif // FU2_HAS_NO_EMPTY_PROPAGATION
 
@@ -1441,7 +1461,7 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   constexpr function(T&& callable)
-      : erasure_(use_bool_op<std::decay_t<T>>{}, std::forward<T>(callable)) {
+      : erasure_(use_bool_op<unrefcv_t<T>>{}, std::forward<T>(callable)) {
   }
   template <typename T, typename Allocator, //
             enable_if_not_convertible_to_this<T>* = nullptr,
@@ -1450,7 +1470,7 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   constexpr function(T&& callable, Allocator&& allocator)
-      : erasure_(use_bool_op<std::decay_t<T>>{}, std::forward<T>(callable),
+      : erasure_(use_bool_op<unrefcv_t<T>>{}, std::forward<T>(callable),
                  std::forward<Allocator>(allocator)) {
   }
 
@@ -1487,7 +1507,7 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   function& operator=(T&& callable) {
-    erasure_.assign(use_bool_op<std::decay_t<T>>{}, std::forward<T>(callable));
+    erasure_.assign(use_bool_op<unrefcv_t<T>>{}, std::forward<T>(callable));
     return *this;
   }
 
@@ -1514,7 +1534,7 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   void assign(T&& callable, Allocator&& allocator = Allocator{}) {
-    erasure_.assign(use_bool_op<std::decay_t<T>>{}, std::forward<T>(callable),
+    erasure_.assign(use_bool_op<unrefcv_t<T>>{}, std::forward<T>(callable),
                     std::forward<Allocator>(allocator));
   }
 
@@ -1683,5 +1703,7 @@ constexpr auto overload(T&&... callables) {
 
 #undef FU2_EXPAND_QUALIFIERS
 #undef FU2_EXPAND_QUALIFIERS_NOEXCEPT
+#undef FU2_EXPAND_CV
+#undef FU2_EXPAND_CV_NOEXCEPT
 
 #endif // FU2_INCLUDED_FUNCTION2_HPP_
