@@ -10,8 +10,29 @@ struct some_tag {};
 
 ALL_LEFT_TYPED_TEST_CASE(AllEmptyFunctionCallTests)
 
+static_assert(!fu2::detail::use_bool_op<void (&)()>::value, "");
+static_assert(fu2::detail::use_bool_op<void (*)()>::value, "");
+
 TYPED_TEST(AllEmptyFunctionCallTests, CallSucceedsIfNonEmpty) {
   typename TestFixture::template left_t<bool()> left = returnTrue;
+  EXPECT_TRUE(left());
+}
+
+TYPED_TEST(AllEmptyFunctionCallTests, CallSucceedsIfNonEmptyPtr) {
+  using ptr_t = bool (*)();
+
+  ptr_t ptr(returnTrue);
+
+  typename TestFixture::template left_t<bool()> left = ptr;
+  EXPECT_TRUE(left());
+}
+
+TYPED_TEST(AllEmptyFunctionCallTests, CallSucceedsIfNonEmptyRef) {
+  using ref_t = bool (&)();
+
+  ref_t ref(returnTrue);
+
+  typename TestFixture::template left_t<bool()> left = ref;
   EXPECT_TRUE(left());
 }
 

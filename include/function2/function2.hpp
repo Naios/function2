@@ -1050,7 +1050,7 @@ public:
   }
 
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
-  constexpr erasure(std::false_type /*has_op_bool*/, T&& callable,
+  constexpr erasure(std::false_type /*use_bool_op*/, T&& callable,
                     Allocator&& allocator = Allocator{}) {
     vtable_t::init(vtable_,
                    type_erasure::make_box(
@@ -1060,7 +1060,7 @@ public:
                    this->opaque_ptr(), capacity());
   }
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
-  constexpr erasure(std::true_type /*has_op_bool*/, T&& callable,
+  constexpr erasure(std::true_type /*use_bool_op*/, T&& callable,
                     Allocator&& allocator = Allocator{}) {
     if (bool(callable)) {
       vtable_t::init(vtable_,
@@ -1110,7 +1110,7 @@ public:
   }
 
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
-  void assign(std::false_type /*has_op_bool*/, T&& callable,
+  void assign(std::false_type /*use_bool_op*/, T&& callable,
               Allocator&& allocator = {}) {
     vtable_.weak_destroy(this->opaque_ptr(), capacity());
     vtable_t::init(vtable_,
@@ -1122,7 +1122,7 @@ public:
   }
 
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
-  void assign(std::true_type /*has_op_bool*/, T&& callable,
+  void assign(std::true_type /*use_bool_op*/, T&& callable,
               Allocator&& allocator = {}) {
     if (bool(callable)) {
       assign(std::false_type{}, std::forward<T>(callable),
@@ -1198,15 +1198,15 @@ public:
 
   template <typename T>
   // NOLINTNEXTLINE(cppcoreguidlines-pro-type-member-init)
-  constexpr erasure(std::false_type /*has_op_bool*/, T&& object)
+  constexpr erasure(std::false_type /*use_bool_op*/, T&& object)
       : invoke_table_(invoke_table_t::template get_invocation_view_table_of<
                       std::decay_t<T>>()),
         view_(address_taker<std::decay_t<T>>::take(std::forward<T>(object))) {
   }
   template <typename T>
   // NOLINTNEXTLINE(cppcoreguidlines-pro-type-member-init)
-  constexpr erasure(std::true_type has_op_bool, T&& object) {
-    this->assign(has_op_bool, std::forward<T>(object));
+  constexpr erasure(std::true_type use_bool_op, T&& object) {
+    this->assign(use_bool_op, std::forward<T>(object));
   }
 
   ~erasure() = default;
@@ -1237,14 +1237,14 @@ public:
   }
 
   template <typename T>
-  constexpr void assign(std::false_type /*has_op_bool*/, T&& callable) {
+  constexpr void assign(std::false_type /*use_bool_op*/, T&& callable) {
     invoke_table_ = invoke_table_t::template get_invocation_view_table_of<
         std::decay_t<T>>();
     view_.ptr_ =
         address_taker<std::decay_t<T>>::take(std::forward<T>(callable));
   }
   template <typename T>
-  constexpr void assign(std::true_type /*has_op_bool*/, T&& callable) {
+  constexpr void assign(std::true_type /*use_bool_op*/, T&& callable) {
     if (bool(callable)) {
       assign(std::false_type{}, std::forward<T>(callable));
     } else {
@@ -1289,14 +1289,37 @@ struct accepts_all<
     : std::true_type {};
 
 /// Deduces to a true_type if the type T is implementing operator bool()
-/// or if the type is convertible to bool directly.
-template <typename T, typename = void>
-struct has_op_bool : std::false_type {};
-
-#if !defined(FU2_HAS_NO_EMPTY_PROPAGATION)
+/// or if the type is convertible to bool directly, this also implements an
+/// optimizations for function references `void(&)()` which are can never
+/// be null and for such a conversion to bool would never return false.
+#if defined(FU2_HAS_NO_EMPTY_PROPAGATION)
 template <typename T>
-struct has_op_bool<T, void_t<decltype(bool(std::declval<T>()))>>
-    : std::true_type {};
+struct use_bool_op : std::false_type {};
+#else
+template <typename T, typename = void>
+struct has_bool_op : std::false_type {};
+template <typename T>
+struct has_bool_op<T, void_t<decltype(bool(std::declval<T>()))>>
+    : std::true_type {
+#ifndef NDEBUG
+  static_assert(!std::is_pointer<T>::value,
+                "Missing deduction for function pointer!");
+#endif
+};
+
+template <typename T>
+struct use_bool_op : has_bool_op<T> {};
+template <typename Ret, typename... Args>
+struct use_bool_op<Ret (&)(Args...)> : std::false_type {};
+template <typename Ret, typename... Args>
+struct use_bool_op<Ret (*)(Args...)> : std::true_type {};
+
+#if defined(FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE)
+template <typename Ret, typename... Args>
+struct use_bool_op<Ret (&)(Args...) noexcept> : std::false_type {};
+template <typename Ret, typename... Args>
+struct use_bool_op<Ret (*)(Args...) noexcept> : std::true_type {};
+#endif
 #endif // FU2_HAS_NO_EMPTY_PROPAGATION
 
 template <typename Config, typename T>
@@ -1418,7 +1441,7 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   constexpr function(T&& callable)
-      : erasure_(has_op_bool<std::decay_t<T>>{}, std::forward<T>(callable)) {
+      : erasure_(use_bool_op<std::decay_t<T>>{}, std::forward<T>(callable)) {
   }
   template <typename T, typename Allocator, //
             enable_if_not_convertible_to_this<T>* = nullptr,
@@ -1427,7 +1450,7 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   constexpr function(T&& callable, Allocator&& allocator)
-      : erasure_(has_op_bool<std::decay_t<T>>{}, std::forward<T>(callable),
+      : erasure_(use_bool_op<std::decay_t<T>>{}, std::forward<T>(callable),
                  std::forward<Allocator>(allocator)) {
   }
 
@@ -1464,7 +1487,7 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   function& operator=(T&& callable) {
-    erasure_.assign(has_op_bool<std::decay_t<T>>{}, std::forward<T>(callable));
+    erasure_.assign(use_bool_op<std::decay_t<T>>{}, std::forward<T>(callable));
     return *this;
   }
 
@@ -1491,7 +1514,7 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   void assign(T&& callable, Allocator&& allocator = Allocator{}) {
-    erasure_.assign(has_op_bool<std::decay_t<T>>{}, std::forward<T>(callable),
+    erasure_.assign(use_bool_op<std::decay_t<T>>{}, std::forward<T>(callable),
                     std::forward<Allocator>(allocator));
   }
 
