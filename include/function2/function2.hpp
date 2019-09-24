@@ -66,6 +66,44 @@
 #include <exception>
 #endif
 
+/// Hint for the compiler that this point should be unreachable
+#if defined(_MSC_VER)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_UNREACHABLE_INTRINSIC() __assume(false)
+#elif defined(__GNUC__)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_UNREACHABLE_INTRINSIC() __builtin_unreachable()
+#elif defined(__has_builtin) && __has_builtin(__builtin_unreachable)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_UNREACHABLE_INTRINSIC() __builtin_unreachable()
+#else
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_UNREACHABLE_INTRINSIC() abort()
+#endif
+
+/// Causes the application to exit abnormally
+#if defined(_MSC_VER)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_TRAP() __debugbreak()
+#elif defined(__GNUC__)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_TRAP() __builtin_trap()
+#elif defined(__has_builtin) && __has_builtin(__builtin_trap)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_TRAP() __builtin_trap()
+#else
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_TRAP() *(volatile int*)0x11 = 0
+#endif
+
+#ifndef NDEBUG
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_UNREACHABLE() ::fu2::detail::unreachable_debug()
+#else
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_UNREACHABLE() FU2_DETAIL_UNREACHABLE_INTRINSIC()
+#endif
+
 namespace fu2 {
 inline namespace abi_400 {
 namespace detail {
@@ -75,7 +113,7 @@ class function;
 template <typename...>
 struct identity {};
 
-// Equivalent to C++17's std::void_t which is targets a bug in GCC,
+// Equivalent to C++17's std::void_t which targets a bug in GCC,
 // that prevents correct SFINAE behavior.
 // See http://stackoverflow.com/questions/35753920 for details.
 template <typename...>
@@ -126,6 +164,13 @@ struct property {
   static constexpr auto const is_strong_exception_guaranteed =
       HasStrongExceptGuarantee;
 };
+
+#ifndef NDEBUG
+[[noreturn]] inline void unreachable_debug() {
+  FU2_DETAIL_TRAP();
+  std::abort();
+}
+#endif
 
 /// Provides utilities for invocing callable objects
 namespace invocation {
@@ -422,7 +467,7 @@ using std::bad_function_call;
 #endif
 
 #ifdef FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
-#define FU2_EXPAND_QUALIFIERS_NOEXCEPT(F)                                      \
+#define FU2_DETAIL_EXPAND_QUALIFIERS_NOEXCEPT(F)                               \
   F(, , noexcept, , &)                                                         \
   F(const, , noexcept, , &)                                                    \
   F(, volatile, noexcept, , &)                                                 \
@@ -435,17 +480,17 @@ using std::bad_function_call;
   F(const, , noexcept, &&, &&)                                                 \
   F(, volatile, noexcept, &&, &&)                                              \
   F(const, volatile, noexcept, &&, &&)
-#define FU2_EXPAND_CV_NOEXCEPT(F)                                              \
+#define FU2_DETAIL_EXPAND_CV_NOEXCEPT(F)                                       \
   F(, , noexcept)                                                              \
   F(const, , noexcept)                                                         \
   F(, volatile, noexcept)                                                      \
   F(const, volatile, noexcept)
 #else // FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
-#define FU2_EXPAND_QUALIFIERS_NOEXCEPT(F)
-#define FU2_EXPAND_CV_NOEXCEPT(F)
+#define FU2_DETAIL_EXPAND_QUALIFIERS_NOEXCEPT(F)
+#define FU2_DETAIL_EXPAND_CV_NOEXCEPT(F)
 #endif // FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
 
-#define FU2_EXPAND_QUALIFIERS(F)                                               \
+#define FU2_DETAIL_EXPAND_QUALIFIERS(F)                                        \
   F(, , , , &)                                                                 \
   F(const, , , , &)                                                            \
   F(, volatile, , , &)                                                         \
@@ -458,13 +503,13 @@ using std::bad_function_call;
   F(const, , , &&, &&)                                                         \
   F(, volatile, , &&, &&)                                                      \
   F(const, volatile, , &&, &&)                                                 \
-  FU2_EXPAND_QUALIFIERS_NOEXCEPT(F)
-#define FU2_EXPAND_CV(F)                                                       \
+  FU2_DETAIL_EXPAND_QUALIFIERS_NOEXCEPT(F)
+#define FU2_DETAIL_EXPAND_CV(F)                                                \
   F(, , )                                                                      \
   F(const, , )                                                                 \
   F(, volatile, )                                                              \
   F(const, volatile, )                                                         \
-  FU2_EXPAND_CV_NOEXCEPT(F)
+  FU2_DETAIL_EXPAND_CV_NOEXCEPT(F)
 
 /// If the function is qualified as noexcept, the call will never throw
 template <bool IsNoexcept>
@@ -538,7 +583,7 @@ using is_noexcept_noexcept = std::true_type;
     };                                                                         \
   };
 
-FU2_EXPAND_QUALIFIERS(FU2_DEFINE_FUNCTION_TRAIT)
+FU2_DETAIL_EXPAND_QUALIFIERS(FU2_DEFINE_FUNCTION_TRAIT)
 #undef FU2_DEFINE_FUNCTION_TRAIT
 
 /// Deduces to the function pointer to the given signature
@@ -722,7 +767,7 @@ class operator_impl;
     }                                                                          \
   };
 
-FU2_EXPAND_QUALIFIERS(FU2_DEFINE_FUNCTION_TRAIT)
+FU2_DETAIL_EXPAND_QUALIFIERS(FU2_DEFINE_FUNCTION_TRAIT)
 #undef FU2_DEFINE_FUNCTION_TRAIT
 } // namespace invocation_table
 
@@ -834,9 +879,7 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
         }
       }
 
-      // TODO Use an unreachable intrinsic
-      assert(false && "Unreachable!");
-      std::exit(-1);
+      FU2_DETAIL_UNREACHABLE();
     }
 
     template <typename Box>
@@ -884,6 +927,9 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
       case opcode::op_fetch_empty: {
         write_empty(to, true);
         break;
+      }
+      default: {
+        FU2_DETAIL_UNREACHABLE();
       }
     }
   }
@@ -1330,7 +1376,7 @@ struct use_bool_op : has_bool_op<T> {};
   struct use_bool_op<Ret (*CONST VOLATILE)(Args...) NOEXCEPT>                  \
       : std::true_type {};
 
-FU2_EXPAND_CV(FU2_DEFINE_USE_OP_TRAIT)
+FU2_DETAIL_EXPAND_CV(FU2_DEFINE_USE_OP_TRAIT)
 #undef FU2_DEFINE_USE_OP_TRAIT
 
 template <typename Ret, typename... Args>
@@ -1701,9 +1747,12 @@ constexpr auto overload(T&&... callables) {
 }
 } // namespace fu2
 
-#undef FU2_EXPAND_QUALIFIERS
-#undef FU2_EXPAND_QUALIFIERS_NOEXCEPT
-#undef FU2_EXPAND_CV
-#undef FU2_EXPAND_CV_NOEXCEPT
+#undef FU2_DETAIL_EXPAND_QUALIFIERS
+#undef FU2_DETAIL_EXPAND_QUALIFIERS_NOEXCEPT
+#undef FU2_DETAIL_EXPAND_CV
+#undef FU2_DETAIL_EXPAND_CV_NOEXCEPT
+#undef FU2_DETAIL_UNREACHABLE_INTRINSIC
+#undef FU2_DETAIL_UNREACHABLE_INTRINSIC
+#undef FU2_DETAIL_TRAP
 
 #endif // FU2_INCLUDED_FUNCTION2_HPP_
