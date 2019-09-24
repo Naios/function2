@@ -34,6 +34,12 @@ TYPED_TEST(AllEmptyFunctionCallTests, CallSucceedsIfNonEmptyRef) {
 }
 
 #if !defined(FU2_HAS_DISABLED_EXCEPTIONS)
+#ifndef FU2_HAS_NO_FUNCTIONAL_HEADER
+static_assert(std::is_same<fu2::bad_function_call, //
+                           std::bad_function_call>::value,
+              "Wrong fu2::bad_function_call exposed!");
+#endif
+
 TYPED_TEST(AllEmptyFunctionCallTests, CallThrowsIfEmpty) {
   typename TestFixture::template left_t<bool()> left;
   EXPECT_THROW(left(), fu2::bad_function_call);

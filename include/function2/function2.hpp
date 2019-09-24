@@ -36,11 +36,12 @@
 #endif
 #endif // FU2_WITH_DISABLED_EXCEPTIONS
 // - FU2_HAS_NO_FUNCTIONAL_HEADER
-#if !defined(FU2_WITH_NO_FUNCTIONAL_HEADER) ||                                 \
-    !defined(FU2_NO_FUNCTIONAL_HEADER) ||                                      \
+#if !defined(FU2_WITH_NO_FUNCTIONAL_HEADER) &&                                 \
+    !defined(FU2_NO_FUNCTIONAL_HEADER) &&                                      \
     !defined(FU2_HAS_DISABLED_EXCEPTIONS)
-#define FU2_HAS_NO_FUNCTIONAL_HEADER
 #include <functional>
+#else
+#define FU2_HAS_NO_FUNCTIONAL_HEADER
 #endif
 // - FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
 #if defined(FU2_WITH_CXX17_NOEXCEPT_FUNCTION_TYPE)
@@ -461,7 +462,7 @@ struct bad_function_call : std::exception {
     return "bad function call";
   }
 };
-#elif
+#else
 using std::bad_function_call;
 #endif
 #endif
@@ -1717,13 +1718,13 @@ using function_view = function_base<false, true, capacity_default, //
 /// Exception type that is thrown when invoking empty function objects
 /// and exception support isn't disabled.
 ///
-/// Exception suport is enabled if
+/// Exception support is enabled if
 /// the template parameter 'Throwing' is set to true (default).
 ///
 /// This type will default to std::bad_function_call if the
 /// functional header is used, otherwise the library provides its own type.
 ///
-/// You may disable the inclusion of the functionl header
+/// You may disable the inclusion of the functional header
 /// through defining `FU2_WITH_NO_FUNCTIONAL_HEADER`.
 ///
 using detail::type_erasure::invocation_table::bad_function_call;
