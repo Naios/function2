@@ -4,29 +4,13 @@ image:
 
 environment:
   matrix:
-    - CONFIGURATION: Debug
-      FU2_WITH_NO_EXCEPTIONS: OFF
+    - FU2_WITH_NO_EXCEPTIONS: OFF
       FU2_WITH_CPP_LATEST: OFF
-    - CONFIGURATION: Debug
-      FU2_WITH_NO_EXCEPTIONS: ON
+    - FU2_WITH_NO_EXCEPTIONS: ON
       FU2_WITH_CPP_LATEST: OFF
-    - CONFIGURATION: Debug
-      FU2_WITH_NO_EXCEPTIONS: OFF
+    - FU2_WITH_NO_EXCEPTIONS: OFF
       FU2_WITH_CPP_LATEST: ON
-    - CONFIGURATION: Debug
-      FU2_WITH_NO_EXCEPTIONS: ON
-      FU2_WITH_CPP_LATEST: ON
-    - CONFIGURATION: Release
-      FU2_WITH_NO_EXCEPTIONS: OFF
-      FU2_WITH_CPP_LATEST: OFF
-    - CONFIGURATION: Release
-      FU2_WITH_NO_EXCEPTIONS: ON
-      FU2_WITH_CPP_LATEST: OFF
-    - CONFIGURATION: Release
-      FU2_WITH_NO_EXCEPTIONS: OFF
-      FU2_WITH_CPP_LATEST: ON
-    - CONFIGURATION: Release
-      FU2_WITH_NO_EXCEPTIONS: ON
+    - FU2_WITH_NO_EXCEPTIONS: ON
       FU2_WITH_CPP_LATEST: ON
 
 platform:
@@ -45,8 +29,16 @@ before_build:
          -DFU2_WITH_CPP_LATEST=%FU2_WITH_CPP_LATEST%
 
 build_script:
-  - cmd: cmake --build build --config %CONFIGURATION% --target ALL_BUILD -- /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll" /verbosity:minimal /maxcpucount:2 /nologo
+  - cmd: >
+         cmake --build build --config Debug --target ALL_BUILD
+         -- /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
+         /verbosity:minimal /maxcpucount:2 /nologo
+  - cmd: >
+         cmake --build build --config Release --target ALL_BUILD
+         -- /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
+         /verbosity:minimal /maxcpucount:2 /nologo
 
 test_script:
   - cmd: cd build
-  - cmd: ctest -C %CONFIGURATION% -V .
+  - cmd: ctest -C Debug -V .
+  - cmd: ctest -C Release -V .
