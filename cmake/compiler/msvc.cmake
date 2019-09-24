@@ -16,9 +16,14 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /MP")
 
-if (TESTS_NO_EXCEPTIONS)
+if (FU2_WITH_NO_EXCEPTIONS)
   add_definitions(-D_HAS_EXCEPTIONS=0)
   string(REGEX REPLACE "/GX" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
   string(REGEX REPLACE "/EHsc" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
   message(STATUS "MSVC: Disabled exceptions")
+endif()
+
+if (FU2_WITH_CPP_LATEST)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++latest")
+  message(STATUS "MSVC: Using latest available C++ standard")
 endif()

@@ -102,15 +102,22 @@ if (FU2_IS_TOP_LEVEL_PROJECT)
 
   enable_testing()
 
-  option(TESTS_NO_EXCEPTIONS  "Test without exceptions"  OFF)
-  option(TESTS_NO_DEATH_TESTS "Test without death tests" OFF)
+  option(FU2_WITH_NO_EXCEPTIONS
+      "Test without exceptions"
+      OFF)
+  option(FU2_WITH_NO_DEATH_TESTS
+      "Test without death tests"
+      OFF)
+  option(FU2_WITH_CPP_LATEST
+      "Enable the highest C++ standard available for testing polyfills"
+      OFF)
 
-  if (TESTS_NO_EXCEPTIONS)
+  if (FU2_WITH_NO_EXCEPTIONS)
     message(STATUS "Testing with exceptions disabled")
     add_definitions(-DTESTS_NO_EXCEPTIONS)
   endif()
 
-  if (TESTS_NO_DEATH_TESTS)
+  if (FU2_WITH_NO_DEATH_TESTS)
     message(STATUS "Testing without death tests")
     add_definitions(-DTESTS_NO_DEATH_TESTS)
   endif()

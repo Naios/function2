@@ -22,7 +22,7 @@ function renew_build {
 
   # Configure the project and build it
   cmake -GNinja -DCMAKE_CXX_FLAGS="$CMAKE_CXX_FLAGS -Werror" \
-        -DTESTS_NO_EXCEPTIONS=$NO_EXCEPTIONS -DTESTS_NO_DEATH_TESTS=ON \
+        -DFU2_WITH_NO_EXCEPTIONS=$NO_EXCEPTIONS -DFU2_WITH_NO_DEATH_TESTS=ON \
         -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug ..
 }
 
