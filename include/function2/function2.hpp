@@ -735,7 +735,9 @@ class operator_impl;
       auto parent = static_cast<Function CONST VOLATILE*>(this);               \
       using erasure_t = std::decay_t<decltype(parent->erasure_)>;              \
                                                                                \
-      return erasure_t::template invoke<Index>(                                \
+      /* `std::decay_t<decltype(parent->erasure_)>` is a workaround for a   */ \
+      /* compiler regression of MSVC 16.3.1, see #29 for details.           */ \
+      return std::decay_t<decltype(parent->erasure_)>::template invoke<Index>( \
           static_cast<erasure_t CONST VOLATILE REF>(parent->erasure_),         \
           std::forward<Args>(args)...);                                        \
     }                                                                          \
@@ -762,7 +764,9 @@ class operator_impl;
           static_cast<function<Config, Property> CONST VOLATILE*>(this);       \
       using erasure_t = std::decay_t<decltype(parent->erasure_)>;              \
                                                                                \
-      return erasure_t::template invoke<Index>(                                \
+      /* `std::decay_t<decltype(parent->erasure_)>` is a workaround for a   */ \
+      /* compiler regression of MSVC 16.3.1, see #29 for details.           */ \
+      return std::decay_t<decltype(parent->erasure_)>::template invoke<Index>( \
           static_cast<erasure_t CONST VOLATILE REF>(parent->erasure_),         \
           std::forward<Args>(args)...);                                        \
     }                                                                          \
