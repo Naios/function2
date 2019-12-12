@@ -58,6 +58,14 @@
 #endif
 #endif // FU2_WITH_CXX17_NOEXCEPT_FUNCTION_TYPE
 
+// Force disable empty propagation if compiled as Objective-C++
+// as lambdas get converted to a block pointer with an implicit copy,
+// causing non-copyable lambdas to not compile.
+// See https://stackoverflow.com/questions/59292997 for more details.
+#ifdef __OBJC__
+#define FU2_WITH_NO_EMPTY_PROPAGATION
+#endif
+
 // - FU2_HAS_NO_EMPTY_PROPAGATION
 #if defined(FU2_WITH_NO_EMPTY_PROPAGATION)
 #define FU2_HAS_NO_EMPTY_PROPAGATION
