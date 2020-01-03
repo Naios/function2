@@ -198,3 +198,37 @@ TEST(regression_tests, unique_non_copyable) {
 
   ASSERT_EQ(view(), 5);
 }*/
+
+namespace issue_35 {
+class ref_obj {
+public:
+  ref_obj() = default;
+  ref_obj(ref_obj const&) = delete;
+  ref_obj(ref_obj&&) = default;
+  ref_obj& operator=(ref_obj&&) = default;
+  ref_obj& operator=(ref_obj const&) = delete;
+
+  int data() const {
+    return data_;
+  }
+
+private:
+  int data_{8373827};
+};
+
+ref_obj& ref_obj_getter() {
+  static ref_obj some;
+  return some;
+}
+} // namespace issue_35
+
+ALL_LEFT_TYPED_TEST_CASE(AllReferenceRetConstructTests)
+
+// https://github.com/Naios/function2/issues/35
+TYPED_TEST(AllReferenceRetConstructTests, reference_returns_not_buildable) {
+  using namespace issue_35;
+
+  typename TestFixture::template left_t<ref_obj&()> left(&ref_obj_getter);
+  ref_obj& ref = left();
+  ASSERT_EQ(ref.data(), 8373827);
+}
