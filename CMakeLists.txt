@@ -100,7 +100,9 @@ if (FU2_IS_TOP_LEVEL_PROJECT)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /permissive-")
   endif()
 
-  enable_testing()
+  include(cmake/CMakeLists.txt)
+
+  include(CTest)
 
   option(FU2_WITH_NO_EXCEPTIONS
       "Test without exceptions"
@@ -112,17 +114,17 @@ if (FU2_IS_TOP_LEVEL_PROJECT)
       "Enable the highest C++ standard available for testing polyfills"
       OFF)
 
-  if (FU2_WITH_NO_EXCEPTIONS)
-    message(STATUS "Testing with exceptions disabled")
-    add_definitions(-DTESTS_NO_EXCEPTIONS)
+  if (BUILD_TESTING)
+    if (FU2_WITH_NO_EXCEPTIONS)
+      message(STATUS "Testing with exceptions disabled")
+      add_definitions(-DTESTS_NO_EXCEPTIONS)
+    endif()
+
+    if (FU2_WITH_NO_DEATH_TESTS)
+      message(STATUS "Testing without death tests")
+      add_definitions(-DTESTS_NO_DEATH_TESTS)
+    endif()
+
+    add_subdirectory(test)
   endif()
-
-  if (FU2_WITH_NO_DEATH_TESTS)
-    message(STATUS "Testing without death tests")
-    add_definitions(-DTESTS_NO_DEATH_TESTS)
-  endif()
-
-  include(cmake/CMakeLists.txt)
-
-  add_subdirectory(test)
 endif ()
