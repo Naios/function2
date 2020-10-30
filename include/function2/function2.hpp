@@ -67,18 +67,17 @@
 #include <exception>
 #endif
 
-#if defined(__has_include)
-#if __has_include(<boost/config.hpp>)
-#include <boost/config.hpp>
-#define FU2_CXX14_CONSTEXPR BOOST_CXX14_CONSTEXPR
-#endif
-#endif
-#ifndef FU2_CXX14_CONSTEXPR
 #if defined(__cpp_constexpr) && (__cpp_constexpr >= 201304)
 #define FU2_CXX14_CONSTEXPR constexpr
-#else
-#define FU2_CXX14_CONSTEXPR
+#elif defined(__clang__) && defined(__has_feature)
+#if __has_feature(__cxx_generic_lambdas__) && __has_feature(__cxx_relaxed_constexpr__)
+#define FU2_CXX14_CONSTEXPR constexpr
 #endif
+#elif defined(_MSC_VER) && (_MSC_VER >= 1915) && (_MSVC_LANG >= 201402)
+#define FU2_CXX14_CONSTEXPR constexpr
+#endif
+#ifndef FU2_CXX14_CONSTEXPR
+#define FU2_CXX14_CONSTEXPR
 #endif
 
 /// Hint for the compiler that this point should be unreachable
