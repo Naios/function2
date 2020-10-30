@@ -87,10 +87,13 @@
 #elif defined(__GNUC__)
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define FU2_DETAIL_UNREACHABLE_INTRINSIC() __builtin_unreachable()
-#elif defined(__has_builtin) && __has_builtin(__builtin_unreachable)
+#elif defined(__has_builtin)
+#if __has_builtin(__builtin_unreachable)
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define FU2_DETAIL_UNREACHABLE_INTRINSIC() __builtin_unreachable()
-#else
+#endif
+#endif
+#ifndef FU2_DETAIL_UNREACHABLE_INTRINSIC
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define FU2_DETAIL_UNREACHABLE_INTRINSIC() abort()
 #endif
@@ -102,10 +105,13 @@
 #elif defined(__GNUC__)
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define FU2_DETAIL_TRAP() __builtin_trap()
-#elif defined(__has_builtin) && __has_builtin(__builtin_trap)
+#elif defined(__has_builtin)
+#if __has_builtin(__builtin_trap)
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define FU2_DETAIL_TRAP() __builtin_trap()
-#else
+#endif
+#endif
+#ifndef FU2_DETAIL_TRAP
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define FU2_DETAIL_TRAP() *(volatile int*)0x11 = 0
 #endif
