@@ -431,7 +431,7 @@ union data_accessor {
 };
 
 /// See opcode::op_fetch_empty
-FU2_CXX14_CONSTEXPR void write_empty(data_accessor* accessor, bool empty) noexcept {
+static FU2_CXX14_CONSTEXPR void write_empty(data_accessor* accessor, bool empty) noexcept {
   accessor->inplace_storage_ = std::size_t(empty);
 }
 
