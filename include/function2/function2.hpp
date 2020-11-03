@@ -1422,7 +1422,7 @@ struct use_bool_op<Ret(Args...) noexcept> : std::false_type {};
 template <typename Config, typename T>
 struct assert_wrong_copy_assign {
   static_assert(!Config::is_owning || !Config::is_copyable ||
-                    std::is_copy_constructible<std::decay_t<T>>::value,
+                    std::is_copy_constructible_v<std::decay_t<T>>,
                 "Can't wrap a non copyable object into a unique function!");
 
   using type = void;
