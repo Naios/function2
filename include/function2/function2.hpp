@@ -280,8 +280,9 @@ struct is_noexcept_correct : std::true_type {};
 template <typename T, typename... Args>
 struct is_noexcept_correct<true, T, identity<Args...>>
     : std::integral_constant<bool,
-                             noexcept((invoke)(std::declval<T>(),
-                                               std::declval<Args>()...))> {};
+                             noexcept(::fu2::detail::invocation::invoke(
+                                 std::declval<T>(), std::declval<Args>()...))> {
+};
 } // end namespace invocation
 
 namespace overloading {
