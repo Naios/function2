@@ -802,12 +802,12 @@ FU2_DETAIL_EXPAND_QUALIFIERS(FU2_DEFINE_FUNCTION_TRAIT)
 namespace tables {
 /// Identifies the action which is dispatched on the erased object
 enum class opcode {
-  op_move,         //< Move the object and set the vtable
-  op_copy,         //< Copy the object and set the vtable
-  op_destroy,      //< Destroy the object and reset the vtable
-  op_weak_destroy, //< Destroy the object without resetting the vtable
-  op_fetch_empty,  //< Stores true or false into the to storage
-                   //< to indicate emptiness
+  op_move,         ///< Move the object and set the vtable
+  op_copy,         ///< Copy the object and set the vtable
+  op_destroy,      ///< Destroy the object and reset the vtable
+  op_weak_destroy, ///< Destroy the object without resetting the vtable
+  op_fetch_empty,  ///< Stores true or false into the to storage
+                   ///< to indicate emptiness
 };
 
 /// Abstraction for a vtable together with a command table
