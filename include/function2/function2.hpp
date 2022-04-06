@@ -358,8 +358,8 @@ struct box : private Allocator {
 
   T value_;
 
-  explicit box(T value, Allocator allocator)
-      : Allocator(std::move(allocator)), value_(std::move(value)) {
+  explicit box(T value, Allocator allocator_)
+      : Allocator(std::move(allocator_)), value_(std::move(value)) {
   }
 
   box(box&&) = default;
@@ -374,8 +374,8 @@ struct box<false, T, Allocator> : private Allocator {
 
   T value_;
 
-  explicit box(T value, Allocator allocator)
-      : Allocator(std::move(allocator)), value_(std::move(value)) {
+  explicit box(T value, Allocator allocator_)
+      : Allocator(std::move(allocator_)), value_(std::move(value)) {
   }
 
   box(box&&) = default;
@@ -394,27 +394,27 @@ struct box_factory<box<IsCopyable, T, Allocator>> {
   /// Allocates space through the boxed allocator
   static box<IsCopyable, T, Allocator>*
   box_allocate(box<IsCopyable, T, Allocator> const* me) {
-    real_allocator allocator(*static_cast<Allocator const*>(me));
+    real_allocator allocator_(*static_cast<Allocator const*>(me));
 
     return static_cast<box<IsCopyable, T, Allocator>*>(
-        std::allocator_traits<real_allocator>::allocate(allocator, 1U));
+        std::allocator_traits<real_allocator>::allocate(allocator_, 1U));
   }
 
   /// Destroys the box through the given allocator
   static void box_deallocate(box<IsCopyable, T, Allocator>* me) {
-    real_allocator allocator(*static_cast<Allocator const*>(me));
+    real_allocator allocator_(*static_cast<Allocator const*>(me));
 
     me->~box();
-    std::allocator_traits<real_allocator>::deallocate(allocator, me, 1U);
+    std::allocator_traits<real_allocator>::deallocate(allocator_, me, 1U);
   }
 };
 
 /// Creates a box containing the given value and allocator
 template <bool IsCopyable, typename T, typename Allocator>
 auto make_box(std::integral_constant<bool, IsCopyable>, T&& value,
-              Allocator&& allocator) {
+              Allocator&& allocator_) {
   return box<IsCopyable, std::decay_t<T>, std::decay_t<Allocator>>(
-      std::forward<T>(value), std::forward<Allocator>(allocator));
+      std::forward<T>(value), std::forward<Allocator>(allocator_));
 }
 
 template <typename T>
@@ -1143,24 +1143,24 @@ public:
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
   FU2_DETAIL_CXX14_CONSTEXPR erasure(std::false_type /*use_bool_op*/,
                                      T&& callable,
-                                     Allocator&& allocator = Allocator{}) {
+                                     Allocator&& allocator_ = Allocator{}) {
     vtable_t::init(vtable_,
                    type_erasure::make_box(
                        std::integral_constant<bool, Config::is_copyable>{},
                        std::forward<T>(callable),
-                       std::forward<Allocator>(allocator)),
+                       std::forward<Allocator>(allocator_)),
                    this->opaque_ptr(), capacity());
   }
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
   FU2_DETAIL_CXX14_CONSTEXPR erasure(std::true_type /*use_bool_op*/,
                                      T&& callable,
-                                     Allocator&& allocator = Allocator{}) {
+                                     Allocator&& allocator_ = Allocator{}) {
     if (bool(callable)) {
       vtable_t::init(vtable_,
                      type_erasure::make_box(
                          std::integral_constant<bool, Config::is_copyable>{},
                          std::forward<T>(callable),
-                         std::forward<Allocator>(allocator)),
+                         std::forward<Allocator>(allocator_)),
                      this->opaque_ptr(), capacity());
     } else {
       vtable_.set_empty();
@@ -1204,22 +1204,22 @@ public:
 
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
   void assign(std::false_type /*use_bool_op*/, T&& callable,
-              Allocator&& allocator = {}) {
+              Allocator&& allocator_ = {}) {
     vtable_.weak_destroy(this->opaque_ptr(), capacity());
     vtable_t::init(vtable_,
                    type_erasure::make_box(
                        std::integral_constant<bool, Config::is_copyable>{},
                        std::forward<T>(callable),
-                       std::forward<Allocator>(allocator)),
+                       std::forward<Allocator>(allocator_)),
                    this->opaque_ptr(), capacity());
   }
 
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
   void assign(std::true_type /*use_bool_op*/, T&& callable,
-              Allocator&& allocator = {}) {
+              Allocator&& allocator_ = {}) {
     if (bool(callable)) {
       assign(std::false_type{}, std::forward<T>(callable),
-             std::forward<Allocator>(allocator));
+             std::forward<Allocator>(allocator_));
     } else {
       operator=(nullptr);
     }
@@ -1549,9 +1549,9 @@ public:
             enable_if_owning_t<T>* = nullptr,
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
-  FU2_DETAIL_CXX14_CONSTEXPR function(T&& callable, Allocator&& allocator)
+  FU2_DETAIL_CXX14_CONSTEXPR function(T&& callable, Allocator&& allocator_)
       : erasure_(use_bool_op<unrefcv_t<T>>{}, std::forward<T>(callable),
-                 std::forward<Allocator>(allocator)) {
+                 std::forward<Allocator>(allocator_)) {
   }
 
   /// Empty constructs the function
@@ -1613,9 +1613,9 @@ public:
             enable_if_can_accept_all_t<T>* = nullptr,
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
-  void assign(T&& callable, Allocator&& allocator = Allocator{}) {
+  void assign(T&& callable, Allocator&& allocator_ = Allocator{}) {
     erasure_.assign(use_bool_op<unrefcv_t<T>>{}, std::forward<T>(callable),
-                    std::forward<Allocator>(allocator));
+                    std::forward<Allocator>(allocator_));
   }
 
   /// Swaps this function with the given function
@@ -1790,3 +1790,4 @@ constexpr auto overload(T&&... callables) {
 #undef FU2_DETAIL_CXX14_CONSTEXPR
 
 #endif // FU2_INCLUDED_FUNCTION2_HPP_
+
