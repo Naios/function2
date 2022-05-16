@@ -215,8 +215,8 @@ constexpr auto invoke(Type T::*member, Self&& self, Args&&... args) noexcept(
 template <typename T, typename Type, typename Self, typename... Args>
 constexpr auto invoke(Type T::*member, Self&& self, Args&&... args) noexcept(
     noexcept((std::forward<Self>(self)->*member)(std::forward<Args>(args)...)))
-    -> decltype(
-        (std::forward<Self>(self)->*member)(std::forward<Args>(args)...)) {
+    -> decltype((std::forward<Self>(self)->*member)(
+        std::forward<Args>(args)...)) {
   return (std::forward<Self>(self)->*member)(std::forward<Args>(args)...);
 }
 /// Invokes the given pointer to a scalar member by reference
@@ -252,27 +252,27 @@ struct can_invoke<Pointer, identity<T&, Args...>,
                       std::declval<Args>()...)))> : std::true_type {};
 template <typename Pointer, typename T, typename... Args>
 struct can_invoke<Pointer, identity<T&&, Args...>,
-                  decltype(
-                      (void)((std::declval<T&&>().*std::declval<Pointer>())(
-                          std::declval<Args>()...)))> : std::true_type {};
+                  decltype((
+                      void)((std::declval<T&&>().*std::declval<Pointer>())(
+                      std::declval<Args>()...)))> : std::true_type {};
 template <typename Pointer, typename T, typename... Args>
 struct can_invoke<Pointer, identity<T*, Args...>,
-                  decltype(
-                      (void)((std::declval<T*>()->*std::declval<Pointer>())(
-                          std::declval<Args>()...)))> : std::true_type {};
+                  decltype((
+                      void)((std::declval<T*>()->*std::declval<Pointer>())(
+                      std::declval<Args>()...)))> : std::true_type {};
 template <typename Pointer, typename T>
 struct can_invoke<Pointer, identity<T&>,
                   decltype((void)(std::declval<T&>().*std::declval<Pointer>()))>
     : std::true_type {};
 template <typename Pointer, typename T>
 struct can_invoke<Pointer, identity<T&&>,
-                  decltype(
-                      (void)(std::declval<T&&>().*std::declval<Pointer>()))>
-    : std::true_type {};
+                  decltype((void)(std::declval<T&&>().*
+                                  std::declval<Pointer>()))> : std::true_type {
+};
 template <typename Pointer, typename T>
 struct can_invoke<Pointer, identity<T*>,
-                  decltype(
-                      (void)(std::declval<T*>()->*std::declval<Pointer>()))>
+                  decltype((
+                      void)(std::declval<T*>()->*std::declval<Pointer>()))>
     : std::true_type {};
 
 template <bool RequiresNoexcept, typename T, typename Args>
@@ -1790,4 +1790,3 @@ constexpr auto overload(T&&... callables) {
 #undef FU2_DETAIL_CXX14_CONSTEXPR
 
 #endif // FU2_INCLUDED_FUNCTION2_HPP_
-
