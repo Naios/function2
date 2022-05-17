@@ -1,5 +1,5 @@
 
-//  Copyright 2015-2020 Denis Blank <denis.blank at outlook dot com>
+//  Copyright 2015-2022 Denis Blank <denis.blank at outlook dot com>
 //     Distributed under the Boost Software License, Version 1.0
 //       (See accompanying file LICENSE_1_0.txt or copy at
 //             http://www.boost.org/LICENSE_1_0.txt)
@@ -745,6 +745,8 @@ class operator_impl;
     friend class operator_impl;                                                \
                                                                                \
   protected:                                                                   \
+    using operator_impl<Index + 1, Function, Next, Signatures...>::fn_ptr_t;   \
+                                                                               \
     operator_impl() = default;                                                 \
     ~operator_impl() = default;                                                \
     operator_impl(operator_impl const&) = default;                             \
@@ -775,6 +777,10 @@ class operator_impl;
     friend class operator_impl;                                                \
                                                                                \
   protected:                                                                   \
+    /* Specifies the function pointer of the last function signature */        \
+    using fn_ptr_t = std::remove_reference_t<                                  \
+        decltype(std::declval<Ret (*)(Args...) NOEXCEPT>())>;                  \
+                                                                               \
     operator_impl() = default;                                                 \
     ~operator_impl() = default;                                                \
     operator_impl(operator_impl const&) = default;                             \
@@ -1008,7 +1014,7 @@ public:
   bool empty() const noexcept {
     data_accessor data;
     cmd_(nullptr, opcode::op_fetch_empty, nullptr, 0U, &data, 0U);
-    return bool(data.inplace_storage_);
+    return static_cast<bool>(data.inplace_storage_);
   }
 
   /// Invoke the function at the given index
@@ -1155,7 +1161,7 @@ public:
   FU2_DETAIL_CXX14_CONSTEXPR erasure(std::true_type /*use_bool_op*/,
                                      T&& callable,
                                      Allocator&& allocator_ = Allocator{}) {
-    if (bool(callable)) {
+    if (static_cast<bool>(callable)) {
       vtable_t::init(vtable_,
                      type_erasure::make_box(
                          std::integral_constant<bool, Config::is_copyable>{},
@@ -1217,7 +1223,7 @@ public:
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
   void assign(std::true_type /*use_bool_op*/, T&& callable,
               Allocator&& allocator_ = {}) {
-    if (bool(callable)) {
+    if (static_cast<bool>(callable)) {
       assign(std::false_type{}, std::forward<T>(callable),
              std::forward<Allocator>(allocator_));
     } else {
@@ -1338,7 +1344,7 @@ public:
   }
   template <typename T>
   constexpr void assign(std::true_type /*use_bool_op*/, T&& callable) {
-    if (bool(callable)) {
+    if (static_cast<bool>(callable)) {
       assign(std::false_type{}, std::forward<T>(callable));
     } else {
       operator=(nullptr);
@@ -1386,37 +1392,77 @@ struct accepts_all<
 /// optimizations for function references `void(&)()` which are can never
 /// be null and for such a conversion to bool would never return false.
 #if defined(FU2_HAS_NO_EMPTY_PROPAGATION)
-template <typename T>
+template <typename T, typename>
 struct use_bool_op : std::false_type {};
 #else
-template <typename T, typename = void>
-struct has_bool_op : std::false_type {};
-template <typename T>
-struct has_bool_op<T, void_t<decltype(bool(std::declval<T>()))>>
-    : std::true_type {
-#ifndef NDEBUG
+// #48: -Waddress warning generated for non-capturing lambdas on gcc <= 9.2
+//      Avoid using `operator bool` on lambdas since they are never empty,
+//      but implicitly convertible to bool through an available implicit
+//      conversion to its function pointer representation (if available).
+template <typename T, typename Fn, typename = void>
+struct is_not_fn_ptr_convertible : std::true_type {};
+
+// Specify that you are not providing callables that are
+// implicitly convertible to bool and to a function
+// pointer at the same time such as:
+// ```
+//   struct evil_implicitly_fn_ptr_convertible_obj {
+//     using fn_t = int (*)();
+//
+//     explicit operator bool() const {
+//       return false;
+//     }
+//
+//     operator fn_t() const {
+//       return +[] { return 0; };
+//     }
+//
+//     int operator()() const {
+//       return 0;
+//     }
+//   };
+// ```
+#ifdef FU2_HAS_NO_IMPLICITLY_FN_PTR_CONVERTIBLE_OBJ
+template <typename T, typename Fn>
+struct is_not_fn_ptr_convertible<
+    T, Fn, void_t<decltype(static_cast<Fn>(std::declval<T const&>()))>>
+    : std::false_type {};
+#endif // FU2_HAS_NO_IMPLICITLY_FN_PTR_CONVERTIBLE_OBJ
+
+template <typename T, typename Fn, typename = void>
+struct has_explicit_bool_op : std::false_type {};
+template <typename T, typename Fn>
+struct has_explicit_bool_op<
+    T, Fn, void_t<decltype(static_cast<bool>(std::declval<T>()))>>
+    : is_not_fn_ptr_convertible<T, Fn> {
   static_assert(!std::is_pointer<T>::value,
                 "Missing deduction for function pointer!");
-#endif
 };
 
-template <typename T>
-struct use_bool_op : has_bool_op<T> {};
+template <typename T, typename Fn>
+struct use_bool_op : has_explicit_bool_op<T, Fn> {
+  static_assert(
+      std::is_class<T>::value,
+      "Requires a class, function pointer overloads are handled below!");
+};
 
 #define FU2_DEFINE_USE_OP_TRAIT(CONST, VOLATILE, NOEXCEPT)                     \
-  template <typename Ret, typename... Args>                                    \
-  struct use_bool_op<Ret (*CONST VOLATILE)(Args...) NOEXCEPT>                  \
+  template <typename Ret, typename... Args, typename Fn>                       \
+  struct use_bool_op<Ret (*CONST VOLATILE)(Args...) NOEXCEPT, Fn>              \
       : std::true_type {};
 
 FU2_DETAIL_EXPAND_CV(FU2_DEFINE_USE_OP_TRAIT)
 #undef FU2_DEFINE_USE_OP_TRAIT
 
-template <typename Ret, typename... Args>
-struct use_bool_op<Ret(Args...)> : std::false_type {};
+template <typename Ret, typename... Args, typename Fn>
+struct use_bool_op<Ret(Args...), Fn> : std::false_type {};
+
+template <typename Ret, typename Class, typename Fn>
+struct use_bool_op<Ret Class::*, Fn> : std::true_type {};
 
 #if defined(FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE)
-template <typename Ret, typename... Args>
-struct use_bool_op<Ret(Args...) noexcept> : std::false_type {};
+template <typename Ret, typename... Args, typename Fn>
+struct use_bool_op<Ret(Args...) noexcept, Fn> : std::false_type {};
 #endif
 #endif // FU2_HAS_NO_EMPTY_PROPAGATION
 
@@ -1474,6 +1520,8 @@ class function<Config, property<IsThrowing, HasStrongExceptGuarantee, Args...>>
   using property_t = property<IsThrowing, HasStrongExceptGuarantee, Args...>;
   using erasure_t =
       type_erasure::erasure<Config::is_owning, Config, property_t>;
+  using op_impl = type_erasure::invocation_table::operator_impl<
+      0U, function<Config, property_t>, Args...>;
 
   template <typename T>
   using enable_if_can_accept_all_t =
@@ -1541,7 +1589,8 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   FU2_DETAIL_CXX14_CONSTEXPR function(T&& callable)
-      : erasure_(use_bool_op<unrefcv_t<T>>{}, std::forward<T>(callable)) {
+      : erasure_(use_bool_op<unrefcv_t<T>, typename op_impl::fn_ptr_t>{},
+                 std::forward<T>(callable)) {
   }
   template <typename T, typename Allocator, //
             enable_if_not_convertible_to_this<T>* = nullptr,
@@ -1550,7 +1599,8 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   FU2_DETAIL_CXX14_CONSTEXPR function(T&& callable, Allocator&& allocator_)
-      : erasure_(use_bool_op<unrefcv_t<T>>{}, std::forward<T>(callable),
+      : erasure_(use_bool_op<unrefcv_t<T>, typename op_impl::fn_ptr_t>{},
+                 std::forward<T>(callable),
                  std::forward<Allocator>(allocator_)) {
   }
 
@@ -1587,7 +1637,8 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   function& operator=(T&& callable) {
-    erasure_.assign(use_bool_op<unrefcv_t<T>>{}, std::forward<T>(callable));
+    erasure_.assign(use_bool_op<unrefcv_t<T>, typename op_impl::fn_ptr_t>{},
+                    std::forward<T>(callable));
     return *this;
   }
 
@@ -1614,7 +1665,8 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   void assign(T&& callable, Allocator&& allocator_ = Allocator{}) {
-    erasure_.assign(use_bool_op<unrefcv_t<T>>{}, std::forward<T>(callable),
+    erasure_.assign(use_bool_op<std::decay_t<T>, typename op_impl::fn_ptr_t>{},
+                    std::forward<T>(callable),
                     std::forward<Allocator>(allocator_));
   }
 
@@ -1636,28 +1688,27 @@ public:
   }
 
   /// Calls the wrapped callable object
-  using type_erasure::invocation_table::operator_impl<
-      0U, function<Config, property_t>, Args...>::operator();
+  using op_impl::operator();
 };
 
 template <typename Config, typename Property>
 bool operator==(function<Config, Property> const& f, std::nullptr_t) {
-  return !bool(f);
+  return !static_cast<bool>(f);
 }
 
 template <typename Config, typename Property>
 bool operator!=(function<Config, Property> const& f, std::nullptr_t) {
-  return bool(f);
+  return static_cast<bool>(f);
 }
 
 template <typename Config, typename Property>
 bool operator==(std::nullptr_t, function<Config, Property> const& f) {
-  return !bool(f);
+  return !static_cast<bool>(f);
 }
 
 template <typename Config, typename Property>
 bool operator!=(std::nullptr_t, function<Config, Property> const& f) {
-  return bool(f);
+  return static_cast<bool>(f);
 }
 
 // Default intended object size of the function

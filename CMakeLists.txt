@@ -113,6 +113,13 @@ if (FU2_IS_TOP_LEVEL_PROJECT)
   option(FU2_WITH_CPP_LATEST
       "Enable the highest C++ standard available for testing polyfills"
       OFF)
+  option(FU2_WITH_NO_IMPLICITLY_FN_PTR_CONVERTIBLE_OBJ
+      "Enable ellision of operator bool calls to lambdas. Only define this if you are not using callables that are implicitly convertible to a function pointer and provide operator bool() at the same time."
+      OFF)
+
+  if (FU2_WITH_NO_IMPLICITLY_FN_PTR_CONVERTIBLE_OBJ)
+	add_compile_definitions(function2 INTERFACE FU2_HAS_NO_IMPLICITLY_FN_PTR_CONVERTIBLE_OBJ)
+  endif()
 
   if (BUILD_TESTING)
     if (FU2_WITH_NO_EXCEPTIONS)

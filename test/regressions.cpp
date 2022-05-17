@@ -127,11 +127,10 @@ TEST(regression_tests, can_assign_nonowning_noncopyable_view) {
 
 static fu2::unique_function<void()> issue_14_create() {
   // remove the commented dummy capture to be compilable
-  fu2::unique_function<void()>
-      func = [i = std::vector<std::vector<std::unique_ptr<int>>>{}
-              // ,dummy = std::unique_ptr<int>()
-  ](){
-          // ...
+  fu2::unique_function<void()> func =
+      [i = std::vector<std::vector<std::unique_ptr<int>>>{},
+       dummy = std::unique_ptr<int>()]() {
+        // ...
       };
 
   return std::move(func);
@@ -198,6 +197,39 @@ TEST(regression_tests, unique_non_copyable) {
 
   ASSERT_EQ(view(), 5);
 }*/
+
+// https://github.com/Naios/function2/issues/48
+// -Waddress warning generated for non-capturing lambdas on gcc <= 9.2 #48
+TEST(regression_tests, no_address_warning_in_constexpr_lambda) {
+  using fun_t = fu2::function<int()>;
+  fun_t f([] { return 3836474; });
+
+  ASSERT_EQ(f(), 3836474);
+}
+
+#ifndef FU2_HAS_NO_IMPLICITLY_FN_PTR_CONVERTIBLE_OBJ
+struct evil_implicitly_fn_ptr_convertible_obj {
+  using fn_t = int (*)();
+
+  explicit operator bool() const {
+    return false;
+  }
+
+  operator fn_t() const {
+    return +[] { return 0; };
+  }
+
+  int operator()() const {
+    return 0;
+  }
+};
+
+TEST(regression_tests, no_address_warning_in_constexpr_lambda_2) {
+  fu2::function<int()> f(evil_implicitly_fn_ptr_convertible_obj{});
+
+  ASSERT_FALSE(static_cast<bool>(f));
+}
+#endif // FU2_HAS_NO_IMPLICITLY_FN_PTR_CONVERTIBLE_OBJ
 
 namespace issue_35 {
 class ref_obj {
