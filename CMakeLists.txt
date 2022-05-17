@@ -113,6 +113,9 @@ if (FU2_IS_TOP_LEVEL_PROJECT)
   option(FU2_WITH_CPP_LATEST
       "Enable the highest C++ standard available for testing polyfills"
       OFF)
+  option(FU2_WITH_LIMITED_EMPTY_PROPAGATION
+      "Test limiting empty propagation to only function pointers, member pointers, std::function, and specializations of fu2::function_base"
+      OFF)
 
   if (BUILD_TESTING)
     if (FU2_WITH_NO_EXCEPTIONS)
@@ -123,6 +126,11 @@ if (FU2_IS_TOP_LEVEL_PROJECT)
     if (FU2_WITH_NO_DEATH_TESTS)
       message(STATUS "Testing without death tests")
       add_definitions(-DTESTS_NO_DEATH_TESTS)
+    endif()
+
+    if (FU2_WITH_LIMITED_EMPTY_PROPAGATION)
+      message(STATUS "Testing with limited empty propagation")
+      add_definitions(-DFU2_WITH_LIMITED_EMPTY_PROPAGATION)
     endif()
 
     add_subdirectory(test)

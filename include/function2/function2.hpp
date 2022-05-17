@@ -35,10 +35,15 @@
 #endif
 #endif
 #endif // FU2_WITH_DISABLED_EXCEPTIONS
+// - FU2_HAS_LIMITED_EMPTY_PROPAGATION
+#if defined(FU2_WITH_LIMITED_EMPTY_PROPAGATION)
+#define FU2_HAS_LIMITED_EMPTY_PROPAGATION
+#endif // FU2_WITH_NO_EMPTY_PROPAGATION
 // - FU2_HAS_NO_FUNCTIONAL_HEADER
 #if !defined(FU2_WITH_NO_FUNCTIONAL_HEADER) &&                                 \
     !defined(FU2_NO_FUNCTIONAL_HEADER) &&                                      \
-    !defined(FU2_HAS_DISABLED_EXCEPTIONS)
+    (!defined(FU2_HAS_DISABLED_EXCEPTIONS) ||                                  \
+     defined(FU2_HAS_LIMITED_EMPTY_PROPAGATION))
 #include <functional>
 #else
 #define FU2_HAS_NO_FUNCTIONAL_HEADER
@@ -1381,13 +1386,29 @@ struct accepts_all<
     void_t<std::enable_if_t<accepts_one<T, Signatures>::value>...>>
     : std::true_type {};
 
-/// Deduces to a true_type if the type T is implementing operator bool()
-/// or if the type is convertible to bool directly, this also implements an
-/// optimizations for function references `void(&)()` which are can never
-/// be null and for such a conversion to bool would never return false.
 #if defined(FU2_HAS_NO_EMPTY_PROPAGATION)
 template <typename T>
 struct use_bool_op : std::false_type {};
+#elif defined(FU2_HAS_LIMITED_EMPTY_PROPAGATION)
+/// Implementation for use_bool_op based on the behaviour of std::function,
+/// propagating empty state for pointers, `std::function` and
+/// `fu2::detail::function` types only.
+template <typename T>
+struct use_bool_op : std::false_type {};
+
+#if !defined(FU2_HAS_NO_FUNCTIONAL_HEADER)
+template <typename Signature>
+struct use_bool_op<std::function<Signature>> : std::true_type {};
+#endif
+
+template <typename Config, typename Property>
+struct use_bool_op<function<Config, Property>> : std::true_type {};
+
+template <typename T>
+struct use_bool_op<T*> : std::true_type {};
+
+template <typename Class, typename T>
+struct use_bool_op<T Class::*> : std::true_type {};
 #else
 template <typename T, typename = void>
 struct has_bool_op : std::false_type {};
@@ -1400,6 +1421,10 @@ struct has_bool_op<T, void_t<decltype(bool(std::declval<T>()))>>
 #endif
 };
 
+/// Deduces to a true_type if the type T is implementing operator bool()
+/// or if the type is convertible to bool directly, this also implements an
+/// optimizations for function references `void(&)()` which are can never
+/// be null and for such a conversion to bool would never return false.
 template <typename T>
 struct use_bool_op : has_bool_op<T> {};
 

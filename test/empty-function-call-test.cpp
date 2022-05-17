@@ -96,7 +96,12 @@ TYPED_TEST(AllEmptyFunctionCallTests, CallPropagatesEmptyCustom) {
   {
     typename TestFixture::template left_t<void(some_tag)> fn(
         my_callable_empty{});
+#if defined(FU2_HAS_LIMITED_EMPTY_PROPAGATION) ||                              \
+    defined(FU2_HAS_NO_EMPTY_PROPAGATION)
+    ASSERT_FALSE(fn.empty());
+#else
     ASSERT_TRUE(fn.empty());
+#endif
   }
 }
 #endif // FU2_HAS_NO_EMPTY_PROPAGATION
