@@ -146,6 +146,19 @@ using void_t = typename deduce_to_void<T...>::type;
 template <typename T>
 using unrefcv_t = std::remove_cv_t<std::remove_reference_t<T>>;
 
+template <typename...>
+struct lazy_and;
+
+template <typename B1>
+struct lazy_and<B1> : B1 {};
+
+template <typename B1, typename B2>
+struct lazy_and<B1, B2> : std::conditional<B1::value, B2, B1>::type {};
+
+// template <typename B1, typename B2, typename B3, typename... Bn>
+// struct lazy_and<B1, B2, B3, Bn...>
+//     : std::conditional<B1::value, lazy_and<B2, B3, Bn...>, B1>::type {};
+
 // Copy enabler helper class
 template <bool /*Copyable*/>
 struct copyable {};
@@ -1364,13 +1377,12 @@ template <typename T, typename Signature,
           typename Trait =
               type_erasure::invocation_table::function_trait<Signature>>
 struct accepts_one
-    : std::integral_constant<
-          bool, invocation::can_invoke<typename Trait::template callable<T>,
-                                       typename Trait::arguments>::value &&
-                    invocation::is_noexcept_correct<
-                        Trait::is_noexcept::value,
-                        typename Trait::template callable<T>,
-                        typename Trait::arguments>::value> {};
+    : detail::lazy_and< // both are std::integral_constant
+          invocation::can_invoke<typename Trait::template callable<T>,
+                                 typename Trait::arguments>,
+          invocation::is_noexcept_correct<Trait::is_noexcept::value,
+                                          typename Trait::template callable<T>,
+                                          typename Trait::arguments>> {};
 
 /// Deduces to a true_type if the type T provides all signatures
 template <typename T, typename Signatures, typename = void>
