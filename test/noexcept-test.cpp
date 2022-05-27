@@ -40,6 +40,18 @@ TYPED_TEST(AllNoExceptTests, NoExceptCallSuceeds) {
   ASSERT_EQ(left(), 12345);
 }
 
+TYPED_TEST(AllNoExceptTests, NoexceptDontAffectOverloads) {
+  using Type = typename TestFixture::template left_t<void() noexcept>;
+  struct Storage {
+    Storage(Type) {
+    }
+    Storage(Storage&&) {
+    }
+  };
+  Storage s1{[]() noexcept {}};
+  Storage s2{std::move(s1)};
+}
+
 #ifndef TESTS_NO_DEATH_TESTS
 TYPED_TEST(AllNoExceptTests, CallAbortsIfEmptyAndNoExcept) {
   typename TestFixture::template left_t<bool() noexcept> left;
