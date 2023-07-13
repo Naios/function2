@@ -338,7 +338,7 @@ namespace type_erasure {
 template <typename T, typename = void>
 struct address_taker {
   template <typename O>
-  static void* take(O&& obj) {
+  static auto take(O&& obj) {
     return std::addressof(obj);
   }
   static T& restore(void* ptr) {
@@ -448,9 +448,12 @@ union data_accessor {
   }
   explicit constexpr data_accessor(void* ptr) noexcept : ptr_(ptr) {
   }
+  explicit constexpr data_accessor(const void* cptr) noexcept : cptr_(cptr) {
+  }
 
   /// The pointer we use if the object is on the heap
-  void* ptr_;
+  const void * cptr_;
+  void * ptr_;
   /// The first field of the inplace storage
   std::size_t inplace_storage_;
 };
@@ -1351,7 +1354,7 @@ public:
   constexpr void assign(std::false_type /*use_bool_op*/, T&& callable) {
     invoke_table_ = invoke_table_t::template get_invocation_view_table_of<
         std::decay_t<T>>();
-    view_.ptr_ =
+    view_.cptr_ =
         address_taker<std::decay_t<T>>::take(std::forward<T>(callable));
   }
   template <typename T>

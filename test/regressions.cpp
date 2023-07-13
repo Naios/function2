@@ -191,13 +191,13 @@ TEST(regression_tests, unique_non_copyable) {
 }
 
 // https://github.com/Naios/function2/issues/21
-/*TEST(regression_tests, can_bind_const_view) {
+TEST(regression_tests, can_bind_const_view) {
   auto const callable = [] { return 5; };
 
   fu2::function_view<int() const> view(callable);
 
   ASSERT_EQ(view(), 5);
-}*/
+}
 
 // https://github.com/Naios/function2/issues/48
 // -Waddress warning generated for non-capturing lambdas on gcc <= 9.2 #48
