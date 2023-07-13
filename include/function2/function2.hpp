@@ -339,7 +339,8 @@ template <typename T, typename = void>
 struct address_taker {
   template <typename O>
   static void* take(O&& obj) {
-    return std::addressof(obj);
+    const void *ret = std::addressof(obj);
+    return const_cast<void*>(ret);
   }
   static T& restore(void* ptr) {
     return *static_cast<T*>(ptr);
