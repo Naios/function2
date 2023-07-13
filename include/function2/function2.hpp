@@ -338,7 +338,7 @@ namespace type_erasure {
 template <typename T, typename = void>
 struct address_taker {
   template <typename O>
-  static auto* take(O&& obj) {
+  static auto take(O&& obj) {
     return std::addressof(obj);
   }
   static T& restore(void* ptr) {
