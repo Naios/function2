@@ -310,8 +310,8 @@ template <typename Current, typename Next, typename... Rest>
 struct overload_impl<Current, Next, Rest...> : Current,
                                                overload_impl<Next, Rest...> {
   explicit overload_impl(Current current, Next next, Rest... rest)
-      : Current(std::move(current)), overload_impl<Next, Rest...>(
-                                         std::move(next), std::move(rest)...) {
+      : Current(std::move(current)),
+        overload_impl<Next, Rest...>(std::move(next), std::move(rest)...) {
   }
 
   using Current::operator();
@@ -338,7 +338,7 @@ namespace type_erasure {
 template <typename T, typename = void>
 struct address_taker {
   template <typename O>
-  static auto take(O&& obj) {
+  static auto* take(O&& obj) {
     return std::addressof(obj);
   }
   static T& restore(void* ptr) {
@@ -448,12 +448,19 @@ union data_accessor {
   }
   explicit constexpr data_accessor(void* ptr) noexcept : ptr_(ptr) {
   }
-  explicit constexpr data_accessor(const void* cptr) noexcept : cptr_(cptr) {
+  explicit constexpr data_accessor(void const* ptr) noexcept
+      : data_accessor(const_cast<void*>(ptr)) {
+  }
+
+  constexpr void assign_ptr(void* ptr) noexcept {
+    ptr_ = ptr;
+  }
+  constexpr void assign_ptr(void const* ptr) noexcept {
+    ptr_ = const_cast<void*>(ptr);
   }
 
   /// The pointer we use if the object is on the heap
-  const void * cptr_;
-  void * ptr_;
+  void* ptr_;
   /// The first field of the inplace storage
   std::size_t inplace_storage_;
 };
@@ -1354,8 +1361,8 @@ public:
   constexpr void assign(std::false_type /*use_bool_op*/, T&& callable) {
     invoke_table_ = invoke_table_t::template get_invocation_view_table_of<
         std::decay_t<T>>();
-    view_.cptr_ =
-        address_taker<std::decay_t<T>>::take(std::forward<T>(callable));
+    view_.assign_ptr(
+        address_taker<std::decay_t<T>>::take(std::forward<T>(callable)));
   }
   template <typename T>
   constexpr void assign(std::true_type /*use_bool_op*/, T&& callable) {
