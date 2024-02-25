@@ -1828,6 +1828,16 @@ constexpr auto overload(T&&... callables) {
 }
 } // namespace fu2
 
+namespace std{
+template <typename Alloc,
+  typename Config, bool IsThrowing, bool HasStrongExceptGuarantee,
+  typename... Args>
+struct uses_allocator<
+  ::fu2::detail::function<Config, ::fu2::detail::property<IsThrowing, HasStrongExceptGuarantee, Args...>>,
+  Alloc
+> : std::true_type {};
+} // namespace std
+
 #undef FU2_DETAIL_EXPAND_QUALIFIERS
 #undef FU2_DETAIL_EXPAND_QUALIFIERS_NOEXCEPT
 #undef FU2_DETAIL_EXPAND_CV
