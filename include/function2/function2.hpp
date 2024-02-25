@@ -1829,11 +1829,9 @@ constexpr auto overload(T&&... callables) {
 } // namespace fu2
 
 namespace std{
-template <typename Alloc,
-  typename Config, bool IsThrowing, bool HasStrongExceptGuarantee,
-  typename... Args>
+template <typename Config, typename Property, typename Alloc>
 struct uses_allocator<
-  ::fu2::detail::function<Config, ::fu2::detail::property<IsThrowing, HasStrongExceptGuarantee, Args...>>,
+  ::fu2::detail::function<Config, Property>,
   Alloc
 > : std::true_type {};
 } // namespace std
