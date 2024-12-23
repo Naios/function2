@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.11)
-project(function2 VERSION 4.2.0 LANGUAGES CXX)
+project(function2 VERSION 4.2.3 LANGUAGES CXX)
 
 if (NOT FU2_IS_FIND_INCLUDED)
   string(COMPARE EQUAL ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}
@@ -36,6 +36,8 @@ target_compile_features(function2
     cxx_trailing_return_types
     cxx_return_type_deduction)
 
+install(DIRECTORY "include/function2" TYPE INCLUDE)
+
 if (FU2_IS_TOP_LEVEL_PROJECT)
   include(ExternalProject)
   include(GNUInstallDirs)
@@ -43,8 +45,6 @@ if (FU2_IS_TOP_LEVEL_PROJECT)
 
   # Create an install target:
   # Headers and license files
-  install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/function2"
-          DESTINATION "include")
   install(FILES "LICENSE.txt" DESTINATION .)
   install(FILES "Readme.md" DESTINATION .)
 
