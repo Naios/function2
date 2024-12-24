@@ -1408,7 +1408,12 @@ struct accepts_all<
     void_t<std::enable_if_t<accepts_one<T, Signatures>::value>...>>
     : std::true_type {};
 
-#if defined(FU2_HAS_NO_EMPTY_PROPAGATION)
+#if defined(__OBJC__)
+/// In Objective C lambdas can be implicitly converted to block pointers,
+/// thus causing the copy constructor to be invoked.
+template <typename T>
+struct use_bool_op : std::false_type {};
+#elif defined(FU2_HAS_NO_EMPTY_PROPAGATION)
 template <typename T>
 struct use_bool_op : std::false_type {};
 #elif defined(FU2_HAS_LIMITED_EMPTY_PROPAGATION)
