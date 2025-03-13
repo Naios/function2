@@ -1779,20 +1779,70 @@ using function_base = detail::function<
     detail::config<IsOwning, IsCopyable, Capacity>,
     detail::property<IsThrowing, HasStrongExceptGuarantee, Signatures...>>;
 
-/// An owning copyable function wrapper for arbitrary callable types.
+/// An owning copyable function wrapper.
 template <typename... Signatures>
-using function = function_base<true, true, capacity_default, //
-                               true, false, Signatures...>;
+struct function : public function_base<true, true, capacity_default, true, false, Signatures...> {
+    using base = function_base<true, true, capacity_default, true, false, Signatures...>;
+    using base::base;
+};
 
-/// An owning non copyable function wrapper for arbitrary callable types.
+/// An owning non-copyable function wrapper.
 template <typename... Signatures>
-using unique_function = function_base<true, false, capacity_default, //
-                                      true, false, Signatures...>;
+struct unique_function : public function_base<true, false, capacity_default, true, false, Signatures...> {
+    using base = function_base<true, false, capacity_default, true, false, Signatures...>;
+    using base::base;
+};
 
-/// A non owning copyable function wrapper for arbitrary callable types.
+/// A non-owning copyable function wrapper.
 template <typename... Signatures>
-using function_view = function_base<false, true, capacity_default, //
-                                    true, false, Signatures...>;
+struct function_view : public function_base<false, true, capacity_default, true, false, Signatures...> {
+    using base = function_base<false, true, capacity_default, true, false, Signatures...>;
+    using base::base;
+};
+
+// Helper to decompose member function pointer types
+template <typename T>
+struct function_traits;
+
+template <typename R, typename C, typename... Args>
+struct function_traits<R (C::*)(Args...)> {
+    using signature = R(Args...);
+};
+
+template <typename R, typename C, typename... Args>
+struct function_traits<R (C::*)(Args...) const> {
+    using signature = R(Args...);
+};
+
+// Deduce the signature for a callable F
+template <typename F, typename = void>
+struct deduce_signature {};
+
+// Handle function pointers
+template <typename R, typename... Args>
+struct deduce_signature<R(*)(Args...), void> {
+    using type = R(Args...);
+};
+
+// Handle functors (lambdas, objects with operator())
+template <typename F>
+struct deduce_signature<F, std::void_t<decltype(&F::operator())>> {
+private:
+    using call_operator_t = decltype(&F::operator());
+    using traits = function_traits<call_operator_t>;
+public:
+    using type = typename traits::signature;
+};
+
+// Deduction guides for each wrapper
+template <typename F>
+function(F) -> function<typename deduce_signature<F>::type>;
+
+template <typename F>
+unique_function(F) -> unique_function<typename deduce_signature<F>::type>;
+
+template <typename F>
+function_view(F) -> function_view<typename deduce_signature<F>::type>;
 
 #if !defined(FU2_HAS_DISABLED_EXCEPTIONS)
 /// Exception type that is thrown when invoking empty function objects
