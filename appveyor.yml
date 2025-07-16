@@ -16,10 +16,7 @@ environment:
 platform:
   - x64
 
-clone_script:
-  - cmd: git clone -q --branch=%APPVEYOR_REPO_BRANCH% https://github.com/%APPVEYOR_REPO_NAME%.git %APPVEYOR_BUILD_FOLDER%
-  - cmd: cd %APPVEYOR_BUILD_FOLDER%
-  - cmd: git checkout -qf %APPVEYOR_REPO_COMMIT%
+install:
   - cmd: git submodule update --init --recursive
 
 before_build:
